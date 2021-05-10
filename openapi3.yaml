@@ -1,6 +1,6 @@
 openapi: 3.0.1
 info:
-  title: Entities Sync tracker
+  title: osm sync tracker
   description: Api to update on the progress of a cycle of entities sync
   license:
     name: MIT
