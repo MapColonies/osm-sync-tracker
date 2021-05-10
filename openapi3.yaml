@@ -1,6 +1,9 @@
 openapi: 3.0.1
 info:
   title: Entities Sync tracker
+  description: Api to update on the progress of a cycle of entities sync
+  license:
+    name: MIT
   version: 1.0.0
 paths:
   /sync:
@@ -12,14 +15,15 @@ paths:
           application/json:
             schema:
               allOf:
-              - $ref: '#/components/schemas/sync'
-              - type: object
-                required: 
-                  - id
-                  - startDate
-                  - layerId
-                  - isFull
+                - $ref: '#/components/schemas/sync'
+                - type: object
+                  required:
+                    - id
+                    - startDate
+                    - layerId
+                    - isFull
         required: true
+      operationId: postSync
       responses:
         '201':
           description: created
@@ -32,19 +36,20 @@ paths:
   /sync/latest:
     get:
       summary: Get the latest sync based on start date
-      parameters: 
+      parameters:
         - in: query
           name: layerId
           schema:
             $ref: '#/components/schemas/layerId'
           required: true
+      operationId: getLatestSync
       responses:
         200:
           description: the latest sync for the requsted layer
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/sync' 
+                $ref: '#/components/schemas/sync'
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
@@ -54,8 +59,8 @@ paths:
   /sync/{syncId}:
     patch:
       summary: Update the sync
-      parameters: 
-      - $ref: "#/components/parameters/syncId"
+      parameters:
+        - $ref: '#/components/parameters/syncId'
       requestBody:
         description: the propeties to update in the sync
         content:
@@ -63,6 +68,7 @@ paths:
             schema:
               $ref: '#/components/schemas/syncWithoutId'
         required: true
+      operationId: patchSync
       responses:
         '200':
           description: OK
@@ -75,8 +81,8 @@ paths:
   /sync/{syncId}/file:
     post:
       summary: add a file to the sync
-      parameters: 
-      - $ref: "#/components/parameters/syncId"
+      parameters:
+        - $ref: '#/components/parameters/syncId'
       requestBody:
         description: the file that is part of the mentioned sync
         content:
@@ -84,6 +90,7 @@ paths:
             schema:
               $ref: '#/components/schemas/file'
         required: true
+      operationId: postFile
       responses:
         '201':
           description: created
@@ -97,8 +104,8 @@ paths:
     post:
       summary: add a new entity to the file
       description: add a entity that is part of the file, once all entities are completed the file will be considered done
-      parameters: 
-      - $ref: "#/components/parameters/fileId"
+      parameters:
+        - $ref: '#/components/parameters/fileId'
       requestBody:
         description: entity
         content:
@@ -106,6 +113,7 @@ paths:
             schema:
               $ref: '#/components/schemas/entity'
         required: true
+      operationId: postEntity
       responses:
         '201':
           description: created
@@ -118,13 +126,9 @@ paths:
   /file/{fileId}/entity/{entityId}:
     patch:
       summary: Update the entity parameters
-      parameters: 
-        - $ref: "#/components/parameters/fileId"
-        - in: path
-          name: entityId
-          schema:
-            type: string
-          required: true
+      parameters:
+        - $ref: '#/components/parameters/fileId'
+        - $ref: '#/components/parameters/entityId'
       requestBody:
         description: the updated properties for the entity
         content:
@@ -132,6 +136,7 @@ paths:
             schema:
               $ref: '#/components/schemas/entityWithoutId'
         required: true
+      operationId: patchEntity
       responses:
         '200':
           description: OK
@@ -156,6 +161,7 @@ paths:
                   required:
                     - id
         required: true
+      operationId: postChangeset
       responses:
         '201':
           description: created
@@ -168,8 +174,8 @@ paths:
   /changeset/{changesetId}:
     patch:
       summary: Update the changeset properties
-      parameters: 
-        - $ref: "#/components/parameters/changesetId"
+      parameters:
+        - $ref: '#/components/parameters/changesetId'
       requestBody:
         description: the changeset properties to edit
         content:
@@ -177,6 +183,7 @@ paths:
             schema:
               $ref: '#/components/schemas/changesetWithoutId'
         required: true
+      operationId: patchChangeset
       responses:
         '200':
           description: OK
@@ -190,11 +197,12 @@ paths:
     put:
       summary: close the changeset
       description: closes the changeset, sets all its entities as done, and checks if the sync is completed
-      parameters: 
-        - $ref: "#/components/parameters/changesetId"
+      parameters:
+        - $ref: '#/components/parameters/changesetId'
       requestBody:
         content: {}
         required: true
+      operationId: closeChangeset
       responses:
         '200':
           description: OK
@@ -229,25 +237,25 @@ components:
       in: path
       name: syncId
       schema:
-        $ref: "#/components/schemas/uniqueId"
+        $ref: '#/components/schemas/uniqueId'
       required: true
     changesetId:
       in: path
       name: changesetId
       schema:
-        $ref: "#/components/schemas/uniqueId"
+        $ref: '#/components/schemas/uniqueId'
       required: true
     entityId:
       in: path
       name: entityId
       schema:
-        $ref: "#/components/schemas/entityId"
+        $ref: '#/components/schemas/entityId'
       required: true
     fileId:
       in: path
       name: fileId
       schema:
-        $ref: "#/components/schemas/uniqueId"
+        $ref: '#/components/schemas/uniqueId'
       required: true
   schemas:
     Error:
@@ -283,17 +291,17 @@ components:
         - type: object
           properties:
             id:
-              $ref: "#/components/schemas/uniqueId"
-        - $ref: "#/components/schemas/syncWithoutId"
+              $ref: '#/components/schemas/uniqueId'
+        - $ref: '#/components/schemas/syncWithoutId'
     file:
       type: object
       properties:
         fileId:
-          $ref: "#/components/schemas/uniqueId"
+          $ref: '#/components/schemas/uniqueId'
         syncId:
           allOf:
-          - $ref: "#/components/schemas/uniqueId"
-          - readOnly: true
+            - $ref: '#/components/schemas/uniqueId'
+            - readOnly: true
         entitiesTotal:
           type: integer
           format: int64
@@ -311,12 +319,12 @@ components:
           format: int64
     changeset:
       allOf:
-      - type: object
-        properties:
-          id:
-            type: string
-            format: uuid
-      - $ref: "#/components/schemas/changesetWithoutId"
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+        - $ref: '#/components/schemas/changesetWithoutId'
     entityWithoutId:
       type: object
       properties:
@@ -324,13 +332,13 @@ components:
           $ref: '#/components/schemas/entityId'
         fileId:
           allOf:
-            - $ref: "#/components/schemas/uniqueId"
+            - $ref: '#/components/schemas/uniqueId'
             - readOnly: true
         changesetId:
-          $ref: "#/components/schemas/uniqueId"
+          $ref: '#/components/schemas/uniqueId'
         status:
           type: string
-          enum: [pending, not_synced ,completed, failed]
+          enum: [pending, not_synced, completed, failed]
         action:
           type: string
           enum: [create, modify, delete]
@@ -342,5 +350,5 @@ components:
         - type: object
           properties:
             entityId:
-              $ref: "#/components/schemas/uniqueId"
-        - $ref: "#/components/schemas/entityWithoutId"
+              $ref: '#/components/schemas/uniqueId'
+        - $ref: '#/components/schemas/entityWithoutId'
