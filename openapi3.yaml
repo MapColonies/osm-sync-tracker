@@ -1,10 +1,15 @@
 openapi: 3.0.1
 info:
-  title: osm sync tracker
+  title: Entities Sync tracker
   description: Api to update on the progress of a cycle of entities sync
   license:
     name: MIT
   version: 1.0.0
+tags:
+  - name: sync
+  - name: file
+  - name: entity
+  - name: changeset
 paths:
   /sync:
     post:
@@ -24,6 +29,8 @@ paths:
                     - isFull
         required: true
       operationId: postSync
+      tags:
+        - sync
       responses:
         '201':
           description: created
@@ -43,6 +50,8 @@ paths:
             $ref: '#/components/schemas/layerId'
           required: true
       operationId: getLatestSync
+      tags:
+        - sync
       responses:
         200:
           description: the latest sync for the requsted layer
@@ -69,6 +78,8 @@ paths:
               $ref: '#/components/schemas/syncWithoutId'
         required: true
       operationId: patchSync
+      tags:
+        - sync
       responses:
         '200':
           description: OK
@@ -91,6 +102,34 @@ paths:
               $ref: '#/components/schemas/file'
         required: true
       operationId: postFile
+      tags:
+        - file
+      responses:
+        '201':
+          description: created
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '5XX':
+          $ref: '#/components/responses/UnexpectedError'
+  /sync/{syncId}/file/_bulk:
+    post:
+      summary: add multiple files to the sync
+      parameters:
+        - $ref: '#/components/parameters/syncId'
+      requestBody:
+        description: the files that are part of the mentioned sync
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/file'
+        required: true
+      operationId: postFiles
+      tags:
+        - file
       responses:
         '201':
           description: created
@@ -114,6 +153,33 @@ paths:
               $ref: '#/components/schemas/entity'
         required: true
       operationId: postEntity
+      tags:
+        - entity
+      responses:
+        '201':
+          description: created
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '5XX':
+          $ref: '#/components/responses/UnexpectedError'
+  /file/{fileId}/entity/_bulk:
+    post:
+      summary: add multiple entities to a file
+      description: add multiple entities that are part of the file, once all entities are completed the file will be considered done
+      parameters:
+        - $ref: '#/components/parameters/fileId'
+      requestBody:
+        description: entity
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/entity'
+        required: true
+      operationId: postEntities
+      tags:
+        - entity
       responses:
         '201':
           description: created
@@ -137,6 +203,8 @@ paths:
               $ref: '#/components/schemas/entityWithoutId'
         required: true
       operationId: patchEntity
+      tags:
+        - entity
       responses:
         '200':
           description: OK
@@ -162,6 +230,8 @@ paths:
                     - id
         required: true
       operationId: postChangeset
+      tags:
+        - changeset
       responses:
         '201':
           description: created
@@ -184,6 +254,8 @@ paths:
               $ref: '#/components/schemas/changesetWithoutId'
         required: true
       operationId: patchChangeset
+      tags:
+        - changeset
       responses:
         '200':
           description: OK
@@ -203,6 +275,8 @@ paths:
         content: {}
         required: true
       operationId: closeChangeset
+      tags:
+        - changeset
       responses:
         '200':
           description: OK
@@ -258,6 +332,9 @@ components:
         $ref: '#/components/schemas/uniqueId'
       required: true
   schemas:
+    status:
+      type: string
+      enum: [inprogress, completed]
     Error:
       type: object
       properties:
@@ -277,14 +354,19 @@ components:
         startDate:
           type: string
           format: date-time
+        dumpDate:
+          type: string
+          format: date-time
         endDate:
           type: string
           format: date-time
+        status:
+          $ref: '#/components/schemas/status'
         layerId:
           $ref: '#/components/schemas/layerId'
         isFull:
           type: boolean
-        filesTotal:
+        totalFiles:
           type: integer
     sync:
       allOf:
@@ -302,7 +384,7 @@ components:
           allOf:
             - $ref: '#/components/schemas/uniqueId'
             - readOnly: true
-        entitiesTotal:
+        totalEntities:
           type: integer
           format: int64
         startDate:
@@ -311,6 +393,8 @@ components:
         endDate:
           type: string
           format: date-time
+        status:
+          $ref: '#/components/schemas/status'
     changesetWithoutId:
       type: object
       properties:
@@ -338,7 +422,7 @@ components:
           $ref: '#/components/schemas/uniqueId'
         status:
           type: string
-          enum: [pending, not_synced, completed, failed]
+          enum: [inprogress, not_synced, completed, failed]
         action:
           type: string
           enum: [create, modify, delete]
