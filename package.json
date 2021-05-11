@@ -1,7 +1,7 @@
 {
-  "name": "service-name",
+  "name": "osm-sync-tracker",
   "version": "1.0.0",
-  "description": "This is template for map colonies typescript service",
+  "description": "Api to update on the progress of a cycle of entities sync",
   "main": "./src/index.ts",
   "scripts": {
     "test:unit": "jest --config=./tests/configurations/unit/jest.config.js",
