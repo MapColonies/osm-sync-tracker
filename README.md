@@ -1,71 +1,19 @@
-# Map Colonies typescript service template
+# OSM Sync Tracker
 
 ----------------------------------
 
-![badge-alerts-lgtm](https://img.shields.io/lgtm/alerts/github/MapColonies/ts-server-boilerplate?style=for-the-badge)
+![badge-alerts-lgtm](https://img.shields.io/lgtm/alerts/github/MapColonies/osm-sync-tracker?style=for-the-badge)
 
-![grade-badge-lgtm](https://img.shields.io/lgtm/grade/javascript/github/MapColonies/ts-server-boilerplate?style=for-the-badge)
+![grade-badge-lgtm](https://img.shields.io/lgtm/grade/javascript/github/MapColonies/osm-sync-tracker?style=for-the-badge)
 
-![snyk](https://img.shields.io/snyk/vulnerabilities/github/MapColonies/ts-server-boilerplate?style=for-the-badge)
+![snyk](https://img.shields.io/snyk/vulnerabilities/github/MapColonies/osm-sync-tracker?style=for-the-badge)
 
 ----------------------------------
 
-This is a basic repo template for building new MapColonies web services in Typescript.
-
-### Template Features:
-
-- eslint configuration by [@map-colonies/eslint-config](https://github.com/MapColonies/eslint-config)
-
-- prettier configuration by [@map-colonies/prettier-config](https://github.com/MapColonies/prettier-config)
-
-- jest
-
-- .nvmrc
-
-- Multi stage producton-ready Dockerfile
-
-- commitlint
-
-- git hooks
-
-- logging by [@map-colonies/js-logger](https://github.com/MapColonies/js-logger)
-
-- OpenAPI request validation
-
-- config load with [node-config](https://www.npmjs.com/package/node-config)
-
-- Tracing and metrics by [@map-colonies/telemetry](https://github.com/MapColonies/telemetry)
-
-- github templates
-
-- bug report
-
-- feature request
-
-- pull request
-
-- github actions
-
-- on pull_request
-
-- LGTM
-
-- test
-
-- lint
-
-- snyk
+This is the API for tracking the progress of the osm-sync
 
 ## API
 Checkout the OpenAPI spec [here](/openapi3.yaml)
-
-## Installation
-
-Install deps with npm
-
-```bash
-npm install
-```
 
 ## Run Locally
 
@@ -73,7 +21,7 @@ Clone the project
 
 ```bash
 
-git clone https://link-to-project
+git clone https://github.com/MapColonies/osm-sync-tracker.git
 
 ```
 
@@ -81,7 +29,7 @@ Go to the project directory
 
 ```bash
 
-cd my-project
+cd osm-sync-tracker
 
 ```
 
@@ -97,7 +45,7 @@ Start the server
 
 ```bash
 
-npm run start
+npm start
 
 ```
 
