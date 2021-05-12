@@ -27,6 +27,7 @@ paths:
                     - startDate
                     - layerId
                     - isFull
+                    - dumpDate
         required: true
       operationId: postSync
       tags:

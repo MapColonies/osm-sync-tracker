@@ -34,7 +34,7 @@ export class ServerBuilder {
   }
 
   private buildRoutes(): void {
-    this.serverInstance.use('/resourceName', resourceNameRouterFactory(container));
+    this.serverInstance.use('/sync', resourceNameRouterFactory(container));
     this.buildDocsRoutes();
   }
 

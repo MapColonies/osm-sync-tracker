@@ -9,8 +9,9 @@ import { Services } from './common/constants';
 import { DbConfig } from './common/interfaces';
 import { getDbHealthCheckFunction, initConnection } from './common/db';
 import { tracing } from './common/tracing';
-import { Sync } from './sync/models/sync';
 import { File } from './file/models/file';
+import { syncRepositorySymbol } from './sync/DAL/syncRepository';
+import { TypeormSyncRepository } from './sync/DAL/typeorm/typeormSyncRepository';
 
 async function registerExternalValues(): Promise<void> {
   const loggerConfig = config.get<LoggerOptions>('logger');
@@ -20,11 +21,12 @@ async function registerExternalValues(): Promise<void> {
   container.register(Services.LOGGER, { useValue: logger });
 
   const connectionOptions = config.get<DbConfig>('db');
-  const connection = await initConnection({ entities: ['*/models/*.js'], logging: ['query'], ...connectionOptions });
+  const connection = await initConnection(connectionOptions);
 
   container.register('healthcheck', { useValue: getDbHealthCheckFunction(connection) });
 
   container.register(Connection, { useValue: connection });
+  container.register(syncRepositorySymbol, { useValue: connection.getCustomRepository(TypeormSyncRepository) });
 
   const tracer = tracing.start();
   container.register(Services.TRACER, { useValue: tracer });

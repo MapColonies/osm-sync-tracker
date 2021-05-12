@@ -12,9 +12,15 @@ export class Entity {
   @JoinColumn({ name: 'file_id' })
   public file!: File;
 
+  @Column({ name: 'file_id', type: 'uuid' })
+  public fileId!: string;
+
   @ManyToOne(() => Changeset, (changeset) => changeset, { nullable: true })
   @JoinColumn({ name: 'changeset_id' })
   public changeset!: Changeset | null;
+
+  @Column({ name: 'changeset_id', type: 'uuid', nullable: true })
+  public changesetId!: string | null;
 
   @Column({ type: 'enum', enum: EntityStatus, default: Status.IN_PROGRESS })
   public status!: Status;

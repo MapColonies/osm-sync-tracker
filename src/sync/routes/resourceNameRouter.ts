@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { FactoryFunction } from 'tsyringe';
-import { ResourceNameController } from '../controllers/resourceNameController';
+import { SyncController } from '../controllers/syncController';
 
 const resourceNameRouterFactory: FactoryFunction<Router> = (dependencyContainer) => {
   const router = Router();
-  const controller = dependencyContainer.resolve(ResourceNameController);
+  const controller = dependencyContainer.resolve(SyncController);
 
-  router.get('/', controller.getResource);
-  router.post('/', controller.createResource);
+  router.post('/', controller.postSync);
+  router.get('/latest', controller.getLatestSync);
+  router.patch('/:syncId', controller.patchSync);
 
   return router;
 };
