@@ -1,6 +1,6 @@
 import { Column, Entity, OneToMany, PrimaryColumn } from 'typeorm';
 import { Status } from '../../../common/enums';
-import { File } from '../../../file/models/file';
+import { File } from '../../../file/DAL/typeorm/file';
 import { Sync } from '../../models/sync';
 
 @Entity({ name: 'sync' })

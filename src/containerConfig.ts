@@ -9,9 +9,13 @@ import { Services } from './common/constants';
 import { DbConfig } from './common/interfaces';
 import { getDbHealthCheckFunction, initConnection } from './common/db';
 import { tracing } from './common/tracing';
-import { File } from './file/models/file';
+import { File } from './file/DAL/typeorm/file';
 import { syncRepositorySymbol } from './sync/DAL/syncRepository';
 import { TypeormSyncRepository } from './sync/DAL/typeorm/typeormSyncRepository';
+import { fileRepositorySymbol } from './file/DAL/fileRepository';
+import { TypeormFileRepository } from './file/DAL/typeorm/typeormFileRepository';
+import { entityRepositorySymbol } from './entity/models/DAL/entityRepository';
+import { TypeormEntityRepository } from './entity/models/DAL/typeorm/typeormEntityRepository';
 
 async function registerExternalValues(): Promise<void> {
   const loggerConfig = config.get<LoggerOptions>('logger');
@@ -27,6 +31,8 @@ async function registerExternalValues(): Promise<void> {
 
   container.register(Connection, { useValue: connection });
   container.register(syncRepositorySymbol, { useValue: connection.getCustomRepository(TypeormSyncRepository) });
+  container.register(fileRepositorySymbol, { useValue: connection.getCustomRepository(TypeormFileRepository) });
+  container.register(entityRepositorySymbol, { useValue: connection.getCustomRepository(TypeormEntityRepository) });
 
   const tracer = tracing.start();
   container.register(Services.TRACER, { useValue: tracer });

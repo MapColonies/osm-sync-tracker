@@ -9,7 +9,7 @@ import { Logger } from '@map-colonies/js-logger';
 import httpLogger from '@map-colonies/express-access-log-middleware';
 import { Services } from './common/constants';
 import { IConfig } from './common/interfaces';
-import { resourceNameRouterFactory } from './sync/routes/resourceNameRouter';
+import { resourceNameRouterFactory } from './sync/routes/syncRouter';
 
 @injectable()
 export class ServerBuilder {
