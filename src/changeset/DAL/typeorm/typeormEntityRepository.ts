@@ -1,4 +1,6 @@
 import { EntityRepository, Repository } from 'typeorm';
+import { EntityStatus } from '../../../common/enums';
+import { Entity } from '../../../entity/DAL/typeorm/entity';
 import { Changeset, UpdateChangeset } from '../../models/changeset';
 import { ChangesetRepository } from '../changsetRepository';
 import { Changeset as ChangesetDb } from './changeset';
@@ -13,7 +15,7 @@ export class TypeormChangesetRepository extends Repository<ChangesetDb> implemen
     await this.update(changesetId, changeset);
   }
 
-  /*   public async updateEntity(entityId: string, entity: UpdateEntity): Promise<void> {
-    await this.update(entityId, entity);
-  } */
+  public async closeChangeset(changesetId: string): Promise<void> {
+    await this.createQueryBuilder().update(Entity).set({ status: EntityStatus.COMPLETED }).where(`changesetId = ${changesetId}`).execute();
+  }
 }

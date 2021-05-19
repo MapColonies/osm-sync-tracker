@@ -6,9 +6,9 @@ const changesetRouterFactory: FactoryFunction<Router> = (dependencyContainer) =>
   const router = Router();
   const controller = dependencyContainer.resolve(ChangesetController);
 
-  router.post('changeset', controller.postChangeset);
-  router.patch('changeset/:changesetId', controller.updateChangeset);
-  //router.put('changeset/changesetId/close', controller.patchChangeset);
+  router.post('', controller.postChangeset);
+  router.patch('/:changesetId', controller.patchChangeset);
+  router.put('/:changesetId/close', controller.putChangeset);
 
   return router;
 };

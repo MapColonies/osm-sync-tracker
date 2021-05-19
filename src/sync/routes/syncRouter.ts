@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { FactoryFunction } from 'tsyringe';
 import { SyncController } from '../controllers/syncController';
 
-const resourceNameRouterFactory: FactoryFunction<Router> = (dependencyContainer) => {
+const syncRouterFactory: FactoryFunction<Router> = (dependencyContainer) => {
   const router = Router();
   const controller = dependencyContainer.resolve(SyncController);
 
@@ -13,4 +13,4 @@ const resourceNameRouterFactory: FactoryFunction<Router> = (dependencyContainer)
   return router;
 };
 
-export { resourceNameRouterFactory };
+export { syncRouterFactory };

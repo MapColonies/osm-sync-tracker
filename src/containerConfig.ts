@@ -14,8 +14,10 @@ import { syncRepositorySymbol } from './sync/DAL/syncRepository';
 import { TypeormSyncRepository } from './sync/DAL/typeorm/typeormSyncRepository';
 import { fileRepositorySymbol } from './file/DAL/fileRepository';
 import { TypeormFileRepository } from './file/DAL/typeorm/typeormFileRepository';
-import { entityRepositorySymbol } from './entity/models/DAL/entityRepository';
-import { TypeormEntityRepository } from './entity/models/DAL/typeorm/typeormEntityRepository';
+import { entityRepositorySymbol } from './entity/DAL/entityRepository';
+import { TypeormEntityRepository } from './entity/DAL/typeorm/typeormEntityRepository';
+import { changesetRepositorySymbol } from './changeset/DAL/changsetRepository';
+import { TypeormChangesetRepository } from './changeset/DAL/typeorm/typeormEntityRepository';
 
 async function registerExternalValues(): Promise<void> {
   const loggerConfig = config.get<LoggerOptions>('logger');
@@ -33,6 +35,7 @@ async function registerExternalValues(): Promise<void> {
   container.register(syncRepositorySymbol, { useValue: connection.getCustomRepository(TypeormSyncRepository) });
   container.register(fileRepositorySymbol, { useValue: connection.getCustomRepository(TypeormFileRepository) });
   container.register(entityRepositorySymbol, { useValue: connection.getCustomRepository(TypeormEntityRepository) });
+  container.register(changesetRepositorySymbol, { useValue: connection.getCustomRepository(TypeormChangesetRepository) });
 
   const tracer = tracing.start();
   container.register(Services.TRACER, { useValue: tracer });

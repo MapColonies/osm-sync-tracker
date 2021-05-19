@@ -228,7 +228,7 @@ paths:
                 - $ref: '#/components/schemas/changeset'
                 - type: object
                   required:
-                    - id
+                    - changesetId
         required: true
       operationId: postChangeset
       tags:
@@ -403,7 +403,7 @@ components:
       allOf:
         - type: object
           properties:
-            id:
+            changesetId:
               type: string
               format: uuid
         - $ref: '#/components/schemas/changesetWithoutId'

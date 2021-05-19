@@ -6,8 +6,8 @@ const fileRouterFactory: FactoryFunction<Router> = (dependencyContainer) => {
   const router = Router();
   const controller = dependencyContainer.resolve(FileController);
 
-  router.post('/sync/:syncId/file', controller.postFile);
-  router.post('/sync/:syncId/_bulk', controller.postFiles);
+  router.post('/:syncId/file', controller.postFile);
+  router.post('/:syncId/_bulk', controller.postFiles);
 
   return router;
 };

@@ -9,7 +9,10 @@ import { Logger } from '@map-colonies/js-logger';
 import httpLogger from '@map-colonies/express-access-log-middleware';
 import { Services } from './common/constants';
 import { IConfig } from './common/interfaces';
-import { resourceNameRouterFactory } from './sync/routes/syncRouter';
+import { syncRouterFactory } from './sync/routes/syncRouter';
+import fileRouterFactory from './file/routes/fileRouter';
+import entityRouterFactory from './entity/routes/entityRouter';
+import changesetRouterFactory from './changeset/routes/changesetRouter';
 
 @injectable()
 export class ServerBuilder {
@@ -34,7 +37,9 @@ export class ServerBuilder {
   }
 
   private buildRoutes(): void {
-    this.serverInstance.use('/sync', resourceNameRouterFactory(container));
+    this.serverInstance.use('/sync', syncRouterFactory(container), fileRouterFactory(container));
+    this.serverInstance.use('/file', entityRouterFactory(container));
+    this.serverInstance.use('/changeset', changesetRouterFactory(container));
     this.buildDocsRoutes();
   }
 

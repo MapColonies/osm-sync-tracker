@@ -10,6 +10,7 @@ import { ChangesetManager } from '../models/changesetManager';
 
 type PostChangesetHandler = RequestHandler<undefined, string, Changeset>;
 type PatchChangesetHandler = RequestHandler<{ changesetId: string }, string, UpdateChangeset>;
+type PutChangesetHandler = RequestHandler<{ changesetId: string }, string, undefined>;
 
 @injectable()
 export class ChangesetController {
@@ -24,7 +25,7 @@ export class ChangesetController {
     }
   };
 
-  public updateChangeset: PatchChangesetHandler = async (req, res, next) => {
+  public patchChangeset: PatchChangesetHandler = async (req, res, next) => {
     try {
       await this.manager.updateChangeset(req.params.changesetId, req.body);
       return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
@@ -33,12 +34,12 @@ export class ChangesetController {
     }
   };
 
-  /*   public patchChangeset: PatchEntityHandler = async (req, res, next) => {
+  public putChangeset: PutChangesetHandler = async (req, res, next) => {
     try {
-      await this.manager.updateEntity(req.params.entityId, req.body);
+      await this.manager.closeChangeset(req.params.changesetId);
       return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
       next(error);
     }
-  }; */
+  };
 }

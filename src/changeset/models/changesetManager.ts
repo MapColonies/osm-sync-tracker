@@ -19,7 +19,7 @@ export class ChangesetManager {
     await this.changesetRepository.updateChangeset(changesetId, changeset);
   }
 
-  /*  public async updateEntity(entityId: string, entity: UpdateEntity): Promise<void> {
-    await this.entityRepository.updateEntity(entityId, entity);
-  } */
+  public async closeChangeset(changesetId: string): Promise<void> {
+    await this.changesetRepository.closeChangeset(changesetId);
+  }
 }
