@@ -272,9 +272,6 @@ paths:
       description: closes the changeset, sets all its entities as done, and checks if the sync is completed
       parameters:
         - $ref: '#/components/parameters/changesetId'
-      requestBody:
-        content: {}
-        required: true
       operationId: closeChangeset
       tags:
         - changeset

@@ -1,14 +1,7 @@
-import { Column, Entity as EntityDecorator, OneToMany, PrimaryColumn } from 'typeorm';
-import { Entity } from '../../entity/models/DAL/typeorm/entity';
+export type UpdateChangeset = Omit<Changeset, 'changesetId' | 'entities'>;
 
-@EntityDecorator()
-export class Changeset {
-  @PrimaryColumn({ name: 'id', type: 'uuid' })
-  public changesetId!: string;
+export interface Changeset {
+  changesetId: string;
 
-  @Column({ name: 'osm_id', type: 'integer', nullable: true })
-  public osmId!: number | null;
-
-  @OneToMany(() => Entity, (entity) => entity.changeset)
-  public entities!: Entity[];
+  osmId?: number;
 }
