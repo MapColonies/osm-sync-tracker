@@ -15,15 +15,15 @@ export class Entity {
   @Column({ name: 'file_id', type: 'uuid' })
   public fileId!: string;
 
-  @ManyToOne(() => Changeset, (changeset) => changeset, { nullable: true })
+  @ManyToOne(() => Changeset, (changeset) => changeset.entities, { nullable: true })
   @JoinColumn({ name: 'changeset_id' })
   public changeset!: Changeset | null;
 
   @Column({ name: 'changeset_id', type: 'uuid', nullable: true })
   public changesetId!: string | null;
 
-  @Column({ type: 'enum', enum: EntityStatus, default: Status.IN_PROGRESS })
-  public status!: Status;
+  @Column({ type: 'enum', enum: EntityStatus, default: EntityStatus.IN_PROGRESS })
+  public status!: EntityStatus;
 
   @Column({ type: 'enum', enum: ActionType, nullable: true })
   public action!: ActionType | null;

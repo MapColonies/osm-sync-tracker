@@ -1,4 +1,4 @@
-import { ActionType, Status } from '../../common/enums';
+import { ActionType, EntityStatus } from '../../common/enums';
 
 export type UpdateEntity = Omit<Partial<Entity>, 'entityId' | 'fileId'>;
 
@@ -9,7 +9,7 @@ export interface Entity {
 
   changesetId?: string;
 
-  status: Status;
+  status: EntityStatus;
 
   action: ActionType;
 

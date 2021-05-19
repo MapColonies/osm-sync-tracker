@@ -12,6 +12,7 @@ export class EntityManager {
   ) {}
 
   public async createEntity(entity: Entity): Promise<void> {
+    entity.entityId.substring(1, entity.entityId.length);
     await this.entityRepository.createEntity(entity);
   }
 
