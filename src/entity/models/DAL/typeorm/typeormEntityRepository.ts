@@ -1,5 +1,5 @@
 import { EntityRepository, Repository } from 'typeorm';
-import { Entity } from '../../models/entity';
+import { Entity, UpdateEntity } from '../../models/entity';
 import { EntityRepository as EntityRepo } from '../entityRepository';
 import { Entity as EntityDb } from './entity';
 
@@ -11,5 +11,9 @@ export class TypeormEntityRepository extends Repository<EntityDb> implements Ent
 
   public async createEntities(entities: Entity[]): Promise<void> {
     await this.save(entities);
+  }
+
+  public async updateEntity(entityId: string, entity: UpdateEntity): Promise<void> {
+    await this.update(entityId, entity);
   }
 }

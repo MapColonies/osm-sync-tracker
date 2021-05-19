@@ -2,7 +2,7 @@ import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
 import { Services } from '../../../common/constants';
 import { EntityRepository, entityRepositorySymbol } from '../DAL/entityRepository';
-import { Entity } from './entity';
+import { Entity, UpdateEntity } from './entity';
 
 @injectable()
 export class EntityManager {
@@ -17,5 +17,9 @@ export class EntityManager {
 
   public async createEntities(entities: Entity[]): Promise<void> {
     await this.entityRepository.createEntities(entities);
+  }
+
+  public async updateEntity(entityId: string, entity: UpdateEntity): Promise<void> {
+    await this.entityRepository.updateEntity(entityId, entity);
   }
 }

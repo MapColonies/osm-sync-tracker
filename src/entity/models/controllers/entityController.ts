@@ -5,14 +5,12 @@ import { RequestHandler } from 'express';
 import httpStatus from 'http-status-codes';
 import { injectable, inject } from 'tsyringe';
 import { Services } from '../../../common/constants';
-import { Entity } from '../models/entity';
+import { Entity, UpdateEntity } from '../models/entity';
 import { EntityManager } from '../models/entityManager';
-
-type PatchReqBody = Omit<Entity, 'id'>;
 
 type PostEntityHandler = RequestHandler<{ fileId: string }, string, Entity>;
 type PostEntitiesHandler = RequestHandler<{ fileId: string }, string, Entity[]>;
-type PatchEntityHandler = RequestHandler<{ fileId: string }, string, PatchReqBody>;
+type PatchEntityHandler = RequestHandler<{ fileId: string; entityId: string }, string, UpdateEntity>;
 
 @injectable()
 export class EntityController {
@@ -38,14 +36,12 @@ export class EntityController {
     }
   };
 
-  /*   public patchEntity: PatchEntityHandler = async (req, res, next) => {
+  public patchEntity: PatchEntityHandler = async (req, res, next) => {
     try {
-      const fileId = req.params.fileId;
-      const bodyWithFileId = req.body.map((entity) => ({ ...entity, fileId }));
-      await this.manager.createEntities(bodyWithFileId);
+      await this.manager.updateEntity(req.params.entityId, req.body);
       return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
       next(error);
     }
-  }; */
+  };
 }

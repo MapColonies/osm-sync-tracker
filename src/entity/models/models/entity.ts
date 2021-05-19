@@ -1,15 +1,17 @@
-import { Status } from '../../../common/enums';
+import { ActionType, Status } from '../../../common/enums';
+
+export type UpdateEntity = Omit<Partial<Entity>, 'entityId' | 'fileId'>;
 
 export interface Entity {
   entityId: string;
 
   fileId: string;
 
-  changesetId: string;
+  changesetId?: string;
 
   status: Status;
 
-  action: string;
+  action: ActionType;
 
-  failReason: string;
+  failReason?: string;
 }
