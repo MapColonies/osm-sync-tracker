@@ -1,6 +1,6 @@
 import { Column, Entity as EntityDecorator, JoinColumn, ManyToOne, OneToMany, PrimaryColumn } from 'typeorm';
 import { Status } from '../../../common/enums';
-import { Entity } from '../../../entity/models/DAL/typeorm/entity';
+import { Entity } from '../../../entity/DAL/typeorm/entity';
 import { SyncDb } from '../../../sync/DAL/typeorm/sync';
 
 @EntityDecorator()

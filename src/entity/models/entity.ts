@@ -1,4 +1,4 @@
-import { ActionType, Status } from '../../../common/enums';
+import { ActionType, Status } from '../../common/enums';
 
 export type UpdateEntity = Omit<Partial<Entity>, 'entityId' | 'fileId'>;
 

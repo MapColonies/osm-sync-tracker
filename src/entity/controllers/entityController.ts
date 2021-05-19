@@ -4,7 +4,7 @@ import { BoundCounter } from '@opentelemetry/api-metrics';
 import { RequestHandler } from 'express';
 import httpStatus from 'http-status-codes';
 import { injectable, inject } from 'tsyringe';
-import { Services } from '../../../common/constants';
+import { Services } from '../../common/constants';
 import { Entity, UpdateEntity } from '../models/entity';
 import { EntityManager } from '../models/entityManager';
 

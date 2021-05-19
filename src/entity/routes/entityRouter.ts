@@ -8,7 +8,7 @@ const entityRouterFactory: FactoryFunction<Router> = (dependencyContainer) => {
 
   router.post('/file/:fileId/entity', controller.postEntity);
   router.post('/file/:fileId/entity/_bulk', controller.postEntities);
-  router.post('/file/:fileId/entity/{entityId}', controller.patchEntity);
+  router.post('/file/:fileId/entity/:entityId', controller.patchEntity);
 
   return router;
 };
