@@ -37,7 +37,7 @@ export class ChangesetController {
   public putChangeset: PutChangesetHandler = async (req, res, next) => {
     try {
       await this.manager.closeChangeset(req.params.changesetId);
-      return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
+      return res.status(httpStatus.OK).send(httpStatus.getStatusText(httpStatus.OK));
     } catch (error) {
       next(error);
     }

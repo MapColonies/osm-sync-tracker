@@ -12,7 +12,7 @@ export const createConnectionOptions = (dbConfig: DbConfig): ConnectionOptions =
     connectionOptions.password = undefined;
     connectionOptions.ssl = { key: readFileSync(sslPaths.key), cert: readFileSync(sslPaths.cert), ca: readFileSync(sslPaths.ca) };
   }
-  return { entities: ['**/models/*.js', '**/DAL/typeorm/*.js'], ...connectionOptions };
+  return { entities: ['**/DAL/typeorm/*.js'], logging: ['query'], ...connectionOptions };
 };
 
 export const initConnection = async (dbConfig: DbConfig): Promise<Connection> => {

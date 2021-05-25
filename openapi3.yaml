@@ -432,5 +432,5 @@ components:
         - type: object
           properties:
             entityId:
-              $ref: '#/components/schemas/uniqueId'
+              $ref: '#/components/schemas/entityId'
         - $ref: '#/components/schemas/entityWithoutId'

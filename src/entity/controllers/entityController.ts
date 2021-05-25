@@ -39,7 +39,7 @@ export class EntityController {
   public patchEntity: PatchEntityHandler = async (req, res, next) => {
     try {
       await this.manager.updateEntity(req.params.entityId, req.body);
-      return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
+      return res.status(httpStatus.OK).send(httpStatus.getStatusText(httpStatus.OK));
     } catch (error) {
       next(error);
     }

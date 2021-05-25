@@ -3,7 +3,7 @@ import { Entity } from '../../../entity/DAL/typeorm/entity';
 
 @EntityDecorator()
 export class Changeset {
-  @PrimaryColumn({ name: 'id', type: 'uuid' })
+  @PrimaryColumn({ name: 'changeset_id', type: 'uuid' })
   public changesetId!: string;
 
   @Column({ name: 'osm_id', type: 'integer', nullable: true })
