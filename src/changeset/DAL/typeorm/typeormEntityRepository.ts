@@ -3,23 +3,35 @@ import { EntityStatus, Status } from '../../../common/enums';
 import { Entity } from '../../../entity/DAL/typeorm/entity';
 import { File } from '../../../file/DAL/typeorm/file';
 import { Changeset, UpdateChangeset } from '../../models/changeset';
+import { ChangesetAlreadyExistsError, ChangesetNotFoundError } from '../../models/errors';
 import { ChangesetRepository } from '../changsetRepository';
 import { Changeset as ChangesetDb } from './changeset';
 
 @EntityRepository(ChangesetDb)
 export class TypeormChangesetRepository extends Repository<ChangesetDb> implements ChangesetRepository {
   public async createChangeset(changeset: Changeset): Promise<void> {
-    await this.save(changeset);
+    const changesetEntity = await this.findOne(changeset);
+    if (changesetEntity) {
+      throw new ChangesetAlreadyExistsError(`changeset = ${changesetEntity.changesetId} already exists`);
+    }
+    await this.insert(changeset);
   }
 
   public async updateChangeset(changesetId: string, changeset: UpdateChangeset): Promise<void> {
+    const changesetEntity = await this.findOne(changeset);
+    if (!changesetEntity) {
+      throw new ChangesetNotFoundError(`changeset = ${changesetId} not found`);
+    }
     await this.update(changesetId, changeset);
   }
 
   public async closeChangeset(changesetId: string): Promise<void> {
-    await this.manager.connection.transaction(async (transactionalEntityManager) => {
-      const endDate = new Date().getTime();
+    const changesetEntity = await this.findOne(changesetId);
+    if (!changesetEntity) {
+      throw new ChangesetNotFoundError(`changeset = ${changesetId} not found`);
+    }
 
+    await this.manager.connection.transaction(async (transactionalEntityManager) => {
       await transactionalEntityManager
         .createQueryBuilder()
         .update(Entity)

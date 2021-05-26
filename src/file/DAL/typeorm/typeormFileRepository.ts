@@ -11,13 +11,13 @@ export class TypeormFileRepository extends Repository<FileDb> implements FileRep
     if (fileEntity) {
       throw new FileAlreadyExistsError(`file = ${file.fileId} already exists`);
     }
-    await this.save(file);
+    await this.insert(file);
   }
   public async createFiles(files: File[]): Promise<void> {
     const filesEntities = await this.findByIds(files);
     if (filesEntities.length > 0) {
       throw new FileAlreadyExistsError(`files = [${filesEntities.map((file) => file.fileId).toString()}] already exists`);
     }
-    await this.save(files);
+    await this.insert(files);
   }
 }

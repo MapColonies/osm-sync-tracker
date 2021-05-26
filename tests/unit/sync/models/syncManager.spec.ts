@@ -6,7 +6,7 @@ import { SyncAlreadyExistsError, SyncNotFoundError } from '../../../../src/sync/
 
 let syncManager: SyncManager;
 
-describe('EntityManager', () => {
+describe('SyncManager', () => {
   let createSync: jest.Mock;
   let getLatestSync: jest.Mock;
   let updateSync: jest.Mock;
@@ -66,7 +66,7 @@ describe('EntityManager', () => {
 
   describe('#getLatestSync', () => {
     it('resolves without errors if id exists', async () => {
-      createSync.mockResolvedValue(undefined);
+      updateSync.mockResolvedValue(undefined);
       const entity = createFakeSync();
 
       const createPromise = syncManager.getLatestSync(entity.layerId);
