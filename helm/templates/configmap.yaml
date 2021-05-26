@@ -1,0 +1,29 @@
+{{- $releaseName := .Release.Name -}}
+{{- $chartName := include "osm-sync-tracker.name" . -}}
+{{- if .Values.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $releaseName }}-{{ $chartName }}-configmap
+data:
+  {{- if .Values.enableInternalDb -}}
+  {{- with .Values.postgresql }}
+  DB_HOST: {{ $releaseName }}-postgresql
+  DB_NAME: {{ .postgresqlDatabase }}
+  {{- end -}}
+  {{- else -}}
+  {{- with .Values.dbConfig }}
+  DB_HOST: {{ .host }}
+  DB_NAME: {{ .database }}
+  {{- end -}}
+{{- end -}}
+  {{- if .Values.dbConfig.sslAuth.enabled }}
+  DB_ENABLE_SSL_AUTH: "true"
+  DB_CERT_PATH: /tmp/certs/{{ .Values.dbConfig.sslAuth.certFileName }}
+  DB_KEY_PATH: /tmp/certs/{{ .Values.dbConfig.sslAuth.keyFileName }}
+  DB_CA_PATH: /tmp/certs/{{ .Values.dbConfig.sslAuth.caFileName }}
+  {{- else }}
+  DB_ENABLE_SSL_AUTH: "false"
+  {{- end }}
+  LOG_LEVEL: {{ .Values.env.logLevel | quote }}
+{{- end }}

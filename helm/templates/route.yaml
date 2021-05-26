@@ -1,0 +1,18 @@
+{{- $releaseName := .Release.Name -}}
+{{- $cloudProviderName := .Values.cloudProvider.name -}}
+{{- $chartName := include "osm-sync-tracker.name" . -}}
+{{- if and (and (.Values.enabled) (ne $cloudProviderName "minikube")) (.Values.route.enabled) -}}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ $releaseName }}-{{ $chartName }}-route
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+spec:
+  path:  {{ .Values.route.path | default "/" }}
+  to:
+    kind: Service
+    name: {{ $releaseName }}-{{ $chartName }}
+  tls:
+    termination: edge
+{{- end -}}
