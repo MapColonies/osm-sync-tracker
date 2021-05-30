@@ -7,7 +7,7 @@ export interface Sync {
 
   startDate: Date;
 
-  endDate: Date | null;
+  endDate?: Date | null;
 
   status: Status;
 

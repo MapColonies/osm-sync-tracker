@@ -15,7 +15,7 @@ export class TypeormSyncRepository extends Repository<DbSync> implements SyncRep
   }
 
   public async createSync(sync: Sync): Promise<void> {
-    const syncEntity = await this.findOne(sync);
+    const syncEntity = await this.findOne(sync.id);
     if (syncEntity) {
       throw new SyncAlreadyExistsError(`sync = ${syncEntity.id} already exists`);
     }
@@ -23,7 +23,7 @@ export class TypeormSyncRepository extends Repository<DbSync> implements SyncRep
   }
 
   public async updateSync(sync: Sync): Promise<void> {
-    const syncEntity = await this.findOne(sync);
+    const syncEntity = await this.findOne(sync.id);
     if (!syncEntity) {
       throw new SyncNotFoundError(`sync = ${sync.id} not found`);
     }

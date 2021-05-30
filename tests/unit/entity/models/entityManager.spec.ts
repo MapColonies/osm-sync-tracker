@@ -1,11 +1,9 @@
 import jsLogger from '@map-colonies/js-logger';
 import { EntityManager } from '../../../../src/entity/models/entityManager';
-import { EntityRepository } from '../../../../src/entity/DAL/entityRepository';
 import { createFakeEntity, createFakeFile } from '../../../helpers/helper';
 import { EntityAlreadyExistsError } from '../../../../src/entity/models/errors';
 import { Entity } from '../../../../src/entity/models/entity';
 import { EntityNotFoundError } from '../../../../src/entity/models/errors';
-import { FileRepository } from '../../../../src/file/DAL/fileRepository';
 import { FileNotFoundError } from '../../../../src/file/models/errors';
 
 let entityManager: EntityManager;

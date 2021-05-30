@@ -13,8 +13,6 @@ export const createFakeSync: () => Sync = () => {
 
     startDate: faker.datatype.datetime(),
 
-    endDate: null,
-
     status: Status.IN_PROGRESS,
 
     layerId: faker.datatype.number(),
@@ -23,6 +21,14 @@ export const createFakeSync: () => Sync = () => {
 
     totalFiles: faker.datatype.number(),
   };
+};
+
+export const createMultipleSyncData: (amount: number) => Sync[] = (amount: number) => {
+  const data: Sync[] = [];
+  for (let i = 0; i < amount; i++) {
+    data.push(createFakeSync());
+  }
+  return data;
 };
 
 export const createFakeFile: () => File = () => {

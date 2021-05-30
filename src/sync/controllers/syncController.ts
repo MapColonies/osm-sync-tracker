@@ -6,7 +6,6 @@ import httpStatus from 'http-status-codes';
 import { injectable, inject } from 'tsyringe';
 import { Services } from '../../common/constants';
 import { Sync } from '../models/sync';
-
 import { SyncManager } from '../models/syncManager';
 
 type PatchReqBody = Omit<Sync, 'id'>;
