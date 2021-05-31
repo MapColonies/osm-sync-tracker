@@ -37,8 +37,8 @@ paths:
           description: created
         '400':
           $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '5XX':
           $ref: '#/components/responses/UnexpectedError'
   /sync/latest:
@@ -294,6 +294,12 @@ components:
             $ref: '#/components/schemas/Error'
     NotFound:
       description: The specified resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Conflict
       content:
         application/json:
           schema:

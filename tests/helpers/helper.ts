@@ -5,7 +5,7 @@ import { File } from '../../src/file/models/file';
 import { Entity } from '../../src/entity/models/entity';
 import { Changeset } from '../../src/changeset/models/changeset';
 
-export const createFakeSync: () => Sync = () => {
+export const createFakeSync = (): Sync => {
   return {
     id: faker.datatype.uuid(),
 
@@ -23,7 +23,7 @@ export const createFakeSync: () => Sync = () => {
   };
 };
 
-export const createMultipleSyncData: (amount: number) => Sync[] = (amount: number) => {
+export const createMultipleSyncData = (amount: number): Sync[] => {
   const data: Sync[] = [];
   for (let i = 0; i < amount; i++) {
     data.push(createFakeSync());
@@ -31,7 +31,7 @@ export const createMultipleSyncData: (amount: number) => Sync[] = (amount: numbe
   return data;
 };
 
-export const createFakeFile: () => File = () => {
+export const createFakeFile = (): File => {
   return {
     fileId: faker.datatype.uuid(),
 
