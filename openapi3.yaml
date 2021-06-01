@@ -100,7 +100,12 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/file'
+              allOf:
+                - $ref: '#/components/schemas/file'
+                - type: object
+                  required:
+                    - startDate
+                    - fileId
         required: true
       operationId: postFile
       tags:

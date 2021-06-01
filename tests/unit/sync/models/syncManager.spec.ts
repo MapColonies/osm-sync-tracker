@@ -1,7 +1,6 @@
 import jsLogger from '@map-colonies/js-logger';
 import { SyncManager } from '../../../../src/sync/models/syncManager';
 import { createFakeSync } from '../../../helpers/helper';
-import { SyncRepository } from '../../../../src/sync/DAL/syncRepository';
 import { SyncAlreadyExistsError, SyncNotFoundError } from '../../../../src/sync/models/errors';
 
 let syncManager: SyncManager;
@@ -10,13 +9,15 @@ describe('SyncManager', () => {
   let createSync: jest.Mock;
   let getLatestSync: jest.Mock;
   let updateSync: jest.Mock;
+  let findOneSync: jest.Mock;
 
   beforeEach(() => {
     getLatestSync = jest.fn();
     createSync = jest.fn();
     updateSync = jest.fn();
+    findOneSync = jest.fn();
 
-    const repository = ({ getLatestSync, createSync, updateSync } as unknown) as SyncRepository;
+    const repository = { getLatestSync, createSync, updateSync, findOneSync };
     syncManager = new SyncManager(repository, jsLogger({ enabled: false }));
   });
 
@@ -26,8 +27,10 @@ describe('SyncManager', () => {
 
   describe('#createSync', () => {
     it('resolves without errors if id are not used', async () => {
-      createSync.mockResolvedValue(undefined);
       const entity = createFakeSync();
+
+      findOneSync.mockResolvedValue(undefined);
+      createSync.mockResolvedValue(undefined);
 
       const createPromise = syncManager.createSync(entity);
 
@@ -36,7 +39,9 @@ describe('SyncManager', () => {
 
     it('rejects if id already exists', async () => {
       const entity = createFakeSync();
-      createSync.mockRejectedValue(new SyncAlreadyExistsError(`sync = ${entity.id} already exists`));
+
+      findOneSync.mockResolvedValue(entity);
+      //createSync.mockRejectedValue();
 
       const createPromise = syncManager.createSync(entity);
 
@@ -46,8 +51,10 @@ describe('SyncManager', () => {
 
   describe('#updateSync', () => {
     it('resolves without errors if id exists', async () => {
-      createSync.mockResolvedValue(undefined);
       const entity = createFakeSync();
+
+      findOneSync.mockResolvedValue(entity);
+      updateSync.mockResolvedValue(undefined);
 
       const createPromise = syncManager.updateSync(entity);
 
@@ -56,7 +63,9 @@ describe('SyncManager', () => {
 
     it('rejects if id not exists', async () => {
       const entity = createFakeSync();
-      updateSync.mockRejectedValue(new SyncNotFoundError(`sync = ${entity.id} not found`));
+
+      findOneSync.mockResolvedValue(undefined);
+      //updateSync.mockRejectedValue(new SyncNotFoundError(`sync = ${entity.id} not found`));
 
       const createPromise = syncManager.updateSync(entity);
 
@@ -66,8 +75,9 @@ describe('SyncManager', () => {
 
   describe('#getLatestSync', () => {
     it('resolves without errors if id exists', async () => {
-      updateSync.mockResolvedValue(undefined);
       const entity = createFakeSync();
+
+      getLatestSync.mockResolvedValue(entity);
 
       const createPromise = syncManager.getLatestSync(entity.layerId);
 
@@ -76,7 +86,8 @@ describe('SyncManager', () => {
 
     it('rejects if id not exists', async () => {
       const entity = createFakeSync();
-      getLatestSync.mockRejectedValue(new SyncNotFoundError(`sync with layer id = ${entity.layerId} not found`));
+
+      getLatestSync.mockResolvedValue(undefined);
 
       const createPromise = syncManager.getLatestSync(entity.layerId);
 

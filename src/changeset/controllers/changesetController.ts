@@ -2,11 +2,13 @@ import { Logger } from '@map-colonies/js-logger';
 import { Meter } from '@map-colonies/telemetry';
 import { BoundCounter } from '@opentelemetry/api-metrics';
 import { RequestHandler } from 'express';
-import httpStatus from 'http-status-codes';
+import httpStatus, { StatusCodes } from 'http-status-codes';
 import { injectable, inject } from 'tsyringe';
 import { Services } from '../../common/constants';
 import { Changeset, UpdateChangeset } from '../models/changeset';
 import { ChangesetManager } from '../models/changesetManager';
+import { HttpError } from '../../common/errors';
+import { ChangesetAlreadyExistsError, ChangesetNotFoundError } from '../models/errors';
 
 type PostChangesetHandler = RequestHandler<undefined, string, Changeset>;
 type PatchChangesetHandler = RequestHandler<{ changesetId: string }, string, UpdateChangeset>;
@@ -21,6 +23,9 @@ export class ChangesetController {
       await this.manager.createChangeset(req.body);
       return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
+      if (error instanceof ChangesetAlreadyExistsError) {
+        (error as HttpError).status = StatusCodes.CONFLICT;
+      }
       next(error);
     }
   };
@@ -30,6 +35,9 @@ export class ChangesetController {
       await this.manager.updateChangeset(req.params.changesetId, req.body);
       return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
+      if (error instanceof ChangesetNotFoundError) {
+        (error as HttpError).status = StatusCodes.NOT_FOUND;
+      }
       next(error);
     }
   };
@@ -39,6 +47,9 @@ export class ChangesetController {
       await this.manager.closeChangeset(req.params.changesetId);
       return res.status(httpStatus.OK).send(httpStatus.getStatusText(httpStatus.OK));
     } catch (error) {
+      if (error instanceof ChangesetNotFoundError) {
+        (error as HttpError).status = StatusCodes.NOT_FOUND;
+      }
       next(error);
     }
   };

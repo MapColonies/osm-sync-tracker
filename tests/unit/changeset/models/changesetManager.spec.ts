@@ -10,13 +10,15 @@ describe('ChangesetManager', () => {
   let createChangeset: jest.Mock;
   let updateChangeset: jest.Mock;
   let closeChangeset: jest.Mock;
+  let findOneChangeset: jest.Mock;
 
   beforeEach(() => {
     createChangeset = jest.fn();
     updateChangeset = jest.fn();
     closeChangeset = jest.fn();
+    findOneChangeset = jest.fn();
 
-    const repository = ({ createChangeset, updateChangeset, closeChangeset } as unknown) as ChangesetRepository;
+    const repository = { createChangeset, updateChangeset, closeChangeset, findOneChangeset };
     changesetManager = new ChangesetManager(repository, jsLogger({ enabled: false }));
   });
 
@@ -26,17 +28,20 @@ describe('ChangesetManager', () => {
 
   describe('#createChangeset', () => {
     it('resolves without errors if changesetId are not used', async () => {
-      createChangeset.mockResolvedValue(undefined);
-      const entity = createFakeChangeset();
+      const changeset = createFakeChangeset();
 
-      const createPromise = changesetManager.createChangeset(entity);
+      findOneChangeset.mockResolvedValue(undefined);
+      createChangeset.mockResolvedValue(undefined);
+
+      const createPromise = changesetManager.createChangeset(changeset);
 
       await expect(createPromise).resolves.not.toThrow();
     });
 
     it('rejects if changesetId already exists', async () => {
       const entity = createFakeChangeset();
-      createChangeset.mockRejectedValue(new ChangesetAlreadyExistsError(`changeset = ${entity.changesetId} already exists`));
+
+      findOneChangeset.mockResolvedValue(entity);
 
       const createPromise = changesetManager.createChangeset(entity);
 
@@ -46,8 +51,10 @@ describe('ChangesetManager', () => {
 
   describe('#updateChangeset', () => {
     it('resolves without errors if changesetId exists', async () => {
-      updateChangeset.mockResolvedValue(undefined);
       const entity = createFakeChangeset();
+
+      findOneChangeset.mockResolvedValue(entity);
+      updateChangeset.mockResolvedValue(undefined);
 
       const createPromise = changesetManager.updateChangeset(entity.changesetId, entity);
 
@@ -56,7 +63,8 @@ describe('ChangesetManager', () => {
 
     it('rejects if changesetId not exists', async () => {
       const entity = createFakeChangeset();
-      updateChangeset.mockRejectedValue(new ChangesetNotFoundError(`changeset = ${entity.changesetId} not found`));
+
+      findOneChangeset.mockResolvedValue(undefined);
 
       const createPromise = changesetManager.updateChangeset(entity.changesetId, entity);
 
@@ -66,8 +74,10 @@ describe('ChangesetManager', () => {
 
   describe('#closeChangeset', () => {
     it('resolves without errors if changesetId exists', async () => {
-      closeChangeset.mockResolvedValue(undefined);
       const entity = createFakeChangeset();
+
+      findOneChangeset.mockResolvedValue(entity);
+      closeChangeset.mockResolvedValue(undefined);
 
       const createPromise = changesetManager.closeChangeset(entity.changesetId);
 
@@ -76,7 +86,8 @@ describe('ChangesetManager', () => {
 
     it('rejects if changesetId not exists', async () => {
       const entity = createFakeChangeset();
-      closeChangeset.mockRejectedValue(new ChangesetNotFoundError(`changeset = ${entity.changesetId} not found`));
+
+      findOneChangeset.mockResolvedValue(undefined);
 
       const createPromise = changesetManager.closeChangeset(entity.changesetId);
 

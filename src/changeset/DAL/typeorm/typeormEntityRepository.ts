@@ -10,27 +10,14 @@ import { Changeset as ChangesetDb } from './changeset';
 @EntityRepository(ChangesetDb)
 export class TypeormChangesetRepository extends Repository<ChangesetDb> implements ChangesetRepository {
   public async createChangeset(changeset: Changeset): Promise<void> {
-    const changesetEntity = await this.findOne(changeset);
-    if (changesetEntity) {
-      throw new ChangesetAlreadyExistsError(`changeset = ${changesetEntity.changesetId} already exists`);
-    }
     await this.insert(changeset);
   }
 
   public async updateChangeset(changesetId: string, changeset: UpdateChangeset): Promise<void> {
-    const changesetEntity = await this.findOne(changeset);
-    if (!changesetEntity) {
-      throw new ChangesetNotFoundError(`changeset = ${changesetId} not found`);
-    }
     await this.update(changesetId, changeset);
   }
 
   public async closeChangeset(changesetId: string): Promise<void> {
-    const changesetEntity = await this.findOne(changesetId);
-    if (!changesetEntity) {
-      throw new ChangesetNotFoundError(`changeset = ${changesetId} not found`);
-    }
-
     await this.manager.connection.transaction(async (transactionalEntityManager) => {
       await transactionalEntityManager
         .createQueryBuilder()
@@ -90,5 +77,13 @@ export class TypeormChangesetRepository extends Repository<ChangesetDb> implemen
         .andWhere('status = :status', { status: EntityStatus.COMPLETED })
         .groupBy('file_id');
     }; */
+  }
+
+  public async findOneChangeset(changesetId: string): Promise<ChangesetDb | undefined> {
+    const changesetEntity = await this.findOne(changesetId);
+    if (changesetEntity === undefined) {
+      return undefined;
+    }
+    return changesetEntity;
   }
 }

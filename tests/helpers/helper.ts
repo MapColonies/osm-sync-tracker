@@ -47,6 +47,14 @@ export const createFakeFile = (): File => {
   };
 };
 
+export const createFakeFiles = (quantity: number): File[] => {
+  const files: File[] = [];
+  for (let i = 0; i < quantity; i++) {
+    files.push(createFakeFile());
+  }
+  return files;
+};
+
 export const createFakeEntity: () => Entity = () => {
   return {
     entityId: faker.datatype.uuid(),
@@ -59,6 +67,14 @@ export const createFakeEntity: () => Entity = () => {
 
     action: ActionType.CREATE,
   };
+};
+
+export const createFakeEntities = (quantity: number): Entity[] => {
+  const entities: Entity[] = [];
+  for (let i = 0; i < quantity; i++) {
+    entities.push(createFakeEntity());
+  }
+  return entities;
 };
 
 export const createFakeChangeset: () => Changeset = () => {

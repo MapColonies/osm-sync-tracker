@@ -27,6 +27,7 @@ describe('sync', function () {
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
       });
     });
+
     describe('PATCH /sync', function () {
       it('should return 200 status code and OK body', async function () {
         const body = createStringifiedFakeSync();
@@ -135,7 +136,8 @@ describe('sync', function () {
     describe('POST /sync', function () {
       it('should return 500 if the db throws an error', async function () {
         const createSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
-        const mockedApp = requestSender.getMockedRepoApp({ createSync: createSyncMock });
+        const findOneSyncMock = jest.fn();
+        const mockedApp = requestSender.getMockedRepoApp({ createSync: createSyncMock, findOneSync: findOneSyncMock });
 
         const response = await requestSender.postSync(mockedApp, createStringifiedFakeSync());
 
@@ -143,10 +145,12 @@ describe('sync', function () {
         expect(response.body).toHaveProperty('message', 'failed');
       });
     });
+
     describe('PATCH /sync', function () {
       it('should return 500 if the db throws an error', async function () {
         const createSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
-        const mockedApp = requestSender.getMockedRepoApp({ updateSync: createSyncMock });
+        const findOneSyncMock = jest.fn().mockResolvedValue(true);
+        const mockedApp = requestSender.getMockedRepoApp({ updateSync: createSyncMock, findOneSync: findOneSyncMock });
         const body = createStringifiedFakeSync();
 
         const response = await requestSender.patchSync(mockedApp, body.id as string, body);

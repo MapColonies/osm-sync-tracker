@@ -1,4 +1,3 @@
-import { FindOneOptions, ObjectID } from 'typeorm';
 import { File } from '../models/file';
 import { File as FileDb } from './typeorm/file';
 
@@ -9,5 +8,7 @@ export interface FileRepository {
 
   createFiles: (files: File[]) => Promise<void>;
 
-  findOne: (id?: string | number | Date | ObjectID, options?: FindOneOptions<FileDb>) => Promise<FileDb | undefined>;
+  findOneFile: (fileId: string) => Promise<FileDb | undefined>;
+
+  findManyFiles: (files: File[]) => Promise<FileDb[] | undefined>;
 }

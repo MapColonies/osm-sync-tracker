@@ -1,15 +1,12 @@
-import { StatusCodes } from 'http-status-codes';
-import { HttpError } from '../../common/errors';
-
-export class SyncAlreadyExistsError extends Error implements HttpError {
-  public constructor(message: string, public readonly status = StatusCodes.CONFLICT) {
+export class SyncAlreadyExistsError extends Error {
+  public constructor(message: string) {
     super(message);
     Object.setPrototypeOf(this, SyncAlreadyExistsError.prototype);
   }
 }
 
-export class SyncNotFoundError extends Error implements HttpError {
-  public constructor(message: string, public readonly status = StatusCodes.NOT_FOUND) {
+export class SyncNotFoundError extends Error {
+  public constructor(message: string) {
     super(message);
     Object.setPrototypeOf(this, SyncNotFoundError.prototype);
   }

@@ -2,11 +2,13 @@ import { Logger } from '@map-colonies/js-logger';
 import { Meter } from '@map-colonies/telemetry';
 import { BoundCounter } from '@opentelemetry/api-metrics';
 import { RequestHandler } from 'express';
-import httpStatus from 'http-status-codes';
+import httpStatus, { StatusCodes } from 'http-status-codes';
 import { injectable, inject } from 'tsyringe';
 import { Services } from '../../common/constants';
 import { Sync } from '../models/sync';
 import { SyncManager } from '../models/syncManager';
+import { HttpError } from '../../common/errors';
+import { SyncAlreadyExistsError, SyncNotFoundError } from '../models/errors';
 
 type PatchReqBody = Omit<Sync, 'id'>;
 
@@ -23,6 +25,9 @@ export class SyncController {
       const latestSync = await this.manager.getLatestSync(req.query.layerId);
       return res.status(httpStatus.OK).json(latestSync);
     } catch (error) {
+      if (error instanceof SyncNotFoundError) {
+        (error as HttpError).status = StatusCodes.NOT_FOUND;
+      }
       next(error);
     }
   };
@@ -32,6 +37,9 @@ export class SyncController {
       await this.manager.createSync(req.body);
       return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
+      if (error instanceof SyncAlreadyExistsError) {
+        (error as HttpError).status = StatusCodes.CONFLICT;
+      }
       next(error);
     }
   };
@@ -41,6 +49,9 @@ export class SyncController {
       await this.manager.updateSync({ ...req.body, id: req.params.syncId });
       return res.status(httpStatus.OK).send(httpStatus.getStatusText(httpStatus.OK));
     } catch (error) {
+      if (error instanceof SyncNotFoundError) {
+        (error as HttpError).status = StatusCodes.NOT_FOUND;
+      }
       next(error);
     }
   };

@@ -1,15 +1,12 @@
-import { StatusCodes } from 'http-status-codes';
-import { HttpError } from '../../common/errors';
-
-export class ChangesetAlreadyExistsError extends Error implements HttpError {
-  public constructor(message: string, public readonly status = StatusCodes.CONFLICT) {
+export class ChangesetAlreadyExistsError extends Error {
+  public constructor(message: string) {
     super(message);
     Object.setPrototypeOf(this, ChangesetAlreadyExistsError.prototype);
   }
 }
 
-export class ChangesetNotFoundError extends Error implements HttpError {
-  public constructor(message: string, public readonly status = StatusCodes.NOT_FOUND) {
+export class ChangesetNotFoundError extends Error {
+  public constructor(message: string) {
     super(message);
     Object.setPrototypeOf(this, ChangesetNotFoundError.prototype);
   }

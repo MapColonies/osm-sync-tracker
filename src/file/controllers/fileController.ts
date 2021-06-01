@@ -2,11 +2,14 @@ import { Logger } from '@map-colonies/js-logger';
 import { Meter } from '@map-colonies/telemetry';
 import { BoundCounter } from '@opentelemetry/api-metrics';
 import { RequestHandler } from 'express';
-import httpStatus from 'http-status-codes';
+import httpStatus, { StatusCodes } from 'http-status-codes';
 import { injectable, inject } from 'tsyringe';
 import { Services } from '../../common/constants';
 import { File } from '../models/file';
 import { FileManager } from '../models/fileManager';
+import { HttpError } from '../../common/errors';
+import { FileAlreadyExistsError } from '../models/errors';
+import { SyncNotFoundError } from '../../sync/models/errors';
 
 type PostFileHandler = RequestHandler<{ syncId: string }, string, File>;
 type PostFilesHandler = RequestHandler<{ syncId: string }, string, File[]>;
@@ -20,6 +23,11 @@ export class FileController {
       await this.manager.createFile({ ...req.body, syncId: req.params.syncId });
       return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
+      if (error instanceof FileAlreadyExistsError) {
+        (error as HttpError).status = StatusCodes.CONFLICT;
+      } else if (error instanceof SyncNotFoundError) {
+        (error as HttpError).status = StatusCodes.NOT_FOUND;
+      }
       next(error);
     }
   };
@@ -31,6 +39,11 @@ export class FileController {
       await this.manager.createFiles(bodyWithSyncId);
       return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
+      if (error instanceof FileAlreadyExistsError) {
+        (error as HttpError).status = StatusCodes.CONFLICT;
+      } else if (error instanceof SyncNotFoundError) {
+        (error as HttpError).status = StatusCodes.NOT_FOUND;
+      }
       next(error);
     }
   };

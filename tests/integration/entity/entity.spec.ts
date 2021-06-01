@@ -1,8 +1,6 @@
-import httpStatus, { StatusCodes } from 'http-status-codes';
-import { container } from 'tsyringe';
+import httpStatus from 'http-status-codes';
 import { Application } from 'express';
-import faker from 'faker';
-import { QueryFailedError } from 'typeorm';
+import { container } from 'tsyringe';
 import { registerTestValues } from '../testContainerConfig';
 import { createStringifiedFakeSync } from '../sync/helpers/generators';
 import { StringifiedSync } from '../sync/types';
@@ -10,15 +8,14 @@ import { postSync } from '../sync/helpers/requestSender';
 import { postFile } from '../file/helpers/requestSender';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { StringifiedFile } from '../file/types';
-import { EntityStatus } from '../../../src/common/enums';
-import { Entity } from '../../../src/entity/models/entity';
 import * as requestSender from './helpers/requestSender';
 import { createStringifiedFakeEntity } from './helpers/generators';
 
-describe('sync', function () {
+describe('entity', function () {
   let app: Application;
   let sync: StringifiedSync;
   let file: StringifiedFile;
+
   beforeAll(async function () {
     await registerTestValues();
     app = requestSender.getApp();
@@ -36,7 +33,9 @@ describe('sync', function () {
       it('should return 201 status code and Created body', async function () {
         const body = createStringifiedFakeEntity();
         const response = await requestSender.postEntity(app, file.fileId as string, body);
-        console.log(response.text);
+
+        console.log(file.fileId);
+        console.log(body);
 
         expect(response.status).toBe(httpStatus.CREATED);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
@@ -55,7 +54,7 @@ describe('sync', function () {
     });
   });
 
-  describe('Bad Path', function () {
+  /*   describe('Bad Path', function () {
     describe('POST /file/:fileId/entity', function () {
       it('should return 400 if the fileId is not valid', async function () {
         const body = createStringifiedFakeEntity();
@@ -128,9 +127,9 @@ describe('sync', function () {
         expect(response).toHaveProperty('status', httpStatus.CONFLICT);
       });
     });
-  });
+  }); */
 
-  describe('Sad Path', function () {
+  /*   describe('Sad Path', function () {
     describe('POST /file/:fileId/entity', function () {
       it('should return 500 if the db throws an error', async function () {
         const createEntityMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
@@ -154,5 +153,5 @@ describe('sync', function () {
         expect(response.body).toHaveProperty('message', 'failed');
       });
     });
-  });
+  }); */
 });

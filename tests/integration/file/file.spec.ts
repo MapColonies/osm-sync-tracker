@@ -10,7 +10,7 @@ import { postSync } from '../sync/helpers/requestSender';
 import * as requestSender from './helpers/requestSender';
 import { createStringifiedFakeFile } from './helpers/generators';
 
-describe('sync', function () {
+describe('file', function () {
   let app: Application;
   let sync: StringifiedSync;
   beforeAll(async function () {
@@ -122,7 +122,9 @@ describe('sync', function () {
     describe('POST /sync/:syncId/file', function () {
       it('should return 500 if the db throws an error', async function () {
         const createFileMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
-        const mockedApp = requestSender.getMockedRepoApp({ createFile: createFileMock });
+        const findOneFileMock = jest.fn().mockResolvedValue(false);
+
+        const mockedApp = requestSender.getMockedRepoApp({ createFile: createFileMock, findOneFile: findOneFileMock });
 
         const response = await requestSender.postFile(mockedApp, sync.id as string, createStringifiedFakeFile());
 
@@ -133,7 +135,9 @@ describe('sync', function () {
     describe('POST /sync/:syncId/file/_bulk', function () {
       it('should return 500 if the db throws an error', async function () {
         const createFilesMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
-        const mockedApp = requestSender.getMockedRepoApp({ createFiles: createFilesMock });
+        const findManyFilesMock = jest.fn().mockResolvedValue(false);
+
+        const mockedApp = requestSender.getMockedRepoApp({ createFiles: createFilesMock, findManyFiles: findManyFilesMock });
         const body = createStringifiedFakeFile();
 
         const response = await requestSender.postFileBulk(mockedApp, sync.id as string, [body]);
