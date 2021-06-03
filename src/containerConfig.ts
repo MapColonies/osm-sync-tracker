@@ -20,7 +20,6 @@ import { syncRouterFactory } from './sync/routes/syncRouter';
 import fileRouterFactory from './file/routes/fileRouter';
 import entityRouterFactory from './entity/routes/entityRouter';
 import changesetRouterFactory from './changeset/routes/changesetRouter';
-import { SyncDb } from './sync/DAL/typeorm/sync';
 
 async function registerExternalValues(): Promise<void> {
   const loggerConfig = config.get<LoggerOptions>('logger');

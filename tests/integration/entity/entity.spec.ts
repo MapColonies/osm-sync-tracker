@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { Application } from 'express';
 import { DependencyContainer } from 'tsyringe';

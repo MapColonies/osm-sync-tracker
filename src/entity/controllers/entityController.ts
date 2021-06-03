@@ -1,6 +1,4 @@
 import { Logger } from '@map-colonies/js-logger';
-import { Meter } from '@map-colonies/telemetry';
-import { BoundCounter } from '@opentelemetry/api-metrics';
 import { RequestHandler } from 'express';
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { injectable, inject } from 'tsyringe';

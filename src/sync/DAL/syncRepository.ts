@@ -1,4 +1,3 @@
-import { FindOneOptions, ObjectID } from 'typeorm';
 import { Sync } from '../models/sync';
 
 export const syncRepositorySymbol = Symbol('SyncRepository');

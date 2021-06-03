@@ -1,6 +1,5 @@
 import jsLogger from '@map-colonies/js-logger';
 import { ChangesetManager } from '../../../../src/changeset/models/changesetManager';
-import { ChangesetRepository } from '../../../../src/changeset/DAL/changsetRepository';
 import { createFakeChangeset } from '../../../helpers/helper';
 import { ChangesetAlreadyExistsError, ChangesetNotFoundError } from '../../../../src/changeset/models/errors';
 
@@ -79,7 +78,7 @@ describe('ChangesetManager', () => {
       findOneChangeset.mockResolvedValue(entity);
       closeChangeset.mockResolvedValue(undefined);
 
-      const createPromise = changesetManager.closeChangeset(entity.changesetId);
+      const createPromise = changesetManager.closeChangeset(entity.changesetId, 'public');
 
       await expect(createPromise).resolves.not.toThrow();
     });
@@ -89,7 +88,7 @@ describe('ChangesetManager', () => {
 
       findOneChangeset.mockResolvedValue(undefined);
 
-      const createPromise = changesetManager.closeChangeset(entity.changesetId);
+      const createPromise = changesetManager.closeChangeset(entity.changesetId, 'public');
 
       await expect(createPromise).rejects.toThrow(ChangesetNotFoundError);
     });

@@ -1,6 +1,6 @@
 import { Column, Entity as EntityDecorator, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { Changeset } from '../../../changeset/DAL/typeorm/changeset';
-import { ActionType, EntityStatus, Status } from '../../../common/enums';
+import { ActionType, EntityStatus } from '../../../common/enums';
 import { File } from '../../../file/DAL/typeorm/file';
 
 @EntityDecorator()
