@@ -1,4 +1,5 @@
 import { Logger } from '@map-colonies/js-logger';
+import _ from 'lodash';
 import { inject, injectable } from 'tsyringe';
 import { Services } from '../../common/constants';
 import { FileRepository, fileRepositorySymbol } from '../../file/DAL/fileRepository';
@@ -31,8 +32,14 @@ export class EntityManager {
 
   public async createEntities(entities: Entity[]): Promise<void> {
     const fileEntity = await this.fileRepository.findOneFile(entities[0].fileId);
+    const dup = _.uniqBy(entities, 'entityId');
+
     if (!fileEntity) {
       throw new FileNotFoundError(`file = ${entities[0].fileId} not found`);
+    }
+
+    if (dup.length !== entities.length) {
+      throw new EntityAlreadyExistsError(`files = [${entities.map((file) => file.fileId).toString()}] already exists`);
     }
 
     const entityEntities = await this.entityRepository.findManyEntites(entities);

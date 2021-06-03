@@ -28,11 +28,11 @@ export class ChangesetManager {
     await this.changesetRepository.updateChangeset(changesetId, changeset);
   }
 
-  public async closeChangeset(changesetId: string): Promise<void> {
+  public async closeChangeset(changesetId: string, schema: string): Promise<void> {
     const changesetEntity = await this.changesetRepository.findOneChangeset(changesetId);
     if (!changesetEntity) {
       throw new ChangesetNotFoundError(`changeset = ${changesetId} not found`);
     }
-    await this.changesetRepository.closeChangeset(changesetId);
+    await this.changesetRepository.closeChangeset(changesetId, schema);
   }
 }

@@ -1,4 +1,4 @@
-import { container } from 'tsyringe';
+import { container, DependencyContainer } from 'tsyringe';
 import { Connection } from 'typeorm';
 import config from 'config';
 import { Tracing, Metrics } from '@map-colonies/telemetry';
@@ -14,35 +14,49 @@ import { TypeormFileRepository } from '../../src/file/DAL/typeorm/typeormFileRep
 import { TypeormEntityRepository } from '../../src/entity/DAL/typeorm/typeormEntityRepository';
 import { TypeormChangesetRepository } from '../../src/changeset/DAL/typeorm/typeormEntityRepository';
 import { changesetRepositorySymbol } from '../../src/changeset/DAL/changsetRepository';
+import { syncRouterFactory } from '../../src/sync/routes/syncRouter';
+import fileRouterFactory from '../../src/file/routes/fileRouter';
+import entityRouterFactory from '../../src/entity/routes/entityRouter';
+import changesetRouterFactory from '../../src/changeset/routes/changesetRouter';
 
-async function registerTestValues(): Promise<void> {
-  container.register(Services.CONFIG, { useValue: config });
-  container.register(Services.LOGGER, { useValue: jsLogger({ enabled: false }) });
+async function registerTestValues(): Promise<DependencyContainer> {
+  const child = container.createChildContainer();
+
+  child.register(Services.CONFIG, { useValue: config });
+  child.register(Services.LOGGER, { useValue: jsLogger({ enabled: false }) });
 
   const tracing = new Tracing('app_tracer');
   const tracer = tracing.start();
-  container.register(Services.TRACER, { useValue: tracer });
+  child.register(Services.TRACER, { useValue: tracer });
 
   const metrics = new Metrics('app_meter');
   const meter = metrics.start();
-  container.register(Services.METER, { useValue: meter });
+  child.register(Services.METER, { useValue: meter });
 
   const connectionOptions = config.get<DbConfig>('db');
+
   const connection = await initConnection({ ...connectionOptions, entities: ['**/DAL/typeorm/*.ts'] });
 
   await connection.synchronize();
 
-  container.register(Connection, { useValue: connection });
+  child.register(Connection, { useValue: connection });
+
+  child.register('sync', { useFactory: syncRouterFactory });
+  child.register('file', { useFactory: fileRouterFactory });
+  child.register('entity', { useFactory: entityRouterFactory });
+  child.register('changeset', { useFactory: changesetRouterFactory });
 
   const syncRepo = connection.getCustomRepository(TypeormSyncRepository);
   const fileRepo = connection.getCustomRepository(TypeormFileRepository);
   const entityRepo = connection.getCustomRepository(TypeormEntityRepository);
   const changesetRepo = connection.getCustomRepository(TypeormChangesetRepository);
 
-  container.register(syncRepositorySymbol, { useValue: syncRepo });
-  container.register(fileRepositorySymbol, { useValue: fileRepo });
-  container.register(entityRepositorySymbol, { useValue: entityRepo });
-  container.register(changesetRepositorySymbol, { useValue: changesetRepo });
+  child.register(syncRepositorySymbol, { useValue: syncRepo });
+  child.register(fileRepositorySymbol, { useValue: fileRepo });
+  child.register(entityRepositorySymbol, { useValue: entityRepo });
+  child.register(changesetRepositorySymbol, { useValue: changesetRepo });
+
+  return child;
 }
 
 export { registerTestValues };

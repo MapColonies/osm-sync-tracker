@@ -1,5 +1,7 @@
+import config from 'config';
 import { EntityRepository, Repository, SelectQueryBuilder } from 'typeorm';
 import { EntityStatus, Status } from '../../../common/enums';
+import { DbConfig } from '../../../common/interfaces';
 import { Entity } from '../../../entity/DAL/typeorm/entity';
 import { File } from '../../../file/DAL/typeorm/file';
 import { Changeset, UpdateChangeset } from '../../models/changeset';
@@ -17,7 +19,7 @@ export class TypeormChangesetRepository extends Repository<ChangesetDb> implemen
     await this.update(changesetId, changeset);
   }
 
-  public async closeChangeset(changesetId: string): Promise<void> {
+  public async closeChangeset(changesetId: string, schema: string): Promise<void> {
     await this.manager.connection.transaction(async (transactionalEntityManager) => {
       await transactionalEntityManager
         .createQueryBuilder()
@@ -29,12 +31,12 @@ export class TypeormChangesetRepository extends Repository<ChangesetDb> implemen
       await transactionalEntityManager.query(
         `with touched_files as (
               select distinct file_id 
-              from osm_sync_tracker.entity 
+              from ${schema}.entity 
               where changeset_id = $1)
             
-          UPDATE osm_sync_tracker.file as FILE set status = 'completed', end_date = current_timestamp
+          UPDATE ${schema}.file as FILE set status = 'completed', end_date = current_timestamp
             FROM (select file_id, COUNT(*) as CompletedEntities
-              from osm_sync_tracker.entity
+              from ${schema}.entity
               where file_id in (select * from touched_files)
                 and status = 'completed'
               group by file_id) as FILES_TO_UPDATE
@@ -46,11 +48,11 @@ export class TypeormChangesetRepository extends Repository<ChangesetDb> implemen
       await transactionalEntityManager.query(
         `with touched_files as (
             select distinct file_id 
-            from osm_sync_tracker.entity 
+            from ${schema}.entity 
             where changeset_id = $1)
             
-          UPDATE osm_sync_tracker.sync as sync_to_update set status = 'completed', end_date = current_timestamp
-            FROM (select distinct sync_id, COUNT(file_id) as CompletedFiles from osm_sync_tracker.file
+          UPDATE ${schema}.sync as sync_to_update set status = 'completed', end_date = current_timestamp
+            FROM (select distinct sync_id, COUNT(file_id) as CompletedFiles from ${schema}.file
                 where file_id in (select * from touched_files) and status = 'completed'
               group by sync_id) as sync_from_changeset
           WHERE sync_to_update.id = sync_from_changeset.sync_id 
@@ -58,25 +60,6 @@ export class TypeormChangesetRepository extends Repository<ChangesetDb> implemen
         [changesetId]
       );
     });
-
-    /*const test: (qb: SelectQueryBuilder<any>) => SelectQueryBuilder<any> = (qb) => {
-      return qb
-        .select('file_id')
-        .addSelect('COUNT(*)', 'CompletedEntities')
-        .from(Entity, 'entity')
-        .where((qb) => {
-          const touchedFiles = qb
-            .subQuery()
-            .select('file_id')
-            .distinct(true)
-            .from(Entity, 'entity')
-            .where(`changeset_id = :changesetId`, { changesetId })
-            .getQuery();
-          return 'file_id IN ' + touchedFiles;
-        })
-        .andWhere('status = :status', { status: EntityStatus.COMPLETED })
-        .groupBy('file_id');
-    }; */
   }
 
   public async findOneChangeset(changesetId: string): Promise<ChangesetDb | undefined> {

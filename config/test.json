@@ -1,7 +1,7 @@
 {
   "db": {
     "username": "postgres",
-    "password": "1234",
+    "password": "postgres",
     "enableSslAuth": false,
     "database": "postgres",
     "schema": "public"

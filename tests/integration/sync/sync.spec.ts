@@ -1,20 +1,27 @@
 import httpStatus, { StatusCodes } from 'http-status-codes';
-import { container } from 'tsyringe';
+import { DependencyContainer } from 'tsyringe';
 import { Application } from 'express';
 import faker from 'faker';
-import { QueryFailedError } from 'typeorm';
+import { Connection, QueryFailedError } from 'typeorm';
 import { registerTestValues } from '../testContainerConfig';
 import * as requestSender from './helpers/requestSender';
 import { createStringifiedFakeSync } from './helpers/generators';
 
+jest.setTimeout(30000);
+
 describe('sync', function () {
   let app: Application;
+  let connection: Connection;
+  let container: DependencyContainer;
+
   beforeAll(async function () {
-    await registerTestValues();
-    app = requestSender.getApp();
+    container = await registerTestValues();
+    app = requestSender.getApp(container);
+    connection = container.resolve(Connection);
   });
-  afterAll(function () {
-    container.clearInstances();
+  afterAll(async function () {
+    await connection.close();
+    container.reset();
   });
 
   describe('Happy Path', function () {
@@ -137,7 +144,7 @@ describe('sync', function () {
       it('should return 500 if the db throws an error', async function () {
         const createSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
         const findOneSyncMock = jest.fn();
-        const mockedApp = requestSender.getMockedRepoApp({ createSync: createSyncMock, findOneSync: findOneSyncMock });
+        const mockedApp = requestSender.getMockedRepoApp(container, { createSync: createSyncMock, findOneSync: findOneSyncMock });
 
         const response = await requestSender.postSync(mockedApp, createStringifiedFakeSync());
 
@@ -150,7 +157,7 @@ describe('sync', function () {
       it('should return 500 if the db throws an error', async function () {
         const createSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
         const findOneSyncMock = jest.fn().mockResolvedValue(true);
-        const mockedApp = requestSender.getMockedRepoApp({ updateSync: createSyncMock, findOneSync: findOneSyncMock });
+        const mockedApp = requestSender.getMockedRepoApp(container, { updateSync: createSyncMock, findOneSync: findOneSyncMock });
         const body = createStringifiedFakeSync();
 
         const response = await requestSender.patchSync(mockedApp, body.id as string, body);
@@ -162,7 +169,7 @@ describe('sync', function () {
     describe('GET /sync/latest', function () {
       it('should return 500 if the db throws an error', async function () {
         const createSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
-        const mockedApp = requestSender.getMockedRepoApp({ getLatestSync: createSyncMock });
+        const mockedApp = requestSender.getMockedRepoApp(container, { getLatestSync: createSyncMock });
         const body = createStringifiedFakeSync();
 
         const response = await requestSender.getLatestSync(mockedApp, body.layerId as number);

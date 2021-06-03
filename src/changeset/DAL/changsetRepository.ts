@@ -8,7 +8,7 @@ export interface ChangesetRepository {
 
   updateChangeset: (changesetId: string, changeset: UpdateChangeset) => Promise<void>;
 
-  closeChangeset: (entityId: string) => Promise<void>;
+  closeChangeset: (entityId: string, schema: string) => Promise<void>;
 
   findOneChangeset: (changesetId: string) => Promise<ChangesetDb | undefined>;
 }

@@ -1,6 +1,5 @@
 import { EntityRepository, Repository } from 'typeorm';
 import { Entity, UpdateEntity } from '../../models/entity';
-import { EntityAlreadyExistsError, EntityNotFoundError } from '../../models/errors';
 import { EntityRepository as EntityRepo } from '../entityRepository';
 import { Entity as EntityDb } from './entity';
 

@@ -9,6 +9,7 @@ import { Changeset, UpdateChangeset } from '../models/changeset';
 import { ChangesetManager } from '../models/changesetManager';
 import { HttpError } from '../../common/errors';
 import { ChangesetAlreadyExistsError, ChangesetNotFoundError } from '../models/errors';
+import { IConfig } from '../../common/interfaces';
 
 type PostChangesetHandler = RequestHandler<undefined, string, Changeset>;
 type PatchChangesetHandler = RequestHandler<{ changesetId: string }, string, UpdateChangeset>;
@@ -16,7 +17,11 @@ type PutChangesetHandler = RequestHandler<{ changesetId: string }, string, undef
 
 @injectable()
 export class ChangesetController {
-  public constructor(@inject(Services.LOGGER) private readonly logger: Logger, private readonly manager: ChangesetManager) {}
+  public constructor(
+    @inject(Services.LOGGER) private readonly logger: Logger,
+    @inject(Services.CONFIG) private readonly config: IConfig,
+    private readonly manager: ChangesetManager
+  ) {}
 
   public postChangeset: PostChangesetHandler = async (req, res, next) => {
     try {
@@ -33,7 +38,7 @@ export class ChangesetController {
   public patchChangeset: PatchChangesetHandler = async (req, res, next) => {
     try {
       await this.manager.updateChangeset(req.params.changesetId, req.body);
-      return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
+      return res.status(httpStatus.OK).send(httpStatus.getStatusText(httpStatus.OK));
     } catch (error) {
       if (error instanceof ChangesetNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
@@ -44,7 +49,7 @@ export class ChangesetController {
 
   public putChangeset: PutChangesetHandler = async (req, res, next) => {
     try {
-      await this.manager.closeChangeset(req.params.changesetId);
+      await this.manager.closeChangeset(req.params.changesetId, this.config.get('db.schema'));
       return res.status(httpStatus.OK).send(httpStatus.getStatusText(httpStatus.OK));
     } catch (error) {
       if (error instanceof ChangesetNotFoundError) {

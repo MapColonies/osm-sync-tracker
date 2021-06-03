@@ -9,6 +9,7 @@ import { Entity, UpdateEntity } from '../models/entity';
 import { EntityManager } from '../models/entityManager';
 import { HttpError } from '../../common/errors';
 import { EntityAlreadyExistsError, EntityNotFoundError } from '../models/errors';
+import { FileNotFoundError } from '../../file/models/errors';
 
 type PostEntityHandler = RequestHandler<{ fileId: string }, string, Entity>;
 type PostEntitiesHandler = RequestHandler<{ fileId: string }, string, Entity[]>;
@@ -25,6 +26,8 @@ export class EntityController {
     } catch (error) {
       if (error instanceof EntityAlreadyExistsError) {
         (error as HttpError).status = StatusCodes.CONFLICT;
+      } else if (error instanceof FileNotFoundError) {
+        (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
       next(error);
     }
@@ -39,6 +42,8 @@ export class EntityController {
     } catch (error) {
       if (error instanceof EntityAlreadyExistsError) {
         (error as HttpError).status = StatusCodes.CONFLICT;
+      } else if (error instanceof FileNotFoundError) {
+        (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
       next(error);
     }

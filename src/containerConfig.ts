@@ -16,6 +16,11 @@ import { entityRepositorySymbol } from './entity/DAL/entityRepository';
 import { TypeormEntityRepository } from './entity/DAL/typeorm/typeormEntityRepository';
 import { changesetRepositorySymbol } from './changeset/DAL/changsetRepository';
 import { TypeormChangesetRepository } from './changeset/DAL/typeorm/typeormEntityRepository';
+import { syncRouterFactory } from './sync/routes/syncRouter';
+import fileRouterFactory from './file/routes/fileRouter';
+import entityRouterFactory from './entity/routes/entityRouter';
+import changesetRouterFactory from './changeset/routes/changesetRouter';
+import { SyncDb } from './sync/DAL/typeorm/sync';
 
 async function registerExternalValues(): Promise<void> {
   const loggerConfig = config.get<LoggerOptions>('logger');
@@ -27,6 +32,8 @@ async function registerExternalValues(): Promise<void> {
   const connectionOptions = config.get<DbConfig>('db');
   const connection = await initConnection(connectionOptions);
 
+  await connection.query(`select 1 from ${config.get<string>('db.schema')}.migrations_table`);
+
   container.register('healthcheck', { useValue: getDbHealthCheckFunction(connection) });
 
   container.register(Connection, { useValue: connection });
@@ -34,6 +41,11 @@ async function registerExternalValues(): Promise<void> {
   container.register(fileRepositorySymbol, { useValue: connection.getCustomRepository(TypeormFileRepository) });
   container.register(entityRepositorySymbol, { useValue: connection.getCustomRepository(TypeormEntityRepository) });
   container.register(changesetRepositorySymbol, { useValue: connection.getCustomRepository(TypeormChangesetRepository) });
+
+  container.register('sync', { useFactory: syncRouterFactory });
+  container.register('file', { useFactory: fileRouterFactory });
+  container.register('entity', { useFactory: entityRouterFactory });
+  container.register('changeset', { useFactory: changesetRouterFactory });
 
   const tracer = tracing.start();
   container.register(Services.TRACER, { useValue: tracer });

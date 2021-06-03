@@ -14,9 +14,7 @@ image:
   repository: some_name
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
-
-
+  tag: ''
 
 resources:
   enabled: false

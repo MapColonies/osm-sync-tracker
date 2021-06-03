@@ -156,7 +156,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/entity'
+              allOf:
+                - $ref: '#/components/schemas/entity'
+                - type: object
+                  required:
+                    - status
+                    - entityId
+                    - action
         required: true
       operationId: postEntity
       tags:
@@ -181,7 +187,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/entity'
+              type: array
+              items:
+                $ref: '#/components/schemas/entity'
         required: true
       operationId: postEntities
       tags:
@@ -421,8 +429,6 @@ components:
     entityWithoutId:
       type: object
       properties:
-        entityId:
-          $ref: '#/components/schemas/entityId'
         fileId:
           allOf:
             - $ref: '#/components/schemas/uniqueId'

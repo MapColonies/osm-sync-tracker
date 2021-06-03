@@ -1,24 +1,27 @@
-import express from 'express';
+import express, { Router } from 'express';
 import bodyParser from 'body-parser';
 import compression from 'compression';
 import { OpenapiViewerRouter, OpenapiRouterConfig } from '@map-colonies/openapi-express-viewer';
 import { getErrorHandlerMiddleware } from '@map-colonies/error-express-handler';
 import { middleware as OpenApiMiddleware } from 'express-openapi-validator';
-import { container, inject, injectable } from 'tsyringe';
+import { inject, injectable } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import httpLogger from '@map-colonies/express-access-log-middleware';
 import { Services } from './common/constants';
 import { IConfig } from './common/interfaces';
-import { syncRouterFactory } from './sync/routes/syncRouter';
-import fileRouterFactory from './file/routes/fileRouter';
-import entityRouterFactory from './entity/routes/entityRouter';
-import changesetRouterFactory from './changeset/routes/changesetRouter';
 
 @injectable()
 export class ServerBuilder {
   private readonly serverInstance: express.Application;
 
-  public constructor(@inject(Services.CONFIG) private readonly config: IConfig, @inject(Services.LOGGER) private readonly logger: Logger) {
+  public constructor(
+    @inject(Services.CONFIG) private readonly config: IConfig,
+    @inject(Services.LOGGER) private readonly logger: Logger,
+    @inject('file') private readonly fileRouter: Router,
+    @inject('sync') private readonly syncRouter: Router,
+    @inject('entity') private readonly entityRouter: Router,
+    @inject('changeset') private readonly changesetRouter: Router
+  ) {
     this.serverInstance = express();
   }
 
@@ -37,9 +40,9 @@ export class ServerBuilder {
   }
 
   private buildRoutes(): void {
-    this.serverInstance.use('/sync', syncRouterFactory(container), fileRouterFactory(container));
-    this.serverInstance.use('/file', entityRouterFactory(container));
-    this.serverInstance.use('/changeset', changesetRouterFactory(container));
+    this.serverInstance.use('/sync', this.syncRouter, this.fileRouter);
+    this.serverInstance.use('/file', this.entityRouter);
+    this.serverInstance.use('/changeset', this.changesetRouter);
     this.buildDocsRoutes();
   }
 

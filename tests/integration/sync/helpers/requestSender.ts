@@ -1,15 +1,15 @@
 import * as supertest from 'supertest';
 import { Application } from 'express';
-import { container } from 'tsyringe';
+import { DependencyContainer } from 'tsyringe';
 import { ServerBuilder } from '../../../../src/serverBuilder';
 import { StringifiedSync } from '../types';
 import { syncRepositorySymbol } from '../../../../src/sync/DAL/syncRepository';
 
-export function getApp(): Application {
+export function getApp(container: DependencyContainer): Application {
   return container.resolve(ServerBuilder).build();
 }
 
-export function getMockedRepoApp(repo: unknown): Application {
+export function getMockedRepoApp(container: DependencyContainer, repo: unknown): Application {
   container.register(syncRepositorySymbol, { useValue: repo });
   const builder = container.resolve<ServerBuilder>(ServerBuilder);
   return builder.build();

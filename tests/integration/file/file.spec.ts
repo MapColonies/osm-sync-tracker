@@ -1,8 +1,8 @@
 import httpStatus, { StatusCodes } from 'http-status-codes';
-import { container } from 'tsyringe';
+import { DependencyContainer } from 'tsyringe';
 import { Application } from 'express';
 import faker from 'faker';
-import { QueryFailedError } from 'typeorm';
+import { Connection, QueryFailedError } from 'typeorm';
 import { registerTestValues } from '../testContainerConfig';
 import { createStringifiedFakeSync } from '../sync/helpers/generators';
 import { StringifiedSync } from '../sync/types';
@@ -10,17 +10,25 @@ import { postSync } from '../sync/helpers/requestSender';
 import * as requestSender from './helpers/requestSender';
 import { createStringifiedFakeFile } from './helpers/generators';
 
+jest.setTimeout(30000);
+
 describe('file', function () {
   let app: Application;
   let sync: StringifiedSync;
+  let connection: Connection;
+  let container: DependencyContainer;
+
   beforeAll(async function () {
-    await registerTestValues();
-    app = requestSender.getApp();
+    container = await registerTestValues();
+    app = requestSender.getApp(container);
     sync = createStringifiedFakeSync();
     await postSync(app, sync);
+    connection = container.resolve(Connection);
   });
-  afterAll(function () {
-    container.clearInstances();
+
+  afterAll(async function () {
+    container.reset();
+    await connection.close();
   });
 
   describe('Happy Path', function () {
@@ -124,7 +132,7 @@ describe('file', function () {
         const createFileMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
         const findOneFileMock = jest.fn().mockResolvedValue(false);
 
-        const mockedApp = requestSender.getMockedRepoApp({ createFile: createFileMock, findOneFile: findOneFileMock });
+        const mockedApp = requestSender.getMockedRepoApp(container, { createFile: createFileMock, findOneFile: findOneFileMock });
 
         const response = await requestSender.postFile(mockedApp, sync.id as string, createStringifiedFakeFile());
 
@@ -137,7 +145,7 @@ describe('file', function () {
         const createFilesMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
         const findManyFilesMock = jest.fn().mockResolvedValue(false);
 
-        const mockedApp = requestSender.getMockedRepoApp({ createFiles: createFilesMock, findManyFiles: findManyFilesMock });
+        const mockedApp = requestSender.getMockedRepoApp(container, { createFiles: createFilesMock, findManyFiles: findManyFilesMock });
         const body = createStringifiedFakeFile();
 
         const response = await requestSender.postFileBulk(mockedApp, sync.id as string, [body]);

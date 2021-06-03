@@ -1,28 +1,33 @@
 import * as supertest from 'supertest';
 import { Application } from 'express';
-import { container } from 'tsyringe';
+import { DependencyContainer } from 'tsyringe';
 import { ServerBuilder } from '../../../../src/serverBuilder';
-import { Entity } from '../../../../src/entity/models/entity';
 import { entityRepositorySymbol } from '../../../../src/entity/DAL/entityRepository';
+import { StringifiedEntity } from './generators';
 
-export function getApp(): Application {
+export function getApp(container: DependencyContainer): Application {
   return container.resolve(ServerBuilder).build();
 }
 
-export function getMockedRepoApp(repo: unknown): Application {
+export function getMockedRepoApp(container: DependencyContainer, repo: unknown): Application {
   container.register(entityRepositorySymbol, { useValue: repo });
   const builder = container.resolve<ServerBuilder>(ServerBuilder);
   return builder.build();
 }
 
-export async function postEntity(app: Application, fileId: string, body: Entity): Promise<supertest.Response> {
+export async function postEntity(app: Application, fileId: string, body: StringifiedEntity): Promise<supertest.Response> {
   return supertest.agent(app).post(`/file/${fileId}/entity`).set('Content-Type', 'application/json').send(body);
 }
 
-export async function postEntityBulk(app: Application, fileId: string, body: Entity[]): Promise<supertest.Response> {
+export async function postEntityBulk(app: Application, fileId: string, body: StringifiedEntity[]): Promise<supertest.Response> {
   return supertest.agent(app).post(`/file/${fileId}/entity/_bulk`).set('Content-Type', 'application/json').send(body);
 }
 
-export async function patchEntity(app: Application, fileId: string, entityId: Entity, body: Omit<Entity, 'fileId'>): Promise<supertest.Response> {
-  return supertest.agent(app).patch(`/file/${fileId}/entity`).set('Content-Type', 'application/json').send(body);
+export async function patchEntity(
+  app: Application,
+  fileId: string,
+  entityId: string,
+  body: Omit<StringifiedEntity, 'entityId'>
+): Promise<supertest.Response> {
+  return supertest.agent(app).patch(`/file/${fileId}/entity/${entityId}`).set('Content-Type', 'application/json').send(body);
 }
