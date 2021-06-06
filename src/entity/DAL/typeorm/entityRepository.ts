@@ -1,10 +1,10 @@
-import { EntityRepository, Repository } from 'typeorm';
+import { EntityRepository as TypeormEntityRepository, Repository } from 'typeorm';
 import { Entity, UpdateEntity } from '../../models/entity';
-import { EntityRepository as EntityRepo } from '../entityRepository';
+import { IEntityRepository as EntityRepo } from '../entityRepository';
 import { Entity as EntityDb } from './entity';
 
-@EntityRepository(EntityDb)
-export class TypeormEntityRepository extends Repository<EntityDb> implements EntityRepo {
+@TypeormEntityRepository(EntityDb)
+export class EntityRepository extends Repository<EntityDb> implements EntityRepo {
   public async createEntity(entity: Entity): Promise<void> {
     await this.insert(entity);
   }

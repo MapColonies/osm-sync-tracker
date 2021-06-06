@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { DependencyContainer } from 'tsyringe';
 import { Application } from 'express';
@@ -15,8 +14,6 @@ import { createStringifiedFakeSync } from '../sync/helpers/generators';
 import { createStringifiedFakeEntity, StringifiedEntity } from '../entity/helpers/generators';
 import * as requestSender from './helpers/requestSender';
 import { createStringifiedFakeChangeset } from './helpers/generators';
-
-jest.setTimeout(30000);
 
 describe('changeset', function () {
   let app: Application;
@@ -131,7 +128,7 @@ describe('changeset', function () {
         expect(response.body).toHaveProperty('message', 'request.body.osmId should be integer');
       });
 
-      it('should return 404 if no changeset with the specificed id was found', async function () {
+      it('should return 404 if no changeset with the specified id was found', async function () {
         const { changesetId, ...body } = createStringifiedFakeChangeset();
 
         const response = await requestSender.patchChangeset(app, faker.datatype.uuid(), body);
@@ -151,7 +148,7 @@ describe('changeset', function () {
         expect(response.body).toHaveProperty('message', 'request.params.changesetId should match format "uuid"');
       });
 
-      it('should return 404 if no changeset with the specificed id was found', async function () {
+      it('should return 404 if no changeset with the specified id was found', async function () {
         const response = await requestSender.putChangeset(app, faker.datatype.uuid());
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);

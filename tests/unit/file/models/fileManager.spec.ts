@@ -40,7 +40,7 @@ describe('FileManager', () => {
   });
 
   describe('#createFile', () => {
-    it('resolves without errors if fileId are not used', async () => {
+    it('resolves without errors if fileId is not already in use by the db', async () => {
       const sync = createFakeSync();
       const entity = createFakeFile();
 
@@ -53,7 +53,7 @@ describe('FileManager', () => {
       await expect(createPromise).resolves.not.toThrow();
     });
 
-    it('rejects if fileId already exists', async () => {
+    it('rejects if fileId already in use by the db', async () => {
       const file = createFakeFile();
       const sync = createFakeSync();
 
@@ -65,7 +65,7 @@ describe('FileManager', () => {
       await expect(createPromise).rejects.toThrow(FileAlreadyExistsError);
     });
 
-    it('rejects if syncId not exists', async () => {
+    it('rejects if syncId not exists in the db', async () => {
       const file = createFakeFile();
 
       findOneSync.mockResolvedValue(undefined);
@@ -78,7 +78,7 @@ describe('FileManager', () => {
   });
 
   describe('#createFiles', () => {
-    it("resolves without errors if fileId's are not used", async () => {
+    it("resolves without errors if all of the filesId's are not already in use by the db", async () => {
       const files = createFakeFiles(faker.datatype.number());
       const sync = createFakeSync();
 
@@ -86,31 +86,31 @@ describe('FileManager', () => {
       findManyFiles.mockResolvedValue(undefined);
       createFiles.mockResolvedValue(undefined);
 
-      const createPromise = fileManager.createFiles(files);
+      const createBulkPromise = fileManager.createFiles(files);
 
-      await expect(createPromise).resolves.not.toThrow();
+      await expect(createBulkPromise).resolves.not.toThrow();
     });
 
-    it('rejects if fileId already exists', async () => {
+    it("rejects if one of the filesId's already exists in the db", async () => {
       const files = createFakeFiles(faker.datatype.number());
       const sync = createFakeSync();
 
       findOneSync.mockResolvedValue(sync);
       findManyFiles.mockResolvedValue(files);
 
-      const createPromise = fileManager.createFiles(files);
+      const createBulkPromise = fileManager.createFiles(files);
 
-      await expect(createPromise).rejects.toThrow(FileAlreadyExistsError);
+      await expect(createBulkPromise).rejects.toThrow(FileAlreadyExistsError);
     });
 
-    it('rejects if syncId not exists', async () => {
+    it('rejects if syncId is not exists in the db', async () => {
       const files = createFakeFiles(faker.datatype.number());
 
       findOneSync.mockResolvedValue(undefined);
 
-      const createPromise = fileManager.createFiles(files);
+      const createBulkPromise = fileManager.createFiles(files);
 
-      await expect(createPromise).rejects.toThrow(SyncNotFoundError);
+      await expect(createBulkPromise).rejects.toThrow(SyncNotFoundError);
     });
   });
 });

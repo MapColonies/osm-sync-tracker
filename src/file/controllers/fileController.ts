@@ -26,15 +26,13 @@ export class FileController {
       } else if (error instanceof SyncNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
-      next(error);
+      return next(error);
     }
   };
 
   public postFiles: PostFilesHandler = async (req, res, next) => {
     try {
-      const syncId = req.params.syncId;
-      const bodyWithSyncId = req.body.map((file) => ({ ...file, syncId }));
-      await this.manager.createFiles(bodyWithSyncId);
+      await this.manager.createFiles(req.params.syncId, req.body);
       return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
       if (error instanceof FileAlreadyExistsError) {
@@ -42,7 +40,7 @@ export class FileController {
       } else if (error instanceof SyncNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
-      next(error);
+      return next(error);
     }
   };
 }

@@ -26,7 +26,7 @@ describe('SyncManager', () => {
   });
 
   describe('#createSync', () => {
-    it('resolves without errors if id are not used', async () => {
+    it('resolves without errors if syncId is not already in use by the db', async () => {
       const entity = createFakeSync();
 
       findOneSync.mockResolvedValue(undefined);
@@ -37,12 +37,10 @@ describe('SyncManager', () => {
       await expect(createPromise).resolves.not.toThrow();
     });
 
-    it('rejects if id already exists', async () => {
+    it('rejects if syncId already in use by the db', async () => {
       const entity = createFakeSync();
 
       findOneSync.mockResolvedValue(entity);
-      //createSync.mockRejectedValue();
-
       const createPromise = syncManager.createSync(entity);
 
       await expect(createPromise).rejects.toThrow(SyncAlreadyExistsError);
@@ -50,48 +48,45 @@ describe('SyncManager', () => {
   });
 
   describe('#updateSync', () => {
-    it('resolves without errors if id exists', async () => {
+    it('resolves without errors if the sync is exists in the db', async () => {
       const entity = createFakeSync();
 
       findOneSync.mockResolvedValue(entity);
       updateSync.mockResolvedValue(undefined);
 
-      const createPromise = syncManager.updateSync(entity);
+      const updatePromise = syncManager.updateSync(entity);
 
-      await expect(createPromise).resolves.not.toThrow();
+      await expect(updatePromise).resolves.not.toThrow();
     });
 
-    it('rejects if id not exists', async () => {
+    it('rejects if ths sync is not exists in the db', async () => {
       const entity = createFakeSync();
 
       findOneSync.mockResolvedValue(undefined);
-      //updateSync.mockRejectedValue(new SyncNotFoundError(`sync = ${entity.id} not found`));
+      const updatePromise = syncManager.updateSync(entity);
 
-      const createPromise = syncManager.updateSync(entity);
-
-      await expect(createPromise).rejects.toThrow(SyncNotFoundError);
+      await expect(updatePromise).rejects.toThrow(SyncNotFoundError);
     });
   });
 
   describe('#getLatestSync', () => {
-    it('resolves without errors if id exists', async () => {
+    it('resolves without errors if the sync exists in the db', async () => {
       const entity = createFakeSync();
 
       getLatestSync.mockResolvedValue(entity);
 
-      const createPromise = syncManager.getLatestSync(entity.layerId);
+      const getLatestPromise = syncManager.getLatestSync(entity.layerId);
 
-      await expect(createPromise).resolves.not.toThrow();
+      await expect(getLatestPromise).resolves.not.toThrow();
     });
 
-    it('rejects if id not exists', async () => {
+    it('rejects if the sync is not exists in the db', async () => {
       const entity = createFakeSync();
 
       getLatestSync.mockResolvedValue(undefined);
+      const getLatestPromise = syncManager.getLatestSync(entity.layerId);
 
-      const createPromise = syncManager.getLatestSync(entity.layerId);
-
-      await expect(createPromise).rejects.toThrow(SyncNotFoundError);
+      await expect(getLatestPromise).rejects.toThrow(SyncNotFoundError);
     });
   });
 });

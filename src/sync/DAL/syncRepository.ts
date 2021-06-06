@@ -2,7 +2,7 @@ import { Sync } from '../models/sync';
 
 export const syncRepositorySymbol = Symbol('SyncRepository');
 
-export interface SyncRepository {
+export interface ISyncRepository {
   getLatestSync: (layerId: number) => Promise<Sync | undefined>;
 
   createSync: (sync: Sync) => Promise<void>;

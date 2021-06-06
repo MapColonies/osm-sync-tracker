@@ -3,7 +3,7 @@ import { Changeset as ChangesetDb } from './typeorm/changeset';
 
 export const changesetRepositorySymbol = Symbol('ChangestRepository');
 
-export interface ChangesetRepository {
+export interface IChangesetRepository {
   createChangeset: (changeset: Changeset) => Promise<void>;
 
   updateChangeset: (changesetId: string, changeset: UpdateChangeset) => Promise<void>;

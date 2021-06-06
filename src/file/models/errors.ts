@@ -5,6 +5,13 @@ export class FileAlreadyExistsError extends Error {
   }
 }
 
+export class DuplicateFilesError extends Error {
+  public constructor(message: string) {
+    super(message);
+    Object.setPrototypeOf(this, DuplicateFilesError.prototype);
+  }
+}
+
 export class FileNotFoundError extends Error {
   public constructor(message: string) {
     super(message);

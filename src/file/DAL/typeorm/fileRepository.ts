@@ -1,10 +1,10 @@
 import { EntityRepository, Repository } from 'typeorm';
 import { File } from '../../models/file';
-import { FileRepository } from '../fileRepository';
+import { IFileRepository } from '../fileRepository';
 import { File as FileDb } from './file';
 
 @EntityRepository(FileDb)
-export class TypeormFileRepository extends Repository<FileDb> implements FileRepository {
+export class FileRepository extends Repository<FileDb> implements IFileRepository {
   public async createFile(file: File): Promise<void> {
     await this.insert(file);
   }

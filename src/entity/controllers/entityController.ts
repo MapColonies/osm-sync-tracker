@@ -27,15 +27,13 @@ export class EntityController {
       } else if (error instanceof FileNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
-      next(error);
+      return next(error);
     }
   };
 
   public postEntities: PostEntitiesHandler = async (req, res, next) => {
     try {
-      const fileId = req.params.fileId;
-      const bodyWithFileId = req.body.map((entity) => ({ ...entity, fileId }));
-      await this.manager.createEntities(bodyWithFileId);
+      await this.manager.createEntities(req.params.fileId, req.body);
       return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
       if (error instanceof EntityAlreadyExistsError) {
@@ -43,7 +41,7 @@ export class EntityController {
       } else if (error instanceof FileNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
-      next(error);
+      return next(error);
     }
   };
 
@@ -55,7 +53,7 @@ export class EntityController {
       if (error instanceof EntityNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
-      next(error);
+      return next(error);
     }
   };
 }

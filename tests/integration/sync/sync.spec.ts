@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { DependencyContainer } from 'tsyringe';
 import { Application } from 'express';
@@ -7,8 +6,6 @@ import { Connection, QueryFailedError } from 'typeorm';
 import { registerTestValues } from '../testContainerConfig';
 import * as requestSender from './helpers/requestSender';
 import { createStringifiedFakeSync } from './helpers/generators';
-
-jest.setTimeout(30000);
 
 describe('sync', function () {
   let app: Application;
@@ -51,11 +48,11 @@ describe('sync', function () {
     describe('GET /sync/latest', function () {
       it('should return 200 status code and the latest sync entity', async function () {
         const earlierDate = faker.date.past().toISOString();
-        const earlier = createStringifiedFakeSync({ dumpDate: earlierDate });
-        const { layerId } = earlier;
+        const earlierSync = createStringifiedFakeSync({ dumpDate: earlierDate });
+        const { layerId } = earlierSync;
 
-        const later = createStringifiedFakeSync({ dumpDate: faker.date.between(earlierDate, Date()).toISOString(), layerId });
-        await requestSender.postSync(app, earlier);
+        const later = createStringifiedFakeSync({ dumpDate: faker.date.between(earlierDate, new Date()).toISOString(), layerId });
+        await requestSender.postSync(app, earlierSync);
         await requestSender.postSync(app, later);
 
         const response = await requestSender.getLatestSync(app, layerId as number);
@@ -115,7 +112,7 @@ describe('sync', function () {
         expect(response.body).toHaveProperty('message', 'request.body.dumpDate should match format "date-time"');
       });
 
-      it('should return 404 if no sync with the specificed id was found', async function () {
+      it('should return 404 if no sync with the specified id was found', async function () {
         const { id, ...body } = createStringifiedFakeSync();
 
         const response = await requestSender.patchSync(app, faker.datatype.uuid(), body);
@@ -132,7 +129,7 @@ describe('sync', function () {
         expect(response.body).toHaveProperty('message', 'request.query.layerId should be integer');
       });
 
-      it('should return 404 if no sync with the specificed layerId was found', async function () {
+      it('should return 404 if no sync with the specified layerId was found', async function () {
         const response = await requestSender.getLatestSync(app, faker.datatype.number());
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);

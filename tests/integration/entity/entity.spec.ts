@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { Application } from 'express';
 import { DependencyContainer } from 'tsyringe';
@@ -15,8 +14,6 @@ import { ActionType, EntityStatus } from '../../../src/common/enums';
 import { Entity } from '../../../src/entity/models/entity';
 import * as requestSender from './helpers/requestSender';
 import { createStringifiedFakeEntity } from './helpers/generators';
-
-jest.setTimeout(30000);
 
 describe('entity', function () {
   let app: Application;
@@ -137,7 +134,7 @@ describe('entity', function () {
         );
       });
 
-      it('should return 404 if no file with the specificed file id was found', async function () {
+      it('should return 404 if no file with the specified file id was found', async function () {
         const body = createStringifiedFakeEntity();
 
         const response = await requestSender.postEntityBulk(app, faker.datatype.uuid(), [body]);
@@ -179,7 +176,7 @@ describe('entity', function () {
         );
       });
 
-      it('should return 404 if no entity with the specificed id was found', async function () {
+      it('should return 404 if no entity with the specified id was found', async function () {
         const { entityId, ...updateBody } = createStringifiedFakeEntity();
 
         const response = await requestSender.patchEntity(app, file.fileId as string, entityId as string, updateBody);

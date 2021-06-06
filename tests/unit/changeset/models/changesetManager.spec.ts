@@ -26,7 +26,7 @@ describe('ChangesetManager', () => {
   });
 
   describe('#createChangeset', () => {
-    it('resolves without errors if changesetId are not used', async () => {
+    it('resolves without errors if changesetId is not already in use by the db', async () => {
       const changeset = createFakeChangeset();
 
       findOneChangeset.mockResolvedValue(undefined);
@@ -37,7 +37,7 @@ describe('ChangesetManager', () => {
       await expect(createPromise).resolves.not.toThrow();
     });
 
-    it('rejects if changesetId already exists', async () => {
+    it('rejects if changesetId already in use by the db', async () => {
       const entity = createFakeChangeset();
 
       findOneChangeset.mockResolvedValue(entity);
@@ -49,48 +49,48 @@ describe('ChangesetManager', () => {
   });
 
   describe('#updateChangeset', () => {
-    it('resolves without errors if changesetId exists', async () => {
+    it('resolves without errors if changeset exists in the db', async () => {
       const entity = createFakeChangeset();
 
       findOneChangeset.mockResolvedValue(entity);
       updateChangeset.mockResolvedValue(undefined);
 
-      const createPromise = changesetManager.updateChangeset(entity.changesetId, entity);
+      const updatePromise = changesetManager.updateChangeset(entity.changesetId, entity);
 
-      await expect(createPromise).resolves.not.toThrow();
+      await expect(updatePromise).resolves.not.toThrow();
     });
 
-    it('rejects if changesetId not exists', async () => {
+    it('rejects if changeset is not exists in the db', async () => {
       const entity = createFakeChangeset();
 
       findOneChangeset.mockResolvedValue(undefined);
 
-      const createPromise = changesetManager.updateChangeset(entity.changesetId, entity);
+      const updatePromise = changesetManager.updateChangeset(entity.changesetId, entity);
 
-      await expect(createPromise).rejects.toThrow(ChangesetNotFoundError);
+      await expect(updatePromise).rejects.toThrow(ChangesetNotFoundError);
     });
   });
 
   describe('#closeChangeset', () => {
-    it('resolves without errors if changesetId exists', async () => {
+    it('resolves without errors if the changeset exists in the db', async () => {
       const entity = createFakeChangeset();
 
       findOneChangeset.mockResolvedValue(entity);
       closeChangeset.mockResolvedValue(undefined);
 
-      const createPromise = changesetManager.closeChangeset(entity.changesetId, 'public');
+      const closePromise = changesetManager.closeChangeset(entity.changesetId, 'public');
 
-      await expect(createPromise).resolves.not.toThrow();
+      await expect(closePromise).resolves.not.toThrow();
     });
 
-    it('rejects if changesetId not exists', async () => {
+    it('rejects if the changeset is not exists the db', async () => {
       const entity = createFakeChangeset();
 
       findOneChangeset.mockResolvedValue(undefined);
 
-      const createPromise = changesetManager.closeChangeset(entity.changesetId, 'public');
+      const closePromise = changesetManager.closeChangeset(entity.changesetId, 'public');
 
-      await expect(createPromise).rejects.toThrow(ChangesetNotFoundError);
+      await expect(closePromise).rejects.toThrow(ChangesetNotFoundError);
     });
   });
 });

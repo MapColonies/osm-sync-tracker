@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { DependencyContainer } from 'tsyringe';
 import { Application } from 'express';
@@ -10,8 +9,6 @@ import { StringifiedSync } from '../sync/types';
 import { postSync } from '../sync/helpers/requestSender';
 import * as requestSender from './helpers/requestSender';
 import { createStringifiedFakeFile } from './helpers/generators';
-
-jest.setTimeout(30000);
 
 describe('file', function () {
   let app: Application;
@@ -109,7 +106,7 @@ describe('file', function () {
         expect(response.body).toHaveProperty('message', 'request.body[0].startDate should match format "date-time"');
       });
 
-      it('should return 404 if no sync with the specificed sync id was found', async function () {
+      it('should return 404 if no sync with the specified sync id was found', async function () {
         const body = createStringifiedFakeFile();
 
         const response = await requestSender.postFileBulk(app, faker.datatype.uuid(), [body]);

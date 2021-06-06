@@ -1,14 +1,14 @@
 import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
 import { Services } from '../../common/constants';
-import { SyncRepository, syncRepositorySymbol } from '../DAL/syncRepository';
+import { ISyncRepository, syncRepositorySymbol } from '../DAL/syncRepository';
 import { SyncAlreadyExistsError, SyncNotFoundError } from './errors';
 import { Sync } from './sync';
 
 @injectable()
 export class SyncManager {
   public constructor(
-    @inject(syncRepositorySymbol) private readonly syncRepository: SyncRepository,
+    @inject(syncRepositorySymbol) private readonly syncRepository: ISyncRepository,
     @inject(Services.LOGGER) private readonly logger: Logger
   ) {}
   public async getLatestSync(layerId: number): Promise<Sync> {

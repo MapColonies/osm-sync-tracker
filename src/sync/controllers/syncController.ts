@@ -26,7 +26,7 @@ export class SyncController {
       if (error instanceof SyncNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
-      next(error);
+      return next(error);
     }
   };
 
@@ -38,7 +38,7 @@ export class SyncController {
       if (error instanceof SyncAlreadyExistsError) {
         (error as HttpError).status = StatusCodes.CONFLICT;
       }
-      next(error);
+      return next(error);
     }
   };
 
@@ -50,7 +50,7 @@ export class SyncController {
       if (error instanceof SyncNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
-      next(error);
+      return next(error);
     }
   };
 }

@@ -9,10 +9,10 @@ import { fileRepositorySymbol } from '../../src/file/DAL/fileRepository';
 import { entityRepositorySymbol } from '../../src/entity/DAL/entityRepository';
 import { DbConfig } from '../../src/common/interfaces';
 import { initConnection } from '../../src/common/db';
-import { TypeormSyncRepository } from '../../src/sync/DAL/typeorm/typeormSyncRepository';
-import { TypeormFileRepository } from '../../src/file/DAL/typeorm/typeormFileRepository';
-import { TypeormEntityRepository } from '../../src/entity/DAL/typeorm/typeormEntityRepository';
-import { TypeormChangesetRepository } from '../../src/changeset/DAL/typeorm/typeormEntityRepository';
+import { SyncRepository } from '../../src/sync/DAL/typeorm/syncRepository';
+import { FileRepository } from '../../src/file/DAL/typeorm/fileRepository';
+import { EntityRepository } from '../../src/entity/DAL/typeorm/entityRepository';
+import { ChangesetRepository } from '../../src/changeset/DAL/typeorm/entityRepository';
 import { changesetRepositorySymbol } from '../../src/changeset/DAL/changsetRepository';
 import { syncRouterFactory } from '../../src/sync/routes/syncRouter';
 import fileRouterFactory from '../../src/file/routes/fileRouter';
@@ -25,11 +25,11 @@ async function registerTestValues(): Promise<DependencyContainer> {
   child.register(Services.CONFIG, { useValue: config });
   child.register(Services.LOGGER, { useValue: jsLogger({ enabled: false }) });
 
-  const tracing = new Tracing('app_tracer');
+  const tracing = new Tracing(Services.TRACER);
   const tracer = tracing.start();
   child.register(Services.TRACER, { useValue: tracer });
 
-  const metrics = new Metrics('app_meter');
+  const metrics = new Metrics(Services.TRACER);
   const meter = metrics.start();
   child.register(Services.METER, { useValue: meter });
 
@@ -46,10 +46,10 @@ async function registerTestValues(): Promise<DependencyContainer> {
   child.register('entity', { useFactory: entityRouterFactory });
   child.register('changeset', { useFactory: changesetRouterFactory });
 
-  const syncRepo = connection.getCustomRepository(TypeormSyncRepository);
-  const fileRepo = connection.getCustomRepository(TypeormFileRepository);
-  const entityRepo = connection.getCustomRepository(TypeormEntityRepository);
-  const changesetRepo = connection.getCustomRepository(TypeormChangesetRepository);
+  const syncRepo = connection.getCustomRepository(SyncRepository);
+  const fileRepo = connection.getCustomRepository(FileRepository);
+  const entityRepo = connection.getCustomRepository(EntityRepository);
+  const changesetRepo = connection.getCustomRepository(ChangesetRepository);
 
   child.register(syncRepositorySymbol, { useValue: syncRepo });
   child.register(fileRepositorySymbol, { useValue: fileRepo });

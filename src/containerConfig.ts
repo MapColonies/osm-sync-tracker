@@ -9,13 +9,13 @@ import { DbConfig } from './common/interfaces';
 import { getDbHealthCheckFunction, initConnection } from './common/db';
 import { tracing } from './common/tracing';
 import { syncRepositorySymbol } from './sync/DAL/syncRepository';
-import { TypeormSyncRepository } from './sync/DAL/typeorm/typeormSyncRepository';
+import { SyncRepository } from './sync/DAL/typeorm/syncRepository';
 import { fileRepositorySymbol } from './file/DAL/fileRepository';
-import { TypeormFileRepository } from './file/DAL/typeorm/typeormFileRepository';
+import { FileRepository } from './file/DAL/typeorm/fileRepository';
 import { entityRepositorySymbol } from './entity/DAL/entityRepository';
-import { TypeormEntityRepository } from './entity/DAL/typeorm/typeormEntityRepository';
+import { EntityRepository } from './entity/DAL/typeorm/entityRepository';
 import { changesetRepositorySymbol } from './changeset/DAL/changsetRepository';
-import { TypeormChangesetRepository } from './changeset/DAL/typeorm/typeormEntityRepository';
+import { IChangesetRepository } from './changeset/DAL/typeorm/entityRepository';
 import { syncRouterFactory } from './sync/routes/syncRouter';
 import fileRouterFactory from './file/routes/fileRouter';
 import entityRouterFactory from './entity/routes/entityRouter';
@@ -36,10 +36,10 @@ async function registerExternalValues(): Promise<void> {
   container.register('healthcheck', { useValue: getDbHealthCheckFunction(connection) });
 
   container.register(Connection, { useValue: connection });
-  container.register(syncRepositorySymbol, { useValue: connection.getCustomRepository(TypeormSyncRepository) });
-  container.register(fileRepositorySymbol, { useValue: connection.getCustomRepository(TypeormFileRepository) });
-  container.register(entityRepositorySymbol, { useValue: connection.getCustomRepository(TypeormEntityRepository) });
-  container.register(changesetRepositorySymbol, { useValue: connection.getCustomRepository(TypeormChangesetRepository) });
+  container.register(syncRepositorySymbol, { useValue: connection.getCustomRepository(SyncRepository) });
+  container.register(fileRepositorySymbol, { useValue: connection.getCustomRepository(FileRepository) });
+  container.register(entityRepositorySymbol, { useValue: connection.getCustomRepository(EntityRepository) });
+  container.register(changesetRepositorySymbol, { useValue: connection.getCustomRepository(ChangesetRepository) });
 
   container.register('sync', { useFactory: syncRouterFactory });
   container.register('file', { useFactory: fileRouterFactory });

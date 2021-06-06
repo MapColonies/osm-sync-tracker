@@ -1,18 +1,18 @@
 import { Logger } from '@map-colonies/js-logger';
-import _ from 'lodash';
+import lodash from 'lodash';
 import { inject, injectable } from 'tsyringe';
 import { Services } from '../../common/constants';
-import { FileRepository, fileRepositorySymbol } from '../../file/DAL/fileRepository';
+import { IFileRepository, fileRepositorySymbol } from '../../file/DAL/fileRepository';
 import { FileNotFoundError } from '../../file/models/errors';
-import { EntityRepository, entityRepositorySymbol } from '../DAL/entityRepository';
+import { IEntityRepository, entityRepositorySymbol } from '../DAL/entityRepository';
 import { Entity, UpdateEntity } from './entity';
-import { EntityAlreadyExistsError, EntityNotFoundError } from './errors';
+import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } from './errors';
 
 @injectable()
 export class EntityManager {
   public constructor(
-    @inject(entityRepositorySymbol) private readonly entityRepository: EntityRepository,
-    @inject(fileRepositorySymbol) private readonly fileRepository: FileRepository,
+    @inject(entityRepositorySymbol) private readonly entityRepository: IEntityRepository,
+    @inject(fileRepositorySymbol) private readonly fileRepository: IFileRepository,
     @inject(Services.LOGGER) private readonly logger: Logger
   ) {}
 
@@ -30,24 +30,25 @@ export class EntityManager {
     await this.entityRepository.createEntity(entity);
   }
 
-  public async createEntities(entities: Entity[]): Promise<void> {
-    const fileEntity = await this.fileRepository.findOneFile(entities[0].fileId);
-    const dup = _.uniqBy(entities, 'entityId');
+  public async createEntities(fileId: string, entities: Entity[]): Promise<void> {
+    const entitiesWithFileId = entities.map((entity) => ({ ...entity, fileId }));
+    const fileEntity = await this.fileRepository.findOneFile(fileId);
+    const dup = lodash.uniqBy(entities, 'entityId');
 
     if (!fileEntity) {
-      throw new FileNotFoundError(`file = ${entities[0].fileId} not found`);
+      throw new FileNotFoundError(`file = ${fileId} not found`);
     }
 
     if (dup.length !== entities.length) {
-      throw new EntityAlreadyExistsError(`files = [${entities.map((file) => file.fileId).toString()}] already exists`);
+      throw new DuplicateEntityError(`entites = [${dup.map((entity) => entity.entityId).toString()}] are duplicate`);
     }
 
-    const entityEntities = await this.entityRepository.findManyEntites(entities);
+    const entityEntities = await this.entityRepository.findManyEntites(entitiesWithFileId);
     if (entityEntities) {
       throw new EntityAlreadyExistsError(`entities = [${entities.map((entity) => entity.entityId).toString()}] already exists`);
     }
 
-    await this.entityRepository.createEntities(entities);
+    await this.entityRepository.createEntities(entitiesWithFileId);
   }
 
   public async updateEntity(fileId: string, entityId: string, entity: UpdateEntity): Promise<void> {

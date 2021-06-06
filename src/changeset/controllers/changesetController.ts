@@ -29,7 +29,7 @@ export class ChangesetController {
       if (error instanceof ChangesetAlreadyExistsError) {
         (error as HttpError).status = StatusCodes.CONFLICT;
       }
-      next(error);
+      return next(error);
     }
   };
 
@@ -41,7 +41,7 @@ export class ChangesetController {
       if (error instanceof ChangesetNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
-      next(error);
+      return next(error);
     }
   };
 
@@ -53,7 +53,7 @@ export class ChangesetController {
       if (error instanceof ChangesetNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
-      next(error);
+      return next(error);
     }
   };
 }
