@@ -1,19 +1,12 @@
 /* eslint-disable import/first */
 // this import must be called before the first import of tsyring
 import 'reflect-metadata';
-import { Tracing } from '@map-colonies/telemetry';
-import { createTerminus } from '@godaddy/terminus';
-import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
-import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
+import { createServer } from 'http';
+import { createTerminus, HealthCheck } from '@godaddy/terminus';
 import { Logger } from '@map-colonies/js-logger';
 import { container } from 'tsyringe';
 import { get } from 'config';
-import { DEFAULT_SERVER_PORT, IGNORED_INCOMING_TRACE_ROUTES, IGNORED_OUTGOING_TRACE_ROUTES, Services } from './common/constants';
-
-const tracing = new Tracing('app_tracer', [
-  new HttpInstrumentation({ ignoreOutgoingUrls: IGNORED_OUTGOING_TRACE_ROUTES, ignoreIncomingPaths: IGNORED_INCOMING_TRACE_ROUTES }),
-  new ExpressInstrumentation(),
-]);
+import { DEFAULT_SERVER_PORT, Services } from './common/constants';
 
 import { getApp } from './app';
 
@@ -24,11 +17,17 @@ interface IServerConfig {
 const serverConfig = get<IServerConfig>('server');
 const port: number = parseInt(serverConfig.port) || DEFAULT_SERVER_PORT;
 
-const app = getApp(tracing);
+void getApp()
+  .then((app) => {
+    const logger = container.resolve<Logger>(Services.LOGGER);
+    const healthCheck = container.resolve<HealthCheck>('healthcheck');
+    const server = createTerminus(createServer(app), { healthChecks: { '/liveness': healthCheck, onSignal: container.resolve('onSignal') } });
 
-const logger = container.resolve<Logger>(Services.LOGGER);
-createTerminus(app, { healthChecks: { '/liveness': true }, onSignal: container.resolve('onSignal') });
-
-app.listen(port, () => {
-  logger.info(`app started on port ${port}`);
-});
+    server.listen(port, () => {
+      logger.info(`app started on port ${port}`);
+    });
+  })
+  .catch((error: Error) => {
+    console.error('😢 - failed initializing the server');
+    console.error(error.message);
+  });

@@ -27,6 +27,7 @@ paths:
                     - startDate
                     - layerId
                     - isFull
+                    - dumpDate
         required: true
       operationId: postSync
       tags:
@@ -36,8 +37,8 @@ paths:
           description: created
         '400':
           $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '5XX':
           $ref: '#/components/responses/UnexpectedError'
   /sync/latest:
@@ -99,7 +100,12 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/file'
+              allOf:
+                - $ref: '#/components/schemas/file'
+                - type: object
+                  required:
+                    - startDate
+                    - fileId
         required: true
       operationId: postFile
       tags:
@@ -150,7 +156,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/entity'
+              allOf:
+                - $ref: '#/components/schemas/entity'
+                - type: object
+                  required:
+                    - status
+                    - entityId
+                    - action
         required: true
       operationId: postEntity
       tags:
@@ -175,7 +187,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/entity'
+              type: array
+              items:
+                $ref: '#/components/schemas/entity'
         required: true
       operationId: postEntities
       tags:
@@ -227,7 +241,7 @@ paths:
                 - $ref: '#/components/schemas/changeset'
                 - type: object
                   required:
-                    - id
+                    - changesetId
         required: true
       operationId: postChangeset
       tags:
@@ -271,9 +285,6 @@ paths:
       description: closes the changeset, sets all its entities as done, and checks if the sync is completed
       parameters:
         - $ref: '#/components/parameters/changesetId'
-      requestBody:
-        content: {}
-        required: true
       operationId: closeChangeset
       tags:
         - changeset
@@ -296,6 +307,12 @@ components:
             $ref: '#/components/schemas/Error'
     NotFound:
       description: The specified resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Conflict
       content:
         application/json:
           schema:
@@ -405,15 +422,13 @@ components:
       allOf:
         - type: object
           properties:
-            id:
+            changesetId:
               type: string
               format: uuid
         - $ref: '#/components/schemas/changesetWithoutId'
     entityWithoutId:
       type: object
       properties:
-        entityId:
-          $ref: '#/components/schemas/entityId'
         fileId:
           allOf:
             - $ref: '#/components/schemas/uniqueId'
@@ -434,5 +449,5 @@ components:
         - type: object
           properties:
             entityId:
-              $ref: '#/components/schemas/uniqueId'
+              $ref: '#/components/schemas/entityId'
         - $ref: '#/components/schemas/entityWithoutId'

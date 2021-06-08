@@ -12,6 +12,7 @@ module.exports = {
     '!*/common/**',
     '!**/controllers/**',
     '!**/routes/**',
+    '!**/DAL/**',
     '!<rootDir>/src/*',
   ],
   coverageDirectory: '<rootDir>/coverage',
