@@ -114,10 +114,21 @@ describe('file', function () {
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
 
-      it('should return 409 if a file already exists', async function () {
+      it('should return 409 if one of the file is duplicate', async function () {
         const file = createStringifiedFakeFile();
 
         const response = await requestSender.postFileBulk(app, sync.id as string, [file, file]);
+
+        expect(response).toHaveProperty('status', httpStatus.CONFLICT);
+      });
+
+      it('should return 409 if a file already exists', async function () {
+        const file = createStringifiedFakeFile();
+        const file2 = createStringifiedFakeFile();
+
+        await requestSender.postFile(app, sync.id as string, file2);
+
+        const response = await requestSender.postFileBulk(app, sync.id as string, [file, file2]);
 
         expect(response).toHaveProperty('status', httpStatus.CONFLICT);
       });

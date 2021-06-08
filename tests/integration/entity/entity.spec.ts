@@ -142,10 +142,21 @@ describe('entity', function () {
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
 
-      it('should return 409 if a entity already exists', async function () {
+      it('should return 409 if one of the entity is duplicate', async function () {
         const entity = createStringifiedFakeEntity();
 
         const response = await requestSender.postEntityBulk(app, file.fileId as string, [entity, entity]);
+
+        expect(response).toHaveProperty('status', httpStatus.CONFLICT);
+      });
+
+      it('should return 409 if one of the entity already exsits in the db', async function () {
+        const entity = createStringifiedFakeEntity();
+        const entity2 = createStringifiedFakeEntity();
+
+        await requestSender.postEntity(app, file.fileId as string, entity);
+
+        const response = await requestSender.postEntityBulk(app, file.fileId as string, [entity, entity2]);
 
         expect(response).toHaveProperty('status', httpStatus.CONFLICT);
       });

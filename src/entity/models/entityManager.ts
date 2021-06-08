@@ -16,10 +16,12 @@ export class EntityManager {
     @inject(Services.LOGGER) private readonly logger: Logger
   ) {}
 
-  public async createEntity(entity: Entity): Promise<void> {
-    const fileEntity = await this.fileRepository.findOneFile(entity.fileId);
+  public async createEntity(fileId: string, entity: Entity): Promise<void> {
+    const fileEntity = await this.fileRepository.findOneFile(fileId);
+    const entityWithFileId = { fileId, ...entity };
+
     if (!fileEntity) {
-      throw new FileNotFoundError(`file = ${entity.fileId} not found`);
+      throw new FileNotFoundError(`file = ${fileId} not found`);
     }
 
     const entityEntity = await this.entityRepository.findOneEntity(entity.entityId);
@@ -27,7 +29,7 @@ export class EntityManager {
       throw new EntityAlreadyExistsError(`entity = ${entity.entityId} already exists`);
     }
 
-    await this.entityRepository.createEntity(entity);
+    await this.entityRepository.createEntity(entityWithFileId);
   }
 
   public async createEntities(fileId: string, entities: Entity[]): Promise<void> {

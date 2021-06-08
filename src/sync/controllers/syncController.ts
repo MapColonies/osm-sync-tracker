@@ -44,7 +44,7 @@ export class SyncController {
 
   public patchSync: PatchSyncHandler = async (req, res, next) => {
     try {
-      await this.manager.updateSync({ ...req.body, id: req.params.syncId });
+      await this.manager.updateSync(req.params.syncId, req.body);
       return res.status(httpStatus.OK).send(httpStatus.getStatusText(httpStatus.OK));
     } catch (error) {
       if (error instanceof SyncNotFoundError) {

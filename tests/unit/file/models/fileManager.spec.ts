@@ -2,7 +2,7 @@ import jsLogger from '@map-colonies/js-logger';
 import faker from 'faker';
 import { FileManager } from '../../../../src/file/models/fileManager';
 import { createFakeFile, createFakeSync, createFakeFiles } from '../../../helpers/helper';
-import { FileAlreadyExistsError } from '../../../../src/file/models/errors';
+import { DuplicateFilesError, FileAlreadyExistsError } from '../../../../src/file/models/errors';
 import { SyncNotFoundError } from '../../../../src/sync/models/errors';
 
 let fileManager: FileManager;
@@ -48,7 +48,7 @@ describe('FileManager', () => {
       findOneFile.mockResolvedValue(undefined);
       createFile.mockResolvedValue(undefined);
 
-      const createPromise = fileManager.createFile(entity);
+      const createPromise = fileManager.createFile(sync.id, entity);
 
       await expect(createPromise).resolves.not.toThrow();
     });
@@ -60,7 +60,7 @@ describe('FileManager', () => {
       findOneSync.mockResolvedValue(sync);
       findOneFile.mockResolvedValue(file);
 
-      const createPromise = fileManager.createFile(file);
+      const createPromise = fileManager.createFile(sync.id, file);
 
       await expect(createPromise).rejects.toThrow(FileAlreadyExistsError);
     });
@@ -71,7 +71,7 @@ describe('FileManager', () => {
       findOneSync.mockResolvedValue(undefined);
       findOneFile.mockResolvedValue(undefined);
 
-      const createPromise = fileManager.createFile(file);
+      const createPromise = fileManager.createFile(faker.datatype.uuid(), file);
 
       await expect(createPromise).rejects.toThrow(SyncNotFoundError);
     });
@@ -86,7 +86,7 @@ describe('FileManager', () => {
       findManyFiles.mockResolvedValue(undefined);
       createFiles.mockResolvedValue(undefined);
 
-      const createBulkPromise = fileManager.createFiles(files);
+      const createBulkPromise = fileManager.createFiles(sync.id, files);
 
       await expect(createBulkPromise).resolves.not.toThrow();
     });
@@ -98,9 +98,22 @@ describe('FileManager', () => {
       findOneSync.mockResolvedValue(sync);
       findManyFiles.mockResolvedValue(files);
 
-      const createBulkPromise = fileManager.createFiles(files);
+      const createBulkPromise = fileManager.createFiles(sync.id, files);
 
       await expect(createBulkPromise).rejects.toThrow(FileAlreadyExistsError);
+    });
+
+    it("rejects if one of the filesId's is duplicate", async () => {
+      const files = createFakeFiles(faker.datatype.number());
+      files.push(files[0]);
+      const sync = createFakeSync();
+
+      findOneSync.mockResolvedValue(sync);
+      findManyFiles.mockResolvedValue(files);
+
+      const createBulkPromise = fileManager.createFiles(sync.id, files);
+
+      await expect(createBulkPromise).rejects.toThrow(DuplicateFilesError);
     });
 
     it('rejects if syncId is not exists in the db', async () => {
@@ -108,7 +121,7 @@ describe('FileManager', () => {
 
       findOneSync.mockResolvedValue(undefined);
 
-      const createBulkPromise = fileManager.createFiles(files);
+      const createBulkPromise = fileManager.createFiles(faker.datatype.uuid(), files);
 
       await expect(createBulkPromise).rejects.toThrow(SyncNotFoundError);
     });

@@ -27,11 +27,13 @@ export class SyncManager {
     await this.syncRepository.createSync(sync);
   }
 
-  public async updateSync(sync: Sync): Promise<void> {
-    const syncEntity = await this.syncRepository.findOneSync(sync.id);
+  public async updateSync(syncId: string, sync: Omit<Sync, 'id'>): Promise<void> {
+    const syncEntity = await this.syncRepository.findOneSync(syncId);
+    const syncEntityWithId = { id: syncId, ...sync };
+
     if (!syncEntity) {
-      throw new SyncNotFoundError(`sync = ${sync.id} not found`);
+      throw new SyncNotFoundError(`sync = ${syncId} not found`);
     }
-    await this.syncRepository.updateSync(sync);
+    await this.syncRepository.updateSync(syncEntityWithId);
   }
 }

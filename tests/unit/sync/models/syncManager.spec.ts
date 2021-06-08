@@ -54,7 +54,7 @@ describe('SyncManager', () => {
       findOneSync.mockResolvedValue(entity);
       updateSync.mockResolvedValue(undefined);
 
-      const updatePromise = syncManager.updateSync(entity);
+      const updatePromise = syncManager.updateSync(entity.id, entity);
 
       await expect(updatePromise).resolves.not.toThrow();
     });
@@ -63,7 +63,7 @@ describe('SyncManager', () => {
       const entity = createFakeSync();
 
       findOneSync.mockResolvedValue(undefined);
-      const updatePromise = syncManager.updateSync(entity);
+      const updatePromise = syncManager.updateSync(entity.id, entity);
 
       await expect(updatePromise).rejects.toThrow(SyncNotFoundError);
     });

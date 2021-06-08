@@ -6,7 +6,7 @@ import { Services } from '../../common/constants';
 import { Entity, UpdateEntity } from '../models/entity';
 import { EntityManager } from '../models/entityManager';
 import { HttpError } from '../../common/errors';
-import { EntityAlreadyExistsError, EntityNotFoundError } from '../models/errors';
+import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } from '../models/errors';
 import { FileNotFoundError } from '../../file/models/errors';
 
 type PostEntityHandler = RequestHandler<{ fileId: string }, string, Entity>;
@@ -19,7 +19,7 @@ export class EntityController {
 
   public postEntity: PostEntityHandler = async (req, res, next) => {
     try {
-      await this.manager.createEntity({ ...req.body, fileId: req.params.fileId });
+      await this.manager.createEntity(req.params.fileId, req.body);
       return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
       if (error instanceof EntityAlreadyExistsError) {
@@ -36,7 +36,7 @@ export class EntityController {
       await this.manager.createEntities(req.params.fileId, req.body);
       return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
-      if (error instanceof EntityAlreadyExistsError) {
+      if (error instanceof EntityAlreadyExistsError || error instanceof DuplicateEntityError) {
         (error as HttpError).status = StatusCodes.CONFLICT;
       } else if (error instanceof FileNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;

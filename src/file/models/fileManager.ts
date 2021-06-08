@@ -15,11 +15,12 @@ export class FileManager {
     @inject(Services.LOGGER) private readonly logger: Logger
   ) {}
 
-  public async createFile(file: File): Promise<void> {
-    const syncEntity = await this.syncRepository.findOneSync(file.syncId);
+  public async createFile(syncId: string, file: File): Promise<void> {
+    const syncEntity = await this.syncRepository.findOneSync(syncId);
+    file.syncId = syncId;
 
     if (!syncEntity) {
-      throw new SyncNotFoundError(`sync = ${file.syncId} not found`);
+      throw new SyncNotFoundError(`sync = ${syncId} not found`);
     }
 
     const fileEntity = await this.fileRepository.findOneFile(file.fileId);
@@ -41,7 +42,7 @@ export class FileManager {
     }
 
     if (!syncEntity) {
-      throw new SyncNotFoundError(`sync = ${files[0].syncId} not found`);
+      throw new SyncNotFoundError(`sync = ${syncId} not found`);
     }
 
     const filesEntities = await this.fileRepository.findManyFiles(filesWithSyncId);

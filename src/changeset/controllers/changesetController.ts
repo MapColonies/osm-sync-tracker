@@ -15,11 +15,7 @@ type PutChangesetHandler = RequestHandler<{ changesetId: string }, string, undef
 
 @injectable()
 export class ChangesetController {
-  public constructor(
-    @inject(Services.LOGGER) private readonly logger: Logger,
-    @inject(Services.CONFIG) private readonly config: IConfig,
-    private readonly manager: ChangesetManager
-  ) {}
+  public constructor(@inject(Services.LOGGER) private readonly logger: Logger, private readonly manager: ChangesetManager) {}
 
   public postChangeset: PostChangesetHandler = async (req, res, next) => {
     try {
@@ -47,7 +43,7 @@ export class ChangesetController {
 
   public putChangeset: PutChangesetHandler = async (req, res, next) => {
     try {
-      await this.manager.closeChangeset(req.params.changesetId, this.config.get('db.schema'));
+      await this.manager.closeChangeset(req.params.changesetId);
       return res.status(httpStatus.OK).send(httpStatus.getStatusText(httpStatus.OK));
     } catch (error) {
       if (error instanceof ChangesetNotFoundError) {

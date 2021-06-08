@@ -2,7 +2,7 @@ import jsLogger from '@map-colonies/js-logger';
 import faker from 'faker';
 import { EntityManager } from '../../../../src/entity/models/entityManager';
 import { createFakeEntities, createFakeEntity, createFakeFile } from '../../../helpers/helper';
-import { EntityAlreadyExistsError } from '../../../../src/entity/models/errors';
+import { DuplicateEntityError, EntityAlreadyExistsError } from '../../../../src/entity/models/errors';
 import { EntityNotFoundError } from '../../../../src/entity/models/errors';
 import { FileNotFoundError } from '../../../../src/file/models/errors';
 
@@ -50,7 +50,7 @@ describe('EntityManager', () => {
       createEntity.mockResolvedValue(undefined);
       findOneFile.mockResolvedValue(file);
 
-      const createPromise = entityManager.createEntity(entity);
+      const createPromise = entityManager.createEntity(file.fileId, entity);
 
       await expect(createPromise).resolves.not.toThrow();
     });
@@ -62,7 +62,7 @@ describe('EntityManager', () => {
       findOneFile.mockResolvedValue(file);
       findOneEntity.mockResolvedValue(entity);
 
-      const createPromise = entityManager.createEntity(entity);
+      const createPromise = entityManager.createEntity(file.fileId, entity);
 
       await expect(createPromise).rejects.toThrow(EntityAlreadyExistsError);
     });
@@ -72,7 +72,7 @@ describe('EntityManager', () => {
 
       findOneFile.mockResolvedValue(undefined);
 
-      const createPromise = entityManager.createEntity(entity);
+      const createPromise = entityManager.createEntity(faker.datatype.uuid(), entity);
 
       await expect(createPromise).rejects.toThrow(FileNotFoundError);
     });
@@ -87,7 +87,7 @@ describe('EntityManager', () => {
       findManyEntites.mockResolvedValue(undefined);
       createEntities.mockResolvedValue(undefined);
 
-      const createBulkPromise = entityManager.createEntities(entities);
+      const createBulkPromise = entityManager.createEntities(file.fileId, entities);
 
       await expect(createBulkPromise).resolves.not.toThrow();
     });
@@ -99,9 +99,22 @@ describe('EntityManager', () => {
       findOneFile.mockResolvedValue(file);
       findManyEntites.mockResolvedValue(entities);
 
-      const createBulkPromise = entityManager.createEntities(entities);
+      const createBulkPromise = entityManager.createEntities(file.fileId, entities);
 
       await expect(createBulkPromise).rejects.toThrow(EntityAlreadyExistsError);
+    });
+
+    it("rejects if one of the entitysId's is duplicate", async () => {
+      const entities = createFakeEntities(faker.datatype.number());
+      entities.push(entities[0]);
+      const file = createFakeFile();
+
+      findOneFile.mockResolvedValue(file);
+      findManyEntites.mockResolvedValue(entities);
+
+      const createBulkPromise = entityManager.createEntities(file.fileId, entities);
+
+      await expect(createBulkPromise).rejects.toThrow(DuplicateEntityError);
     });
 
     it('rejects if fileId is not exists in the db', async () => {
@@ -109,7 +122,7 @@ describe('EntityManager', () => {
 
       findOneFile.mockResolvedValue(undefined);
 
-      const createBulkPromise = entityManager.createEntities(entities);
+      const createBulkPromise = entityManager.createEntities(faker.datatype.uuid(), entities);
 
       await expect(createBulkPromise).rejects.toThrow(FileNotFoundError);
     });
@@ -124,7 +137,7 @@ describe('EntityManager', () => {
       findOneEntity.mockResolvedValue(entity);
       updateEntity.mockResolvedValue(undefined);
 
-      const updatePromise = entityManager.updateEntity(entity.fileId, entity.entityId, entity);
+      const updatePromise = entityManager.updateEntity(file.fileId, entity.entityId, entity);
 
       await expect(updatePromise).resolves.not.toThrow();
     });
@@ -136,7 +149,7 @@ describe('EntityManager', () => {
       findOneFile.mockResolvedValue(file);
       findOneEntity.mockResolvedValue(undefined);
 
-      const updatePromise = entityManager.updateEntity(entity.fileId, entity.entityId, entity);
+      const updatePromise = entityManager.updateEntity(file.fileId, entity.entityId, entity);
 
       await expect(updatePromise).rejects.toThrow(EntityNotFoundError);
     });
@@ -147,7 +160,7 @@ describe('EntityManager', () => {
       findOneFile.mockResolvedValue(undefined);
       findOneEntity.mockResolvedValue(entity);
 
-      const updatePromise = entityManager.updateEntity(entity.fileId, entity.entityId, entity);
+      const updatePromise = entityManager.updateEntity(faker.datatype.uuid(), entity.entityId, entity);
 
       await expect(updatePromise).rejects.toThrow(FileNotFoundError);
     });

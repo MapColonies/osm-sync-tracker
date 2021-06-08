@@ -1,4 +1,5 @@
 import jsLogger from '@map-colonies/js-logger';
+import config from 'config';
 import { ChangesetManager } from '../../../../src/changeset/models/changesetManager';
 import { createFakeChangeset } from '../../../helpers/helper';
 import { ChangesetAlreadyExistsError, ChangesetNotFoundError } from '../../../../src/changeset/models/errors';
@@ -18,7 +19,7 @@ describe('ChangesetManager', () => {
     findOneChangeset = jest.fn();
 
     const repository = { createChangeset, updateChangeset, closeChangeset, findOneChangeset };
-    changesetManager = new ChangesetManager(repository, jsLogger({ enabled: false }));
+    changesetManager = new ChangesetManager(repository, jsLogger({ enabled: false }), config);
   });
 
   afterEach(() => {
@@ -78,7 +79,7 @@ describe('ChangesetManager', () => {
       findOneChangeset.mockResolvedValue(entity);
       closeChangeset.mockResolvedValue(undefined);
 
-      const closePromise = changesetManager.closeChangeset(entity.changesetId, 'public');
+      const closePromise = changesetManager.closeChangeset(entity.changesetId);
 
       await expect(closePromise).resolves.not.toThrow();
     });
@@ -88,7 +89,7 @@ describe('ChangesetManager', () => {
 
       findOneChangeset.mockResolvedValue(undefined);
 
-      const closePromise = changesetManager.closeChangeset(entity.changesetId, 'public');
+      const closePromise = changesetManager.closeChangeset(entity.changesetId);
 
       await expect(closePromise).rejects.toThrow(ChangesetNotFoundError);
     });
