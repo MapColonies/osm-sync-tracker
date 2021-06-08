@@ -1,0 +1,59 @@
+# Default values for helm.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+enabled: true
+
+
+cloudProvider:
+  name: azure
+
+environment: development
+
+image:
+  repository: acrarolibotnonprod.azurecr.io/osm-sync-tracker
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "v1.0.0"
+
+
+
+resources:
+  enabled: false
+  value:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+env:
+  port: 8080
+  targetPort: 8080
+  protocol: TCP
+  logLevel: info
+# external
+dbConfig:
+  host: 10.8.1.15
+  username: postgres
+  password: postgres
+  database: osm-sync-tracker-dev
+  sslAuth:
+    enabled: false
+    secretName: secret-name
+    certFileName: postgresql.crt
+    keyFileName: postgresql.key
+    caFileName: root.crt
+
+route:
+  enabled: true
+  path: /
