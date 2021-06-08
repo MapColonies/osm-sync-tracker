@@ -7,6 +7,7 @@ import { SyncNotFoundError } from '../../sync/models/errors';
 import { IFileRepository, fileRepositorySymbol } from '../DAL/fileRepository';
 import { DuplicateFilesError, FileAlreadyExistsError } from './errors';
 import { File } from './file';
+
 @injectable()
 export class FileManager {
   public constructor(

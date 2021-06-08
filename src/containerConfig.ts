@@ -15,7 +15,6 @@ import { FileRepository } from './file/DAL/typeorm/fileRepository';
 import { entityRepositorySymbol } from './entity/DAL/entityRepository';
 import { EntityRepository } from './entity/DAL/typeorm/entityRepository';
 import { changesetRepositorySymbol } from './changeset/DAL/changsetRepository';
-import { IChangesetRepository } from './changeset/DAL/typeorm/entityRepository';
 import { syncRouterFactory } from './sync/routes/syncRouter';
 import fileRouterFactory from './file/routes/fileRouter';
 import entityRouterFactory from './entity/routes/entityRouter';

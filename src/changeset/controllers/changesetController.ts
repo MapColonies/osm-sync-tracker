@@ -7,7 +7,6 @@ import { Changeset, UpdateChangeset } from '../models/changeset';
 import { ChangesetManager } from '../models/changesetManager';
 import { HttpError } from '../../common/errors';
 import { ChangesetAlreadyExistsError, ChangesetNotFoundError } from '../models/errors';
-import { IConfig } from '../../common/interfaces';
 
 type PostChangesetHandler = RequestHandler<undefined, string, Changeset>;
 type PatchChangesetHandler = RequestHandler<{ changesetId: string }, string, UpdateChangeset>;
