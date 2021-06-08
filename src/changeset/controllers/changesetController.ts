@@ -2,6 +2,7 @@ import { Logger } from '@map-colonies/js-logger';
 import { RequestHandler } from 'express';
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { injectable, inject } from 'tsyringe';
+import mime from 'mime-types';
 import { Services } from '../../common/constants';
 import { Changeset, UpdateChangeset } from '../models/changeset';
 import { ChangesetManager } from '../models/changesetManager';
@@ -12,6 +13,8 @@ type PostChangesetHandler = RequestHandler<undefined, string, Changeset>;
 type PatchChangesetHandler = RequestHandler<{ changesetId: string }, string, UpdateChangeset>;
 type PutChangesetHandler = RequestHandler<{ changesetId: string }, string, undefined>;
 
+const txtplain = mime.contentType('text/plain') as string;
+
 @injectable()
 export class ChangesetController {
   public constructor(@inject(Services.LOGGER) private readonly logger: Logger, private readonly manager: ChangesetManager) {}
@@ -19,7 +22,7 @@ export class ChangesetController {
   public postChangeset: PostChangesetHandler = async (req, res, next) => {
     try {
       await this.manager.createChangeset(req.body);
-      return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
+      return res.status(httpStatus.CREATED).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
       if (error instanceof ChangesetAlreadyExistsError) {
         (error as HttpError).status = StatusCodes.CONFLICT;
@@ -31,7 +34,7 @@ export class ChangesetController {
   public patchChangeset: PatchChangesetHandler = async (req, res, next) => {
     try {
       await this.manager.updateChangeset(req.params.changesetId, req.body);
-      return res.status(httpStatus.OK).send(httpStatus.getStatusText(httpStatus.OK));
+      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.OK));
     } catch (error) {
       if (error instanceof ChangesetNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
@@ -43,7 +46,7 @@ export class ChangesetController {
   public putChangeset: PutChangesetHandler = async (req, res, next) => {
     try {
       await this.manager.closeChangeset(req.params.changesetId);
-      return res.status(httpStatus.OK).send(httpStatus.getStatusText(httpStatus.OK));
+      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.OK));
     } catch (error) {
       if (error instanceof ChangesetNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;

@@ -2,6 +2,7 @@ import { Logger } from '@map-colonies/js-logger';
 import { RequestHandler } from 'express';
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { injectable, inject } from 'tsyringe';
+import mime from 'mime-types';
 import { Services } from '../../common/constants';
 import { Sync } from '../models/sync';
 import { SyncManager } from '../models/syncManager';
@@ -13,6 +14,8 @@ type PatchReqBody = Omit<Sync, 'id'>;
 type GetLatestSyncHandler = RequestHandler<undefined, Sync, undefined, { layerId: number }>;
 type PostSyncHandler = RequestHandler<undefined, string, Sync>;
 type PatchSyncHandler = RequestHandler<{ syncId: string }, string, PatchReqBody>;
+
+const txtplain = mime.contentType('text/plain') as string;
 
 @injectable()
 export class SyncController {
@@ -33,7 +36,7 @@ export class SyncController {
   public postSync: PostSyncHandler = async (req, res, next) => {
     try {
       await this.manager.createSync(req.body);
-      return res.status(httpStatus.CREATED).send(httpStatus.getStatusText(httpStatus.CREATED));
+      return res.status(httpStatus.CREATED).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
       if (error instanceof SyncAlreadyExistsError) {
         (error as HttpError).status = StatusCodes.CONFLICT;
@@ -45,7 +48,7 @@ export class SyncController {
   public patchSync: PatchSyncHandler = async (req, res, next) => {
     try {
       await this.manager.updateSync(req.params.syncId, req.body);
-      return res.status(httpStatus.OK).send(httpStatus.getStatusText(httpStatus.OK));
+      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.OK));
     } catch (error) {
       if (error instanceof SyncNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
