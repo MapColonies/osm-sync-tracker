@@ -3,7 +3,7 @@
     "host": "localhost",
     "schema": "public",
     "username": "postgres",
-    "password": "postgres",
+    "password": "1234",
     "database": "postgres",
     "enableSslAuth": false
   }
