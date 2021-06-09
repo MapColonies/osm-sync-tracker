@@ -5,7 +5,7 @@ import { Services } from '../../common/constants';
 import { IFileRepository, fileRepositorySymbol } from '../../file/DAL/fileRepository';
 import { FileNotFoundError } from '../../file/models/errors';
 import { IEntityRepository, entityRepositorySymbol } from '../DAL/entityRepository';
-import { Entity, UpdateEntity } from './entity';
+import { Entity, UpdateEntities, UpdateEntity } from './entity';
 import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } from './errors';
 
 @injectable()
@@ -65,5 +65,21 @@ export class EntityManager {
     }
 
     await this.entityRepository.updateEntity(entityId, entity);
+  }
+
+  public async updateEntities(entities: UpdateEntities): Promise<void> {
+    const dup = lodash.uniqBy(entities, 'entityId');
+
+    if (dup.length !== entities.length) {
+      throw new DuplicateEntityError(`entites = [${dup.map((entity) => entity.entityId).toString()}] are duplicate`);
+    }
+
+    const entityCount = await this.entityRepository.countEntitiesByIds(entities.map((entity) => entity.entityId));
+
+    if (entityCount !== entities.length) {
+      throw new EntityNotFoundError(`One of the entities was not found`);
+    }
+
+    await this.entityRepository.updateEntities(entities);
   }
 }

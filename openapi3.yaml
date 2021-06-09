@@ -228,6 +228,37 @@ paths:
           $ref: '#/components/responses/NotFound'
         '5XX':
           $ref: '#/components/responses/UnexpectedError'
+  /entity/_bulk:
+    patch:
+      summary: edit multiple entities in a bulk operation
+      description: edit multiple entities from different files in one operation
+      requestBody:
+        description: partial entities
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                # type: object
+                # properties:
+                allOf:
+                  - $ref: '#/components/schemas/entity'
+                  - type: object
+                    required:
+                      - 'entityId'
+        required: true
+      operationId: patchEntities
+      tags:
+        - entity
+      responses:
+        '200':
+          description: OK
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '5XX':
+          $ref: '#/components/responses/UnexpectedError'
   /changeset:
     post:
       summary: add a new changeset

@@ -31,3 +31,7 @@ export async function patchEntity(
 ): Promise<supertest.Response> {
   return supertest.agent(app).patch(`/file/${fileId}/entity/${entityId}`).set('Content-Type', 'application/json').send(body);
 }
+
+export async function patchEntities(app: Application, body: StringifiedEntity[]): Promise<supertest.Response> {
+  return supertest.agent(app).patch(`/entity/_bulk`).set('Content-Type', 'application/json').send(body);
+}

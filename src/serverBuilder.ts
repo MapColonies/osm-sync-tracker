@@ -40,8 +40,9 @@ export class ServerBuilder {
   }
 
   private buildRoutes(): void {
-    this.serverInstance.use('/sync', this.syncRouter, this.fileRouter);
-    this.serverInstance.use('/file', this.entityRouter);
+    this.serverInstance.use('/sync', this.syncRouter);
+    this.serverInstance.use('/file', this.fileRouter);
+    this.serverInstance.use('/entity', this.entityRouter);
     this.serverInstance.use('/changeset', this.changesetRouter);
     this.buildDocsRoutes();
   }

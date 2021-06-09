@@ -4,7 +4,7 @@ import httpStatus, { StatusCodes } from 'http-status-codes';
 import { injectable, inject } from 'tsyringe';
 import mime from 'mime-types';
 import { Services } from '../../common/constants';
-import { Entity, UpdateEntity } from '../models/entity';
+import { Entity, UpdateEntities, UpdateEntity } from '../models/entity';
 import { EntityManager } from '../models/entityManager';
 import { HttpError } from '../../common/errors';
 import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } from '../models/errors';
@@ -13,6 +13,7 @@ import { FileNotFoundError } from '../../file/models/errors';
 type PostEntityHandler = RequestHandler<{ fileId: string }, string, Entity>;
 type PostEntitiesHandler = RequestHandler<{ fileId: string }, string, Entity[]>;
 type PatchEntityHandler = RequestHandler<{ fileId: string; entityId: string }, string, UpdateEntity>;
+type PatchEntitiesHandler = RequestHandler<undefined, string, UpdateEntities>;
 
 const txtplain = mime.contentType('text/plain') as string;
 
@@ -56,6 +57,23 @@ export class EntityController {
       if (error instanceof EntityNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
+      return next(error);
+    }
+  };
+
+  public patchEntities: PatchEntitiesHandler = async (req, res, next) => {
+    try {
+      await this.manager.updateEntities(req.body);
+      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.OK));
+    } catch (error) {
+      if (error instanceof DuplicateEntityError) {
+        (error as HttpError).status = StatusCodes.CONFLICT;
+      }
+
+      if (error instanceof EntityNotFoundError) {
+        (error as HttpError).status = StatusCodes.NOT_FOUND;
+      }
+
       return next(error);
     }
   };

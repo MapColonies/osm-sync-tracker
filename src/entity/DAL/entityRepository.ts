@@ -1,4 +1,4 @@
-import { Entity, UpdateEntity } from '../models/entity';
+import { Entity, UpdateEntities, UpdateEntity } from '../models/entity';
 import { Entity as EntityDb } from './typeorm/entity';
 
 export const entityRepositorySymbol = Symbol('EntityRepository');
@@ -9,7 +9,11 @@ export interface IEntityRepository {
 
   updateEntity: (entityId: string, entity: UpdateEntity) => Promise<void>;
 
+  updateEntities: (entities: UpdateEntities) => Promise<void>;
+
   findOneEntity: (entityId: string) => Promise<EntityDb | undefined>;
 
   findManyEntites: (entities: Entity[]) => Promise<EntityDb[] | undefined>;
+
+  countEntitiesByIds: (entityIds: string[]) => Promise<number>;
 }

@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { FactoryFunction } from 'tsyringe';
-import { FileController } from '../controllers/fileController';
+import { EntityController } from '../../entity/controllers/entityController';
 
 const fileRouterFactory: FactoryFunction<Router> = (dependencyContainer) => {
   const router = Router();
-  const controller = dependencyContainer.resolve(FileController);
+  const controller = dependencyContainer.resolve(EntityController);
 
-  router.post('/:syncId/file', controller.postFile);
-  router.post('/:syncId/file/_bulk', controller.postFiles);
+  router.post('/:fileId/entity', controller.postEntity);
+  router.post('/:fileId/entity/_bulk', controller.postEntities);
+  router.patch('/:fileId/entity/:entityId', controller.patchEntity);
 
   return router;
 };
