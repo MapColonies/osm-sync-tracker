@@ -3,15 +3,17 @@ import { DependencyContainer } from 'tsyringe';
 import { Application } from 'express';
 import faker from 'faker';
 import { Connection, QueryFailedError } from 'typeorm';
-import { postSync } from '../sync/helpers/requestSender';
+import { postSync, getLatestSync } from '../sync/helpers/requestSender';
 import { postFile } from '../file/helpers/requestSender';
-import { postEntity } from '../entity/helpers/requestSender';
+import { postEntity, postEntityBulk, patchEntities } from '../entity/helpers/requestSender';
 import { StringifiedSync } from '../sync/types';
 import { StringifiedFile } from '../file/types';
 import { registerTestValues } from '../testContainerConfig';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { createStringifiedFakeSync } from '../sync/helpers/generators';
 import { createStringifiedFakeEntity, StringifiedEntity } from '../entity/helpers/generators';
+import { Status } from '../../../src/common/enums';
+import { Sync } from '../../../src/sync/models/sync';
 import * as requestSender from './helpers/requestSender';
 import { createStringifiedFakeChangeset } from './helpers/generators';
 
@@ -31,7 +33,6 @@ describe('changeset', function () {
     file = createStringifiedFakeFile();
     await postFile(app, sync.id as string, file);
     entity = createStringifiedFakeEntity();
-    entity.changesetId = faker.datatype.uuid();
     await postEntity(app, file.fileId as string, entity);
     connection = container.resolve(Connection);
   });
@@ -69,10 +70,10 @@ describe('changeset', function () {
 
     describe('PUT /changeset/{changesetId}/close', function () {
       it('should return 200 status code and OK body', async function () {
-        const body = { changesetId: entity.changesetId as string, osmId: faker.datatype.number() };
+        const body = createStringifiedFakeChangeset();
         await requestSender.postChangeset(app, body);
 
-        const response = await requestSender.putChangeset(app, entity.changesetId as string);
+        const response = await requestSender.putChangeset(app, body.changesetId as string);
 
         expect(response.status).toBe(httpStatus.OK);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
@@ -195,14 +196,62 @@ describe('changeset', function () {
         const findOneChangesetMokc = jest.fn().mockResolvedValue(true);
         const mockedApp = requestSender.getMockedRepoApp(container, { closeChangeset: closeChangesetMock, findOneChangeset: findOneChangesetMokc });
 
-        const body = { changesetId: entity.changesetId as string, osmId: faker.datatype.number() };
+        const body = createStringifiedFakeChangeset();
         await requestSender.postChangeset(app, body);
 
-        const response = await requestSender.putChangeset(mockedApp, body.changesetId);
+        const response = await requestSender.putChangeset(mockedApp, body.changesetId as string);
 
         expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
         expect(response.body).toHaveProperty('message', 'failed');
       });
+    });
+  });
+
+  describe('Flow', function () {
+    it('should create sync, files, entities, changeset and close it', async function () {
+      const sync = createStringifiedFakeSync({ totalFiles: 2 });
+
+      await postSync(app, sync);
+
+      const file1 = createStringifiedFakeFile({ totalEntities: 2 });
+      const file2 = createStringifiedFakeFile({ totalEntities: 3 });
+
+      await postFile(app, sync.id as string, file1);
+      await postFile(app, sync.id as string, file2);
+
+      const file1Entities = [createStringifiedFakeEntity({ fileId: file1.fileId }), createStringifiedFakeEntity({ fileId: file1.fileId })];
+
+      const file2Entities = [
+        createStringifiedFakeEntity({ fileId: file2.fileId }),
+        createStringifiedFakeEntity({ fileId: file2.fileId }),
+        createStringifiedFakeEntity({ fileId: file2.fileId }),
+      ];
+
+      await postEntityBulk(app, file1.fileId as string, file1Entities);
+      await postEntityBulk(app, file2.fileId as string, file2Entities);
+
+      const changeset1 = createStringifiedFakeChangeset();
+      const changeset2 = createStringifiedFakeChangeset();
+
+      await requestSender.postChangeset(app, changeset1);
+      await requestSender.postChangeset(app, changeset2);
+
+      const patchBody = [...file1Entities, ...file2Entities].map((entity, index) => ({
+        entityId: entity.entityId,
+        changesetId: index % 2 === 0 ? changeset1.changesetId : changeset2.changesetId,
+      }));
+
+      await patchEntities(app, patchBody);
+
+      await requestSender.putChangeset(app, changeset1.changesetId as string);
+      await requestSender.putChangeset(app, changeset2.changesetId as string);
+
+      const latestSyncResponse = await getLatestSync(app, sync.layerId as number);
+
+      expect(latestSyncResponse).toHaveProperty('status', StatusCodes.OK);
+      expect(latestSyncResponse).toHaveProperty('body.status', Status.COMPLETED);
+      expect(latestSyncResponse).toHaveProperty('body.endDate');
+      expect((latestSyncResponse.body as Sync).endDate).not.toBeNull();
     });
   });
 });
