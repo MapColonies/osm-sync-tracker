@@ -1,5 +1,5 @@
 import httpStatus, { StatusCodes } from 'http-status-codes';
-import e, { Application } from 'express';
+import { Application } from 'express';
 import { DependencyContainer } from 'tsyringe';
 import { Connection, QueryFailedError } from 'typeorm';
 import faker from 'faker';
