@@ -68,12 +68,9 @@ export class EntityController {
     } catch (error) {
       if (error instanceof DuplicateEntityError) {
         (error as HttpError).status = StatusCodes.CONFLICT;
-      }
-
-      if (error instanceof EntityNotFoundError) {
+      } else if (error instanceof EntityNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
-
       return next(error);
     }
   };
