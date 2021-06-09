@@ -19,6 +19,8 @@ describe('EntityManager', () => {
   let createFiles: jest.Mock;
   let findOneFile: jest.Mock;
   let findManyFiles: jest.Mock;
+  let updateEntities: jest.Mock;
+  let countEntitiesByIds: jest.Mock;
 
   beforeEach(() => {
     createEntity = jest.fn();
@@ -31,8 +33,10 @@ describe('EntityManager', () => {
     createFiles = jest.fn();
     findOneFile = jest.fn();
     findManyFiles = jest.fn();
+    updateEntities = jest.fn();
+    countEntitiesByIds = jest.fn();
 
-    const repository = { createEntity, createEntities, updateEntity, findOneEntity, findManyEntites };
+    const repository = { createEntity, createEntities, updateEntity, findOneEntity, findManyEntites, updateEntities, countEntitiesByIds };
     const fileRepository = { createFile, createFiles, findOneFile, findManyFiles };
 
     entityManager = new EntityManager(repository, fileRepository, jsLogger({ enabled: false }));
@@ -163,6 +167,42 @@ describe('EntityManager', () => {
       const updatePromise = entityManager.updateEntity(faker.datatype.uuid(), entity.entityId, entity);
 
       await expect(updatePromise).rejects.toThrow(FileNotFoundError);
+    });
+  });
+
+  describe('#updateEntities', () => {
+    it("resolves without errors if all of the entitysId's are not already in use by the db", async () => {
+      const entities = createFakeEntities(faker.datatype.number());
+
+      countEntitiesByIds.mockResolvedValue(entities.length);
+      updateEntities.mockResolvedValue(undefined);
+
+      const updateBulkPromise = entityManager.updateEntities(entities);
+
+      await expect(updateBulkPromise).resolves.not.toThrow();
+    });
+
+    it("rejects if one of the entitysId's is duplicate", async () => {
+      const entities = createFakeEntities(faker.datatype.number());
+      entities.push(entities[0]);
+
+      countEntitiesByIds.mockResolvedValue(entities.length);
+      updateEntities.mockResolvedValue(undefined);
+
+      const createBulkPromise = entityManager.updateEntities(entities);
+
+      await expect(createBulkPromise).rejects.toThrow(DuplicateEntityError);
+    });
+
+    it('rejects if entity id does not exists in the db', async () => {
+      const entities = createFakeEntities(faker.datatype.number());
+
+      countEntitiesByIds.mockResolvedValue(entities.length - 1);
+      updateEntities.mockResolvedValue(undefined);
+
+      const createBulkPromise = entityManager.updateEntities(entities);
+
+      await expect(createBulkPromise).rejects.toThrow(EntityNotFoundError);
     });
   });
 });

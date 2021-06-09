@@ -1,5 +1,5 @@
-import { EntityRepository as TypeormEntityRepository, Repository } from 'typeorm';
-import { Entity, UpdateEntity } from '../../models/entity';
+import { EntityRepository as TypeormEntityRepository, In, Repository } from 'typeorm';
+import { Entity, UpdateEntities, UpdateEntity } from '../../models/entity';
 import { IEntityRepository as EntityRepo } from '../entityRepository';
 import { Entity as EntityDb } from './entity';
 
@@ -17,6 +17,10 @@ export class EntityRepository extends Repository<EntityDb> implements EntityRepo
     await this.update(entityId, entity);
   }
 
+  public async updateEntities(entities: UpdateEntities): Promise<void> {
+    await this.save(entities);
+  }
+
   public async findOneEntity(entityId: string): Promise<EntityDb | undefined> {
     const entityEntity = await this.findOne(entityId);
     if (entityEntity === undefined) {
@@ -31,5 +35,9 @@ export class EntityRepository extends Repository<EntityDb> implements EntityRepo
       return undefined;
     }
     return entityEntities;
+  }
+
+  public async countEntitiesByIds(entityIds: string[]): Promise<number> {
+    return this.count({ entityId: In(entityIds) });
   }
 }
