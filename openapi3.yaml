@@ -4,7 +4,7 @@ info:
   description: Api to update on the progress of a cycle of entities sync
   license:
     name: MIT
-  version: 1.0.0
+  version: 1.1.0
 tags:
   - name: sync
   - name: file
@@ -39,7 +39,7 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '409':
           $ref: '#/components/responses/Conflict'
-        '5XX':
+        5XX:
           $ref: '#/components/responses/UnexpectedError'
   /sync/latest:
     get:
@@ -54,7 +54,7 @@ paths:
       tags:
         - sync
       responses:
-        200:
+        '200':
           description: the latest sync for the requsted layer
           content:
             application/json:
@@ -64,7 +64,7 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
-        '5XX':
+        5XX:
           $ref: '#/components/responses/UnexpectedError'
   /sync/{syncId}:
     patch:
@@ -88,7 +88,7 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
-        '5XX':
+        5XX:
           $ref: '#/components/responses/UnexpectedError'
   /sync/{syncId}/file:
     post:
@@ -117,7 +117,7 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
-        '5XX':
+        5XX:
           $ref: '#/components/responses/UnexpectedError'
   /sync/{syncId}/file/_bulk:
     post:
@@ -143,12 +143,14 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
-        '5XX':
+        5XX:
           $ref: '#/components/responses/UnexpectedError'
   /file/{fileId}/entity:
     post:
       summary: add a new entity to the file
-      description: add a entity that is part of the file, once all entities are completed the file will be considered done
+      description: >-
+        add a entity that is part of the file, once all entities are completed
+        the file will be considered done
       parameters:
         - $ref: '#/components/parameters/fileId'
       requestBody:
@@ -174,12 +176,14 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
-        '5XX':
+        5XX:
           $ref: '#/components/responses/UnexpectedError'
   /file/{fileId}/entity/_bulk:
     post:
       summary: add multiple entities to a file
-      description: add multiple entities that are part of the file, once all entities are completed the file will be considered done
+      description: >-
+        add multiple entities that are part of the file, once all entities are
+        completed the file will be considered done
       parameters:
         - $ref: '#/components/parameters/fileId'
       requestBody:
@@ -201,7 +205,7 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
-        '5XX':
+        5XX:
           $ref: '#/components/responses/UnexpectedError'
   /file/{fileId}/entity/{entityId}:
     patch:
@@ -226,7 +230,7 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
-        '5XX':
+        5XX:
           $ref: '#/components/responses/UnexpectedError'
   /entity/_bulk:
     patch:
@@ -243,7 +247,7 @@ paths:
                   - $ref: '#/components/schemas/entity'
                   - type: object
                     required:
-                      - 'entityId'
+                      - entityId
         required: true
       operationId: patchEntities
       tags:
@@ -255,12 +259,14 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
-        '5XX':
+        5XX:
           $ref: '#/components/responses/UnexpectedError'
   /changeset:
     post:
       summary: add a new changeset
-      description: add a new changeset. note that a changeset might contain entities from multiple syncs
+      description: >-
+        add a new changeset. note that a changeset might contain entities from
+        multiple syncs
       requestBody:
         description: the changeset to add
         content:
@@ -282,7 +288,7 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
-        '5XX':
+        5XX:
           $ref: '#/components/responses/UnexpectedError'
   /changeset/{changesetId}:
     patch:
@@ -306,12 +312,14 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
-        '5XX':
+        5XX:
           $ref: '#/components/responses/UnexpectedError'
   /changeset/{changesetId}/close:
     put:
       summary: close the changeset
-      description: closes the changeset, sets all its entities as done, and checks if the sync is completed
+      description: >-
+        closes the changeset, sets all its entities as done, and checks if the
+        sync is completed
       parameters:
         - $ref: '#/components/parameters/changesetId'
       operationId: closeChangeset
@@ -324,7 +332,7 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
-        '5XX':
+        5XX:
           $ref: '#/components/responses/UnexpectedError'
 components:
   responses:
@@ -380,7 +388,9 @@ components:
   schemas:
     status:
       type: string
-      enum: [inprogress, completed]
+      enum:
+        - inprogress
+        - completed
     Error:
       type: object
       properties:
@@ -391,7 +401,8 @@ components:
       format: uuid
     entityId:
       type: string
-      pattern: '{[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}}'
+      pattern: >-
+        {[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}}
     layerId:
       type: integer
     syncWithoutId:
@@ -466,10 +477,17 @@ components:
           $ref: '#/components/schemas/uniqueId'
         status:
           type: string
-          enum: [inprogress, not_synced, completed, failed]
+          enum:
+            - inprogress
+            - not_synced
+            - completed
+            - failed
         action:
           type: string
-          enum: [create, modify, delete]
+          enum:
+            - create
+            - modify
+            - delete
         failReason:
           type: string
           maxLength: 500
