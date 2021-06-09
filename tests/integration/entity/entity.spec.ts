@@ -213,7 +213,7 @@ describe('entity', function () {
 
     describe('PATCH /entity/_bulk', function () {
       it('should return 400 if the sync id is not valid', async function () {
-        const { fileId, ...body } = createStringifiedFakeEntity({ entityId: faker.random.word() });
+        const body = createStringifiedFakeEntity({ entityId: faker.random.word() });
 
         const response = await requestSender.patchEntities(app, [body]);
 
@@ -221,7 +221,7 @@ describe('entity', function () {
       });
 
       it('should return 400 if a status is not valid', async function () {
-        const { fileId, ...body } = createStringifiedFakeEntity({ status: faker.random.word() as EntityStatus });
+        const body = createStringifiedFakeEntity({ status: faker.random.word() as EntityStatus });
 
         const response = await requestSender.patchEntities(app, [body]);
 
@@ -233,9 +233,9 @@ describe('entity', function () {
       });
 
       it('should return 404 if no entity with the specified entity id was found', async function () {
-        const { fileId, ...body } = createStringifiedFakeEntity();
+        const entity = createStringifiedFakeEntity();
 
-        const response = await requestSender.patchEntities(app, [body]);
+        const response = await requestSender.patchEntities(app, [entity]);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
@@ -246,12 +246,8 @@ describe('entity', function () {
         await requestSender.postEntity(app, file.fileId as string, entity);
 
         const entities = [{ ...entity, status: EntityStatus.FAILED, failReason: faker.random.word() }, createStringifiedFakeEntity()];
-        const body = entities.map((entity) => {
-          const { fileId, ...e } = entity;
-          return e;
-        });
 
-        const response = await requestSender.patchEntities(app, body);
+        const response = await requestSender.patchEntities(app, entities);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
