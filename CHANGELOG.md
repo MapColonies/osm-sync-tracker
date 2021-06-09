@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.1.1](https://github.com/MapColonies/osm-sync-tracker/compare/v1.1.0...v1.1.1) (2021-06-09)
+
+
+### Bug Fixes
+
+* **changeset:** fixed changeset closing doesn't close the sync ([#9](https://github.com/MapColonies/osm-sync-tracker/issues/9)) ([387010e](https://github.com/MapColonies/osm-sync-tracker/commit/387010ea4a8d6271209291a5982aa3dddede0319))
+
 ## [1.1.0](https://github.com/MapColonies/osm-sync-tracker/compare/v1.0.0...v1.1.0) (2021-06-09)
 
 
