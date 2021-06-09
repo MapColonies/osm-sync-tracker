@@ -232,7 +232,7 @@ describe('entity', function () {
         );
       });
 
-      it('should return 404 if no file with the specified file id was found', async function () {
+      it('should return 404 if no entity with the specified entity id was found', async function () {
         const { fileId, ...body } = createStringifiedFakeEntity();
 
         const response = await requestSender.patchEntities(app, [body]);
@@ -255,7 +255,7 @@ describe('entity', function () {
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
-      it('should return 409 if one of tupdateEntititeshe entities is duplicate', async function () {
+      it('should return 409 if one of the updateEntitites entities is a duplicate', async function () {
         const entity = createStringifiedFakeEntity();
 
         const response = await requestSender.patchEntities(app, [entity, entity]);
