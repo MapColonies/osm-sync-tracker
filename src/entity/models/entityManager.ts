@@ -24,7 +24,7 @@ export class EntityManager {
       throw new FileNotFoundError(`file = ${fileId} not found`);
     }
 
-    const entityEntity = await this.entityRepository.findOneEntity(entity.entityId);
+    const entityEntity = await this.entityRepository.findOneEntity(entity.entityId, fileId);
     if (entityEntity) {
       throw new EntityAlreadyExistsError(`entity = ${entity.entityId} already exists`);
     }
@@ -59,12 +59,12 @@ export class EntityManager {
       throw new FileNotFoundError(`file = ${fileId} not found`);
     }
 
-    const entityEntity = await this.entityRepository.findOneEntity(entityId);
+    const entityEntity = await this.entityRepository.findOneEntity(entityId, fileId);
     if (!entityEntity) {
       throw new EntityNotFoundError(`entity = ${entityId} not found`);
     }
 
-    await this.entityRepository.updateEntity(entityId, entity);
+    await this.entityRepository.updateEntity(entityId, fileId, entity);
   }
 
   public async updateEntities(entities: UpdateEntities): Promise<void> {
@@ -74,7 +74,10 @@ export class EntityManager {
       throw new DuplicateEntityError(`entites = [${dup.map((entity) => entity.entityId).toString()}] are duplicate`);
     }
 
-    const entityCount = await this.entityRepository.countEntitiesByIds(entities.map((entity) => entity.entityId));
+    const entityCount = await this.entityRepository.countEntitiesByIds(
+      entities.map((entity) => entity.entityId),
+      entities.map((entity) => entity.fileId)
+    );
 
     if (entityCount !== entities.length) {
       throw new EntityNotFoundError(`One of the entities was not found`);

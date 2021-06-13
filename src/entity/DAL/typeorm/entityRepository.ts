@@ -13,16 +13,16 @@ export class EntityRepository extends Repository<EntityDb> implements EntityRepo
     await this.insert(entities);
   }
 
-  public async updateEntity(entityId: string, entity: UpdateEntity): Promise<void> {
-    await this.update(entityId, entity);
+  public async updateEntity(entityId: string, fileId: string, entity: UpdateEntity): Promise<void> {
+    await this.update({ entityId, fileId }, entity);
   }
 
   public async updateEntities(entities: UpdateEntities): Promise<void> {
     await this.save(entities);
   }
 
-  public async findOneEntity(entityId: string): Promise<EntityDb | undefined> {
-    const entityEntity = await this.findOne(entityId);
+  public async findOneEntity(entityId: string, fileId: string): Promise<EntityDb | undefined> {
+    const entityEntity = await this.findOne({ entityId, fileId });
     if (entityEntity === undefined) {
       return undefined;
     }
@@ -37,7 +37,7 @@ export class EntityRepository extends Repository<EntityDb> implements EntityRepo
     return entityEntities;
   }
 
-  public async countEntitiesByIds(entityIds: string[]): Promise<number> {
-    return this.count({ entityId: In(entityIds) });
+  public async countEntitiesByIds(entityIds: string[], fileIds: string[]): Promise<number> {
+    return this.count({ entityId: In(entityIds), fileId: In(fileIds) });
   }
 }
