@@ -5,6 +5,7 @@ import { createFakeEntities, createFakeEntity, createFakeFile } from '../../../h
 import { DuplicateEntityError, EntityAlreadyExistsError } from '../../../../src/entity/models/errors';
 import { EntityNotFoundError } from '../../../../src/entity/models/errors';
 import { FileNotFoundError } from '../../../../src/file/models/errors';
+import { UpdateEntities } from '../../../../src/entity/models/entity';
 
 let entityManager: EntityManager;
 
@@ -177,7 +178,7 @@ describe('EntityManager', () => {
       countEntitiesByIds.mockResolvedValue(entities.length);
       updateEntities.mockResolvedValue(undefined);
 
-      const updateBulkPromise = entityManager.updateEntities(entities);
+      const updateBulkPromise = entityManager.updateEntities(entities as UpdateEntities);
 
       await expect(updateBulkPromise).resolves.not.toThrow();
     });
@@ -189,7 +190,7 @@ describe('EntityManager', () => {
       countEntitiesByIds.mockResolvedValue(entities.length);
       updateEntities.mockResolvedValue(undefined);
 
-      const createBulkPromise = entityManager.updateEntities(entities);
+      const createBulkPromise = entityManager.updateEntities(entities as UpdateEntities);
 
       await expect(createBulkPromise).rejects.toThrow(DuplicateEntityError);
     });
@@ -200,7 +201,7 @@ describe('EntityManager', () => {
       countEntitiesByIds.mockResolvedValue(entities.length - 1);
       updateEntities.mockResolvedValue(undefined);
 
-      const createBulkPromise = entityManager.updateEntities(entities);
+      const createBulkPromise = entityManager.updateEntities(entities as UpdateEntities);
 
       await expect(createBulkPromise).rejects.toThrow(EntityNotFoundError);
     });

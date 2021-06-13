@@ -219,16 +219,17 @@ describe('changeset', function () {
       await postFile(app, sync.id as string, file1);
       await postFile(app, sync.id as string, file2);
 
-      const file1Entities = [createStringifiedFakeEntity({ fileId: file1.fileId }), createStringifiedFakeEntity({ fileId: file1.fileId })];
+      const file1Entities = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
 
-      const file2Entities = [
-        createStringifiedFakeEntity({ fileId: file2.fileId }),
-        createStringifiedFakeEntity({ fileId: file2.fileId }),
-        createStringifiedFakeEntity({ fileId: file2.fileId }),
-      ];
-
+      const file2Entities = [createStringifiedFakeEntity(), createStringifiedFakeEntity(), createStringifiedFakeEntity()];
       await postEntityBulk(app, file1.fileId as string, file1Entities);
       await postEntityBulk(app, file2.fileId as string, file2Entities);
+      file1Entities.forEach((entity) => {
+        entity.fileId = file1.fileId;
+      });
+      file2Entities.forEach((entity) => {
+        entity.fileId = file2.fileId;
+      });
 
       const changeset1 = createStringifiedFakeChangeset();
       const changeset2 = createStringifiedFakeChangeset();
@@ -238,6 +239,7 @@ describe('changeset', function () {
 
       const patchBody = [...file1Entities, ...file2Entities].map((entity, index) => ({
         entityId: entity.entityId,
+        fileId: entity.fileId,
         changesetId: index % 2 === 0 ? changeset1.changesetId : changeset2.changesetId,
       }));
 

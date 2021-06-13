@@ -15,6 +15,8 @@ import { Entity } from '../../../src/entity/models/entity';
 import * as requestSender from './helpers/requestSender';
 import { createStringifiedFakeEntity } from './helpers/generators';
 
+jest.setTimeout(3000000);
+
 describe('entity', function () {
   let app: Application;
   let sync: StringifiedSync;
@@ -79,7 +81,11 @@ describe('entity', function () {
         await requestSender.postEntityBulk(app, file.fileId as string, body);
 
         body[0].action = ActionType.MODIFY;
+        body[0].failReason = 'epic failure';
+        body[0].fileId = file.fileId;
+
         body[1].failReason = 'epic failure';
+        body[1].fileId = file.fileId;
 
         const response = await requestSender.patchEntities(app, body);
 
@@ -213,7 +219,7 @@ describe('entity', function () {
 
     describe('PATCH /entity/_bulk', function () {
       it('should return 400 if the sync id is not valid', async function () {
-        const body = createStringifiedFakeEntity({ entityId: faker.random.word() });
+        const body = createStringifiedFakeEntity({ entityId: faker.random.word(), fileId: file.fileId });
 
         const response = await requestSender.patchEntities(app, [body]);
 
@@ -221,7 +227,7 @@ describe('entity', function () {
       });
 
       it('should return 400 if a status is not valid', async function () {
-        const body = createStringifiedFakeEntity({ status: faker.random.word() as EntityStatus });
+        const body = createStringifiedFakeEntity({ status: faker.random.word() as EntityStatus, fileId: file.fileId });
 
         const response = await requestSender.patchEntities(app, [body]);
 
@@ -233,9 +239,20 @@ describe('entity', function () {
       });
 
       it('should return 404 if no entity with the specified entity id was found', async function () {
-        const entity = createStringifiedFakeEntity();
+        const entity = createStringifiedFakeEntity({ fileId: file.fileId });
 
         const response = await requestSender.patchEntities(app, [entity]);
+
+        expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
+      });
+
+      it('should return 404 if no entity with the specified file id was found', async function () {
+        const entity = createStringifiedFakeEntity();
+        await requestSender.postEntity(app, file.fileId as string, entity);
+
+        const entities = [{ ...entity, status: EntityStatus.FAILED, failReason: faker.random.word(), fileId: faker.datatype.uuid() }];
+
+        const response = await requestSender.patchEntities(app, entities);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
@@ -245,14 +262,18 @@ describe('entity', function () {
 
         await requestSender.postEntity(app, file.fileId as string, entity);
 
-        const entities = [{ ...entity, status: EntityStatus.FAILED, failReason: faker.random.word() }, createStringifiedFakeEntity()];
+        const entities = [
+          { ...entity, status: EntityStatus.FAILED, failReason: faker.random.word(), fileId: file.fileId },
+          createStringifiedFakeEntity({ fileId: file.fileId }),
+        ];
 
         const response = await requestSender.patchEntities(app, entities);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
+
       it('should return 409 if one of the updateEntitites entities is a duplicate', async function () {
-        const entity = createStringifiedFakeEntity();
+        const entity = createStringifiedFakeEntity({ fileId: file.fileId });
 
         const response = await requestSender.patchEntities(app, [entity, entity]);
 
@@ -322,7 +343,7 @@ describe('entity', function () {
           updateEntities: updateEntitiesMock,
           countEntitiesByIds: countEntitiesByIdsMock,
         });
-        const { fileId, ...entity } = createStringifiedFakeEntity();
+        const entity = createStringifiedFakeEntity({ fileId: file.fileId });
 
         const response = await requestSender.patchEntities(mockedApp, [entity]);
 

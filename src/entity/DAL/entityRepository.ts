@@ -7,13 +7,13 @@ export interface IEntityRepository {
 
   createEntities: (entities: Entity[]) => Promise<void>;
 
-  updateEntity: (entityId: string, entity: UpdateEntity) => Promise<void>;
+  updateEntity: (entityId: string, fileId: string, entity: UpdateEntity) => Promise<void>;
 
   updateEntities: (entities: UpdateEntities) => Promise<void>;
 
-  findOneEntity: (entityId: string) => Promise<EntityDb | undefined>;
+  findOneEntity: (entityId: string, fileId: string) => Promise<EntityDb | undefined>;
 
   findManyEntites: (entities: Entity[]) => Promise<EntityDb[] | undefined>;
 
-  countEntitiesByIds: (entityIds: string[]) => Promise<number>;
+  countEntitiesByIds: (entityIds: string[], fileIds: string[]) => Promise<number>;
 }

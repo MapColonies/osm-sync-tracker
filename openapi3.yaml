@@ -244,10 +244,11 @@ paths:
               type: array
               items:
                 allOf:
-                  - $ref: '#/components/schemas/entity'
+                  - $ref: '#/components/schemas/entityWithFileId'
                   - type: object
                     required:
-                      - entityId
+                      - 'entityId'
+                      - 'fileId'
         required: true
       operationId: patchEntities
       tags:
@@ -498,3 +499,29 @@ components:
             entityId:
               $ref: '#/components/schemas/entityId'
         - $ref: '#/components/schemas/entityWithoutId'
+    entityWithFileId:
+      allOf:
+        - type: object
+          properties:
+            entityId:
+              $ref: '#/components/schemas/entityId'
+            fileId:
+              $ref: '#/components/schemas/uniqueId'
+            changesetId:
+              $ref: '#/components/schemas/uniqueId'
+            status:
+              type: string
+              enum:
+                - inprogress
+                - not_synced
+                - completed
+                - failed
+            action:
+              type: string
+              enum:
+                - create
+                - modify
+                - delete
+            failReason:
+              type: string
+              maxLength: 500

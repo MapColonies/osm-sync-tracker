@@ -12,7 +12,7 @@ export class Entity {
   @JoinColumn({ name: 'file_id' })
   public file!: File;
 
-  @Column({ name: 'file_id', type: 'uuid' })
+  @PrimaryColumn({ name: 'file_id', type: 'uuid' })
   public fileId!: string;
 
   @ManyToOne(() => Changeset, (changeset) => changeset.entities, { nullable: true })
