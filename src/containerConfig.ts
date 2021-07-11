@@ -4,6 +4,7 @@ import { logMethod } from '@map-colonies/telemetry';
 import jsLogger, { LoggerOptions } from '@map-colonies/js-logger';
 import { Metrics } from '@map-colonies/telemetry';
 import { Connection } from 'typeorm';
+import { trace } from '@opentelemetry/api';
 import { Services } from './common/constants';
 import { DbConfig } from './common/interfaces';
 import { getDbHealthCheckFunction, initConnection } from './common/db';
@@ -22,7 +23,7 @@ import entityRouterFactory from './entity/routes/entityRouter';
 import changesetRouterFactory from './changeset/routes/changesetRouter';
 
 async function registerExternalValues(): Promise<void> {
-  const loggerConfig = config.get<LoggerOptions>('logger');
+  const loggerConfig = config.get<LoggerOptions>('telemetry.logger');
   // @ts-expect-error the signature is wrong
   const logger = jsLogger({ ...loggerConfig, prettyPrint: false, hooks: { logMethod } });
   container.register(Services.CONFIG, { useValue: config });
@@ -46,7 +47,8 @@ async function registerExternalValues(): Promise<void> {
   container.register('entity', { useFactory: entityRouterFactory });
   container.register('changeset', { useFactory: changesetRouterFactory });
 
-  const tracer = tracing.start();
+  tracing.start();
+  const tracer = trace.getTracer('osm-sync-tracker');
   container.register(Services.TRACER, { useValue: tracer });
 
   const metrics = new Metrics('app_meter');
