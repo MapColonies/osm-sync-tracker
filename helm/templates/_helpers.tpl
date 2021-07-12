@@ -49,3 +49,60 @@ Selector labels
 app.kubernetes.io/name: {{ include "osm-sync-tracker.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+
+{{/*
+Returns the environment from global if exists or from the chart's values, defaults to development
+*/}}
+{{- define "osm-sync-tracker.environment" -}}
+{{- if .Values.global.environment }}
+    {{- .Values.global.environment -}}
+{{- else -}}
+    {{- .Values.environment | default "development" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Returns the cloud provider name from global if exists or from the chart's values, defaults to minikube
+*/}}
+{{- define "osm-sync-tracker.cloudProviderFlavor" -}}
+{{- if .Values.global.cloudProvider.flavor }}
+    {{- .Values.global.cloudProvider.flavor -}}
+{{- else if .Values.cloudProvider -}}
+    {{- .Values.cloudProvider.flavor | default "minikube" -}}
+{{- else -}}
+    {{ "minikube" }}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Returns the cloud provider docker registry url from global if exists or from the chart's values
+*/}}
+{{- define "osm-sync-tracker.cloudProviderDockerRegistryUrl" -}}
+{{- if .Values.global.cloudProvider.dockerRegistryUrl }}
+    {{- .Values.global.cloudProvider.dockerRegistryUrl -}}
+{{- else if .Values.cloudProvider -}}
+    {{- .Values.cloudProvider.dockerRegistryUrl -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Returns the tracing url from global if exists or from the chart's values
+*/}}
+{{- define "osm-sync-tracker.tracingUrl" -}}
+{{- if .Values.global.tracing.url }}
+    {{- .Values.global.tracing.url -}}
+{{- else if .Values.cloudProvider -}}
+    {{- .Values.env.tracing.url -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Returns the tracing url from global if exists or from the chart's values
+*/}}
+{{- define "osm-sync-tracker.metricsUrl" -}}
+{{- if .Values.global.metrics.url }}
+    {{- .Values.global.metrics.url -}}
+{{- else -}}
+    {{- .Values.env.metrics.url -}}
+{{- end -}}
+{{- end -}}
