@@ -3,6 +3,7 @@ import { Connection } from 'typeorm';
 import config from 'config';
 import { Tracing, Metrics } from '@map-colonies/telemetry';
 import jsLogger from '@map-colonies/js-logger';
+import { trace } from '@opentelemetry/api';
 import { Services } from '../../src/common/constants';
 import { syncRepositorySymbol } from '../../src/sync/DAL/syncRepository';
 import { fileRepositorySymbol } from '../../src/file/DAL/fileRepository';
@@ -25,11 +26,12 @@ async function registerTestValues(): Promise<DependencyContainer> {
   child.register(Services.CONFIG, { useValue: config });
   child.register(Services.LOGGER, { useValue: jsLogger({ enabled: false }) });
 
-  const tracing = new Tracing(Services.TRACER);
-  const tracer = tracing.start();
+  const tracing = new Tracing();
+  tracing.start();
+  const tracer = trace.getTracer('osm-sync-tracker');
   child.register(Services.TRACER, { useValue: tracer });
 
-  const metrics = new Metrics(Services.TRACER);
+  const metrics = new Metrics(Services.METER);
   const meter = metrics.start();
   child.register(Services.METER, { useValue: meter });
 
