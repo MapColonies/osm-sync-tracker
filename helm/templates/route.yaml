@@ -1,7 +1,7 @@
 {{- $releaseName := .Release.Name -}}
-{{- $cloudProviderName := .Values.cloudProvider.name -}}
+{{- $cloudProviderFlavor := include "osm-sync-tracker.cloudProviderFlavor" . -}}
 {{- $chartName := include "osm-sync-tracker.name" . -}}
-{{- if and (and (.Values.enabled) (ne $cloudProviderName "minikube")) (.Values.route.enabled) -}}
+{{- if and (and (.Values.enabled) (eq $cloudProviderFlavor "openshift")) (.Values.route.enabled) -}}
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:

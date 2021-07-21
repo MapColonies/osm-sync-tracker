@@ -1,5 +1,7 @@
 {{- $releaseName := .Release.Name -}}
 {{- $chartName := include "osm-sync-tracker.name" . -}}
+{{- $cloudProviderFlavor := include "osm-sync-tracker.cloudProviderFlavor" . -}}
+{{- $cloudProviderDockerRegistryUrl := include "osm-sync-tracker.cloudProviderDockerRegistryUrl" . -}}
 {{- if .Values.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -25,11 +27,18 @@ spec:
         app: {{ $chartName }}
         release: {{ $releaseName }}
         run: {{ $releaseName }}-{{ $chartName }}
+        environment: {{ include "osm-sync-tracker.environment" . }}
         {{- include "osm-sync-tracker.selectorLabels" . | nindent 8 }}
     spec:
       containers:
         - name: {{ $releaseName }}-{{ $chartName }}-deployment
-          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          {{- with .Values.image }}
+          {{- if ne $cloudProviderFlavor "minikube" }}
+          image: {{ $cloudProviderDockerRegistryUrl }}/{{ .repository }}:{{ .tag }}
+          {{- else }}
+          image: {{ .repository }}:{{ .tag }}
+          {{- end }}
+          {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           envFrom:
             - configMapRef:

@@ -1,24 +1,28 @@
 # Default values for helm.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
+global:
+  cloudProvider: {}
+  tracing: {}
+  metrics: {}
+  environment: {}
 
 replicaCount: 1
-
 enabled: true
-
+initialDelaySeconds: 600
+environment: development
+nodeSelector: {}
+tolerations: []
+affinity: {}
 
 cloudProvider:
-  name: azure
-
-environment: development
+  flavor: openshift
+  dockerRegistryUrl: my-registry.io
 
 image:
-  repository: acrarolibotnonprod.azurecr.io/osm-sync-tracker
-  pullPolicy: IfNotPresent
+  repository: osm-sync-tracker
   # Overrides the image tag whose default is the chart appVersion.
   tag: "v1.0.0"
-
-
 
 resources:
   enabled: false
@@ -30,23 +34,26 @@ resources:
       cpu: 100m
       memory: 128Mi
 
-nodeSelector: {}
-
-tolerations: []
-
-affinity: {}
-
 env:
   port: 8080
   targetPort: 8080
   protocol: TCP
   logLevel: info
+  requestPayloadLimit: 1mb
+  responseCompressionEnabled: true
+  tracing:
+    enabled: false
+    url: 'http://localhost:55681/v1/trace'
+  metrics:
+    enabled: false
+    url: 'http://localhost:55681/v1/metrics'
+
 # external
 dbConfig:
-  host: 10.8.1.15
+  host: localhost
   username: postgres
   password: postgres
-  database: osm-sync-tracker-dev
+  database: osm-sync-tracker
   sslAuth:
     enabled: false
     secretName: secret-name
