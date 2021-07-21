@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://github.com/MapColonies/osm-sync-tracker/compare/v1.1.3...v1.2.0) (2021-07-21)
+
+
+### Features
+
+* **configurations:** add helm chart to spec ([#14](https://github.com/MapColonies/osm-sync-tracker/issues/14)) ([c06f18b](https://github.com/MapColonies/osm-sync-tracker/commit/c06f18b92bcde2f78a6f81d5324ce8d225fcabb6))
+
 ### [1.1.3](https://github.com/MapColonies/osm-sync-tracker/compare/v1.1.2...v1.1.3) (2021-06-16)
 
 
