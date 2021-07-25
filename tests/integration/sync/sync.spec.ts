@@ -16,7 +16,7 @@ describe('sync', function () {
     container = await registerTestValues();
     app = requestSender.getApp(container);
     connection = container.resolve(Connection);
-  });
+  }, 15000);
   afterAll(async function () {
     await connection.close();
     container.reset();

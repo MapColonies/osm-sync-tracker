@@ -73,7 +73,7 @@ jobs:
           run: npm ci
 
         - name: Run tests
-          run: npm run test -- --testTimeout=10000
+          run: npm run test
 
         - uses: actions/upload-artifact@v2
           with:
