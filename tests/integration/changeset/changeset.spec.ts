@@ -3,6 +3,7 @@ import { DependencyContainer } from 'tsyringe';
 import { Application } from 'express';
 import faker from 'faker';
 import { Connection, QueryFailedError } from 'typeorm';
+
 import { postSync, getLatestSync } from '../sync/helpers/requestSender';
 import { postFile } from '../file/helpers/requestSender';
 import { postEntity, postEntityBulk, patchEntities } from '../entity/helpers/requestSender';
@@ -35,7 +36,7 @@ describe('changeset', function () {
     entity = createStringifiedFakeEntity();
     await postEntity(app, file.fileId as string, entity);
     connection = container.resolve(Connection);
-  });
+  }, 15000);
   afterAll(async function () {
     await connection.close();
     container.reset();
@@ -193,8 +194,8 @@ describe('changeset', function () {
     describe('PUT /changeset/{changesetId}/close', function () {
       it('should return 500 if the db throws an error', async function () {
         const closeChangesetMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
-        const findOneChangesetMokc = jest.fn().mockResolvedValue(true);
-        const mockedApp = requestSender.getMockedRepoApp(container, { closeChangeset: closeChangesetMock, findOneChangeset: findOneChangesetMokc });
+        const findOneChangesetMock = jest.fn().mockResolvedValue(true);
+        const mockedApp = requestSender.getMockedRepoApp(container, { closeChangeset: closeChangesetMock, findOneChangeset: findOneChangesetMock });
 
         const body = createStringifiedFakeChangeset();
         await requestSender.postChangeset(app, body);

@@ -32,7 +32,7 @@ describe('entity', function () {
     file = createStringifiedFakeFile();
     await postFile(app, sync.id as string, file);
     connection = container.resolve(Connection);
-  });
+  }, 15000);
 
   afterAll(async function () {
     await connection.close();

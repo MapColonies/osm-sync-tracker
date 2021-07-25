@@ -22,7 +22,7 @@ describe('file', function () {
     sync = createStringifiedFakeSync();
     await postSync(app, sync);
     connection = container.resolve(Connection);
-  });
+  }, 15000);
 
   afterAll(async function () {
     container.reset();
