@@ -247,14 +247,19 @@ describe('changeset', function () {
       await patchEntities(app, patchBody);
 
       await requestSender.putChangeset(app, changeset1.changesetId as string);
+
+      const latestSyncResponse1 = await getLatestSync(app, sync.layerId as number);
+      expect(latestSyncResponse1).toHaveProperty('status', StatusCodes.OK);
+      expect(latestSyncResponse1).toHaveProperty('body.status', Status.IN_PROGRESS);
+
       await requestSender.putChangeset(app, changeset2.changesetId as string);
 
-      const latestSyncResponse = await getLatestSync(app, sync.layerId as number);
+      const latestSyncResponse2 = await getLatestSync(app, sync.layerId as number);
 
-      expect(latestSyncResponse).toHaveProperty('status', StatusCodes.OK);
-      expect(latestSyncResponse).toHaveProperty('body.status', Status.COMPLETED);
-      expect(latestSyncResponse).toHaveProperty('body.endDate');
-      expect((latestSyncResponse.body as Sync).endDate).not.toBeNull();
+      expect(latestSyncResponse2).toHaveProperty('status', StatusCodes.OK);
+      expect(latestSyncResponse2).toHaveProperty('body.status', Status.COMPLETED);
+      expect(latestSyncResponse2).toHaveProperty('body.endDate');
+      expect((latestSyncResponse2.body as Sync).endDate).not.toBeNull();
     });
   });
 });

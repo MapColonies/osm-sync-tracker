@@ -1,9 +1,10 @@
 {
   "db": {
-    "host": "postgres",
-    "schema": "public",
+    "host": "localhost",
+    "port": 5432,
+    "schema": "osm_sync_tracker",
     "username": "postgres",
-    "password": "1234",
+    "password": "postgres",
     "database": "postgres",
     "enableSslAuth": false
   }
