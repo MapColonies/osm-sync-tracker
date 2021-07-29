@@ -2,6 +2,8 @@ import { Logger } from '@map-colonies/js-logger';
 import lodash from 'lodash';
 import { inject, injectable } from 'tsyringe';
 import { Services } from '../../common/constants';
+import { EntityStatus } from '../../common/enums';
+import { IConfig } from '../../common/interfaces';
 import { IFileRepository, fileRepositorySymbol } from '../../file/DAL/fileRepository';
 import { FileNotFoundError } from '../../file/models/errors';
 import { IEntityRepository, entityRepositorySymbol } from '../DAL/entityRepository';
@@ -10,11 +12,15 @@ import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } f
 
 @injectable()
 export class EntityManager {
+  private readonly dbSchema: string;
   public constructor(
     @inject(entityRepositorySymbol) private readonly entityRepository: IEntityRepository,
     @inject(fileRepositorySymbol) private readonly fileRepository: IFileRepository,
-    @inject(Services.LOGGER) private readonly logger: Logger
-  ) {}
+    @inject(Services.LOGGER) private readonly logger: Logger,
+    @inject(Services.CONFIG) private readonly config: IConfig
+  ) {
+    this.dbSchema = this.config.get('db.schema');
+  }
 
   public async createEntity(fileId: string, entity: Entity): Promise<void> {
     const fileEntity = await this.fileRepository.findOneFile(fileId);
@@ -65,6 +71,9 @@ export class EntityManager {
     }
 
     await this.entityRepository.updateEntity(entityId, fileId, entity);
+    if (entity.status === EntityStatus.NOT_SYNCED) {
+      await this.fileRepository.tryClosingFile(fileId, this.dbSchema);
+    }
   }
 
   public async updateEntities(entities: UpdateEntities): Promise<void> {
@@ -84,5 +93,10 @@ export class EntityManager {
     }
 
     await this.entityRepository.updateEntities(entities);
+    await Promise.all(
+      entities
+        .filter((entity) => entity.status === EntityStatus.NOT_SYNCED)
+        .map(async (entity) => this.fileRepository.tryClosingFile(entity.fileId, this.dbSchema))
+    );
   }
 }

@@ -6,14 +6,14 @@ import { Connection, QueryFailedError } from 'typeorm';
 
 import { postSync, getLatestSync } from '../sync/helpers/requestSender';
 import { postFile } from '../file/helpers/requestSender';
-import { postEntity, postEntityBulk, patchEntities } from '../entity/helpers/requestSender';
+import { postEntity, postEntityBulk, patchEntities, patchEntity } from '../entity/helpers/requestSender';
 import { StringifiedSync } from '../sync/types';
 import { StringifiedFile } from '../file/types';
 import { registerTestValues } from '../testContainerConfig';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { createStringifiedFakeSync } from '../sync/helpers/generators';
 import { createStringifiedFakeEntity, StringifiedEntity } from '../entity/helpers/generators';
-import { Status } from '../../../src/common/enums';
+import { EntityStatus, Status } from '../../../src/common/enums';
 import { Sync } from '../../../src/sync/models/sync';
 import * as requestSender from './helpers/requestSender';
 import { createStringifiedFakeChangeset } from './helpers/generators';
@@ -222,7 +222,12 @@ describe('changeset', function () {
 
       const file1Entities = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
 
-      const file2Entities = [createStringifiedFakeEntity(), createStringifiedFakeEntity(), createStringifiedFakeEntity()];
+      let file2Entities = [
+        createStringifiedFakeEntity(),
+        createStringifiedFakeEntity(),
+        createStringifiedFakeEntity(),
+        createStringifiedFakeEntity(),
+      ];
       await postEntityBulk(app, file1.fileId as string, file1Entities);
       await postEntityBulk(app, file2.fileId as string, file2Entities);
       file1Entities.forEach((entity) => {
@@ -231,11 +236,17 @@ describe('changeset', function () {
       file2Entities.forEach((entity) => {
         entity.fileId = file2.fileId;
       });
+      const [notSyncedEntity, ...tempArr] = file2Entities;
+      file2Entities = tempArr;
 
       const changeset1 = createStringifiedFakeChangeset();
       const changeset2 = createStringifiedFakeChangeset();
 
       await requestSender.postChangeset(app, changeset1);
+
+      await patchEntity(app, notSyncedEntity.fileId as string, notSyncedEntity.entityId as string, { status: EntityStatus.NOT_SYNCED });
+      expect(await getLatestSync(app, sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+
       await requestSender.postChangeset(app, changeset2);
 
       const patchBody = [...file1Entities, ...file2Entities].map((entity, index) => ({
@@ -247,6 +258,9 @@ describe('changeset', function () {
       await patchEntities(app, patchBody);
 
       await requestSender.putChangeset(app, changeset1.changesetId as string);
+
+      expect(await getLatestSync(app, sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+
       await requestSender.putChangeset(app, changeset2.changesetId as string);
 
       const latestSyncResponse = await getLatestSync(app, sync.layerId as number);

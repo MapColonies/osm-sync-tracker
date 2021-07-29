@@ -34,7 +34,7 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
         FROM (
           SELECT file_id, COUNT(*) as CompletedEntities
           FROM ${schema}.entity
-          WHERE file_id in (SELECT * FROM touched_files) and status = 'completed'
+          WHERE file_id in (SELECT * FROM touched_files) and (status = 'completed' or status = 'not_synced')
           group by file_id) as FILES_TO_UPDATE
         WHERE FILE.file_id = FILES_TO_UPDATE.file_id and FILES_TO_UPDATE.CompletedEntities = FILE.total_entities`,
         [changesetId]
@@ -51,7 +51,7 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
           SELECT distinct sync_id 
           FROM ${schema}.file
           WHERE file_id in (SELECT * FROM touched_files) and status = 'completed') as sync_from_changeset
-        WHERE sync_to_update.id = sync_from_changeset.sync_id and sync_to_update.total_files = (SELECT count (*) from ${schema}.file where sync_id = sync_to_update.id)`,
+        WHERE sync_to_update.id = sync_from_changeset.sync_id and sync_to_update.total_files = (SELECT count (*) from ${schema}.file where sync_id = sync_to_update.id and status = 'completed')`,
         [changesetId]
       );
     });
