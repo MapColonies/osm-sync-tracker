@@ -6,6 +6,7 @@ import { DuplicateEntityError, EntityAlreadyExistsError } from '../../../../src/
 import { EntityNotFoundError } from '../../../../src/entity/models/errors';
 import { FileNotFoundError } from '../../../../src/file/models/errors';
 import { UpdateEntities } from '../../../../src/entity/models/entity';
+import { EntityStatus } from '../../../../src/common/enums';
 
 let entityManager: EntityManager;
 
@@ -22,6 +23,7 @@ describe('EntityManager', () => {
   let findManyFiles: jest.Mock;
   let updateEntities: jest.Mock;
   let countEntitiesByIds: jest.Mock;
+  let tryClosingFile: jest.Mock;
 
   beforeEach(() => {
     createEntity = jest.fn();
@@ -36,11 +38,12 @@ describe('EntityManager', () => {
     findManyFiles = jest.fn();
     updateEntities = jest.fn();
     countEntitiesByIds = jest.fn();
+    tryClosingFile = jest.fn();
 
     const repository = { createEntity, createEntities, updateEntity, findOneEntity, findManyEntites, updateEntities, countEntitiesByIds };
-    const fileRepository = { createFile, createFiles, findOneFile, findManyFiles };
+    const fileRepository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile };
 
-    entityManager = new EntityManager(repository, fileRepository, jsLogger({ enabled: false }));
+    entityManager = new EntityManager(repository, fileRepository, jsLogger({ enabled: false }), { get: jest.fn(), has: jest.fn() });
   });
 
   afterEach(() => {
@@ -169,6 +172,21 @@ describe('EntityManager', () => {
 
       await expect(updatePromise).rejects.toThrow(FileNotFoundError);
     });
+
+    it('resolves without errors if the entity status is not_synced', async () => {
+      const entity = createFakeEntity();
+      const file = createFakeFile();
+      entity.status = EntityStatus.NOT_SYNCED;
+
+      findOneFile.mockResolvedValue(file);
+      findOneEntity.mockResolvedValue(entity);
+      updateEntity.mockResolvedValue(undefined);
+      tryClosingFile.mockResolvedValue(undefined);
+
+      const updatePromise = entityManager.updateEntity(file.fileId, entity.entityId, entity);
+
+      await expect(updatePromise).resolves.not.toThrow();
+    });
   });
 
   describe('#updateEntities', () => {
@@ -204,6 +222,18 @@ describe('EntityManager', () => {
       const createBulkPromise = entityManager.updateEntities(entities as UpdateEntities);
 
       await expect(createBulkPromise).rejects.toThrow(EntityNotFoundError);
+    });
+
+    it('resolves without errors if one of the entities status is not_synced', async () => {
+      const entities = createFakeEntities(faker.datatype.number());
+      entities[0].status = EntityStatus.NOT_SYNCED;
+
+      countEntitiesByIds.mockResolvedValue(entities.length);
+      updateEntities.mockResolvedValue(undefined);
+
+      const updateBulkPromise = entityManager.updateEntities(entities as UpdateEntities);
+
+      await expect(updateBulkPromise).resolves.not.toThrow();
     });
   });
 });

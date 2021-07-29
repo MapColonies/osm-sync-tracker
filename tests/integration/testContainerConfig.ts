@@ -13,7 +13,7 @@ import { initConnection } from '../../src/common/db';
 import { SyncRepository } from '../../src/sync/DAL/typeorm/syncRepository';
 import { FileRepository } from '../../src/file/DAL/typeorm/fileRepository';
 import { EntityRepository } from '../../src/entity/DAL/typeorm/entityRepository';
-import { ChangesetRepository } from '../../src/changeset/DAL/typeorm/entityRepository';
+import { ChangesetRepository } from '../../src/changeset/DAL/typeorm/changesetRepository';
 import { changesetRepositorySymbol } from '../../src/changeset/DAL/changsetRepository';
 import { syncRouterFactory } from '../../src/sync/routes/syncRouter';
 import fileRouterFactory from '../../src/file/routes/fileRouter';

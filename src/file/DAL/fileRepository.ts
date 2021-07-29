@@ -11,4 +11,6 @@ export interface IFileRepository {
   findOneFile: (fileId: string) => Promise<FileDb | undefined>;
 
   findManyFiles: (files: File[]) => Promise<FileDb[] | undefined>;
+
+  tryClosingFile: (fileId: string, schema: string) => Promise<void>;
 }
