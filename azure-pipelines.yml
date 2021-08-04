@@ -35,13 +35,13 @@ stages:
         # dockerRegistryServiceConnection:
         # the path to the docker file Default is [root Folder]/DockerFile
         dockerfilePaths:
-        - name: $(Build.Repository.Name)
+        - name: osm-sync-tracker
           path: '$(Build.SourcesDirectory)/Dockerfile'
-        - name: $(Build.Repository.Name)-migrations
+        - name: osm-sync-tracker-migrations
           path: '$(Build.SourcesDirectory)/migrations.Dockerfile'
         # the url of the helm registry Default [ACR non prod registry url]
         # helmrRegistryUrl:
         # the path to the helm folder. Default is [root Folder]/helm
         # helmFolderPath:
         # the name of the app. the name of the image and the name of the chart will be the same.
-        appName: $(Build.Repository.Name)
+        appName: osm-sync-tracker
