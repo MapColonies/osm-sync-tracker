@@ -7,6 +7,7 @@ import { registerTestValues } from '../testContainerConfig';
 import { createStringifiedFakeSync } from '../sync/helpers/generators';
 import { StringifiedSync } from '../sync/types';
 import { postSync } from '../sync/helpers/requestSender';
+import { expectResponseStatusCode } from '../helpers';
 import * as requestSender from './helpers/requestSender';
 import { createStringifiedFakeFile } from './helpers/generators';
 
@@ -79,7 +80,7 @@ describe('file', function () {
 
       it('should return 409 if a file already exists', async function () {
         const file = createStringifiedFakeFile();
-        await requestSender.postFile(app, sync.id as string, file);
+        expectResponseStatusCode(await requestSender.postFile(app, sync.id as string, file), StatusCodes.CREATED);
 
         const response = await requestSender.postFile(app, sync.id as string, file);
 
@@ -126,7 +127,7 @@ describe('file', function () {
         const file = createStringifiedFakeFile();
         const file2 = createStringifiedFakeFile();
 
-        await requestSender.postFile(app, sync.id as string, file2);
+        expectResponseStatusCode(await requestSender.postFile(app, sync.id as string, file2), StatusCodes.CREATED);
 
         const response = await requestSender.postFileBulk(app, sync.id as string, [file, file2]);
 

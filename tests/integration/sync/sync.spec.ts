@@ -4,6 +4,7 @@ import { Application } from 'express';
 import faker from 'faker';
 import { Connection, QueryFailedError } from 'typeorm';
 import { registerTestValues } from '../testContainerConfig';
+import { expectResponseStatusCode } from '../helpers';
 import * as requestSender from './helpers/requestSender';
 import { createStringifiedFakeSync } from './helpers/generators';
 
@@ -36,8 +37,9 @@ describe('sync', function () {
     describe('PATCH /sync', function () {
       it('should return 200 status code and OK body', async function () {
         const body = createStringifiedFakeSync();
-        await requestSender.postSync(app, body);
+        expectResponseStatusCode(await requestSender.postSync(app, body), StatusCodes.CREATED);
         const { id, ...updateBody } = body;
+
         const response = await requestSender.patchSync(app, id as string, updateBody);
 
         expect(response.status).toBe(httpStatus.OK);
@@ -52,8 +54,8 @@ describe('sync', function () {
         const { layerId } = earlierSync;
 
         const later = createStringifiedFakeSync({ dumpDate: faker.date.between(earlierDate, new Date()).toISOString(), layerId });
-        await requestSender.postSync(app, earlierSync);
-        await requestSender.postSync(app, later);
+        expectResponseStatusCode(await requestSender.postSync(app, earlierSync), StatusCodes.CREATED);
+        expectResponseStatusCode(await requestSender.postSync(app, later), StatusCodes.CREATED);
 
         const response = await requestSender.getLatestSync(app, layerId as number);
 
@@ -85,7 +87,7 @@ describe('sync', function () {
 
       it('should return 409 if a sync already exists', async function () {
         const body = createStringifiedFakeSync();
-        await requestSender.postSync(app, body);
+        expectResponseStatusCode(await requestSender.postSync(app, body), StatusCodes.CREATED);
 
         const response = await requestSender.postSync(app, body);
 
