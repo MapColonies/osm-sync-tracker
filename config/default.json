@@ -26,7 +26,7 @@
   },
   "db": {
     "type": "postgres",
-    "host": "10.8.1.15",
+    "host": "localhost",
     "port": 5432,
     "username": "postgres",
     "password": "postgres",
@@ -36,7 +36,7 @@
       "key": "",
       "cert": ""
     },
-    "database": "osm-sync-tracker-dev",
+    "database": "postgres",
     "schema": "osm_sync_tracker"
   }
 }

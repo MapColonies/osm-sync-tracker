@@ -1,11 +1,11 @@
 expect.extend({
   toHaveStatus: (response, status) => {
-    if (response?.status !== status) {
-      return {
-        message: () => `expected response.status to match ${status}`,
-        pass: false,
-      };
+    if (response !== undefined && response.status == status) {
+      return { pass: true };
     }
-    return { pass: true };
+    return {
+      message: () => `expected response.status to match ${status}`,
+      pass: false,
+    };
   },
 });
