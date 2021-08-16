@@ -4,7 +4,6 @@ import { Application } from 'express';
 import faker from 'faker';
 import { Connection, QueryFailedError } from 'typeorm';
 import { registerTestValues } from '../testContainerConfig';
-import { expectResponseStatusCode } from '../helpers';
 import * as requestSender from './helpers/requestSender';
 import { createStringifiedFakeSync } from './helpers/generators';
 
@@ -37,7 +36,7 @@ describe('sync', function () {
     describe('PATCH /sync', function () {
       it('should return 200 status code and OK body', async function () {
         const body = createStringifiedFakeSync();
-        expectResponseStatusCode(await requestSender.postSync(app, body), StatusCodes.CREATED);
+        expect(await requestSender.postSync(app, body)).toHaveStatus(StatusCodes.CREATED);
         const { id, ...updateBody } = body;
 
         const response = await requestSender.patchSync(app, id as string, updateBody);
@@ -54,8 +53,8 @@ describe('sync', function () {
         const { layerId } = earlierSync;
 
         const later = createStringifiedFakeSync({ dumpDate: faker.date.between(earlierDate, new Date()).toISOString(), layerId });
-        expectResponseStatusCode(await requestSender.postSync(app, earlierSync), StatusCodes.CREATED);
-        expectResponseStatusCode(await requestSender.postSync(app, later), StatusCodes.CREATED);
+        expect(await requestSender.postSync(app, earlierSync)).toHaveStatus(StatusCodes.CREATED);
+        expect(await requestSender.postSync(app, later)).toHaveStatus(StatusCodes.CREATED);
 
         const response = await requestSender.getLatestSync(app, layerId as number);
 
@@ -87,7 +86,7 @@ describe('sync', function () {
 
       it('should return 409 if a sync already exists', async function () {
         const body = createStringifiedFakeSync();
-        expectResponseStatusCode(await requestSender.postSync(app, body), StatusCodes.CREATED);
+        expect(await requestSender.postSync(app, body)).toHaveStatus(StatusCodes.CREATED);
 
         const response = await requestSender.postSync(app, body);
 
