@@ -63,7 +63,7 @@ describe('entity', function () {
     describe('PATCH /file/:fileId/entity/:entityId', function () {
       it('should return 200 status code and OK body', async function () {
         const body = createStringifiedFakeEntity();
-        await requestSender.postEntity(app, file.fileId as string, body);
+        expect(await requestSender.postEntity(app, file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
         const { entityId, ...updateBody } = body;
 
         updateBody.action = ActionType.MODIFY;
@@ -78,7 +78,7 @@ describe('entity', function () {
     describe('PATCH /entity/_bulk', function () {
       it('should return 200 status code and OK body', async function () {
         const body = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
-        await requestSender.postEntityBulk(app, file.fileId as string, body);
+        expect(await requestSender.postEntityBulk(app, file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
 
         body[0].action = ActionType.MODIFY;
         body[0].failReason = 'epic failure';
@@ -125,7 +125,7 @@ describe('entity', function () {
 
       it('should return 409 if a entity already exists', async function () {
         const entity = createStringifiedFakeEntity();
-        await requestSender.postEntity(app, file.fileId as string, entity);
+        expect(await requestSender.postEntity(app, file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
 
         const response = await requestSender.postEntity(app, file.fileId as string, entity);
 
@@ -175,7 +175,7 @@ describe('entity', function () {
         const entity = createStringifiedFakeEntity();
         const entity2 = createStringifiedFakeEntity();
 
-        await requestSender.postEntity(app, file.fileId as string, entity);
+        expect(await requestSender.postEntity(app, file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
 
         const response = await requestSender.postEntityBulk(app, file.fileId as string, [entity, entity2]);
 
@@ -248,7 +248,7 @@ describe('entity', function () {
 
       it('should return 404 if no entity with the specified file id was found', async function () {
         const entity = createStringifiedFakeEntity();
-        await requestSender.postEntity(app, file.fileId as string, entity);
+        expect(await requestSender.postEntity(app, file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
 
         const entities = [{ ...entity, status: EntityStatus.FAILED, failReason: faker.random.word(), fileId: faker.datatype.uuid() }];
 
@@ -260,7 +260,7 @@ describe('entity', function () {
       it('should return 404 if one of the entity does not exist in the db', async function () {
         const entity = createStringifiedFakeEntity();
 
-        await requestSender.postEntity(app, file.fileId as string, entity);
+        expect(await requestSender.postEntity(app, file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
 
         const entities = [
           { ...entity, status: EntityStatus.FAILED, failReason: faker.random.word(), fileId: file.fileId },

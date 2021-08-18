@@ -79,7 +79,7 @@ describe('file', function () {
 
       it('should return 409 if a file already exists', async function () {
         const file = createStringifiedFakeFile();
-        await requestSender.postFile(app, sync.id as string, file);
+        expect(await requestSender.postFile(app, sync.id as string, file)).toHaveStatus(StatusCodes.CREATED);
 
         const response = await requestSender.postFile(app, sync.id as string, file);
 
@@ -126,7 +126,7 @@ describe('file', function () {
         const file = createStringifiedFakeFile();
         const file2 = createStringifiedFakeFile();
 
-        await requestSender.postFile(app, sync.id as string, file2);
+        expect(await requestSender.postFile(app, sync.id as string, file2)).toHaveStatus(StatusCodes.CREATED);
 
         const response = await requestSender.postFileBulk(app, sync.id as string, [file, file2]);
 

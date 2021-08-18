@@ -4,6 +4,7 @@ module.exports = {
   },
   coverageReporters: ['text', 'html'],
   collectCoverage: true,
+  setupFilesAfterEnv: ['<rootDir>/tests/matchers.js'],
   collectCoverageFrom: [
     '<rootDir>/src/**/*.ts',
     '!*/node_modules/',
