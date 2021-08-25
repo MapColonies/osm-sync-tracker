@@ -58,6 +58,11 @@ spec:
               path: /liveness
               port: http
           {{- if .Values.resources.enabled }}
+          readinessProbe:
+            initialDelaySeconds: {{ .Values.initialDelaySeconds }}
+            httpGet:
+              path: /liveness
+              port: http
           resources:
             {{- toYaml .Values.resources.value | nindent 12 }}
           {{- end }}
