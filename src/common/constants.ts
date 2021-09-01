@@ -6,6 +6,7 @@ export const IGNORED_INCOMING_TRACE_ROUTES = [/^.*\/docs.*$/];
 export enum Services {
   LOGGER = 'ILogger',
   CONFIG = 'IConfig',
+  APPLICATION = 'IApplication',
   TRACER = 'TRACER',
   METER = 'METER',
 }

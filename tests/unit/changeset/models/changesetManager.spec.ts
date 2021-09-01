@@ -1,25 +1,33 @@
 import jsLogger from '@map-colonies/js-logger';
 import config from 'config';
+import faker from 'faker';
+import { QueryFailedError } from 'typeorm';
 import { ChangesetManager } from '../../../../src/changeset/models/changesetManager';
 import { createFakeChangeset } from '../../../helpers/helper';
-import { ChangesetAlreadyExistsError, ChangesetNotFoundError } from '../../../../src/changeset/models/errors';
+import {
+  ChangesetAlreadyExistsError,
+  ChangesetNotFoundError,
+  ExceededNumberOfRetriesError,
+  TransactionFailureError,
+} from '../../../../src/changeset/models/errors';
 
 let changesetManager: ChangesetManager;
+let changesetManagerWithRetries: ChangesetManager;
 
 describe('ChangesetManager', () => {
   let createChangeset: jest.Mock;
   let updateChangeset: jest.Mock;
-  let closeChangeset: jest.Mock;
+  let tryClosingChangeset: jest.Mock;
   let findOneChangeset: jest.Mock;
 
   beforeEach(() => {
     createChangeset = jest.fn();
     updateChangeset = jest.fn();
-    closeChangeset = jest.fn();
+    tryClosingChangeset = jest.fn();
     findOneChangeset = jest.fn();
 
-    const repository = { createChangeset, updateChangeset, closeChangeset, findOneChangeset };
-    changesetManager = new ChangesetManager(repository, jsLogger({ enabled: false }), config);
+    const repository = { createChangeset, updateChangeset, tryClosingChangeset, findOneChangeset };
+    changesetManager = new ChangesetManager(repository, jsLogger({ enabled: false }), config, { transactionRetryPolicy: { enabled: false } });
   });
 
   afterEach(() => {
@@ -77,11 +85,75 @@ describe('ChangesetManager', () => {
       const entity = createFakeChangeset();
 
       findOneChangeset.mockResolvedValue(entity);
-      closeChangeset.mockResolvedValue(undefined);
+      tryClosingChangeset.mockResolvedValue(undefined);
 
       const closePromise = changesetManager.closeChangeset(entity.changesetId);
 
       await expect(closePromise).resolves.not.toThrow();
+    });
+
+    it('resolves if closing changeset fails only once while retries is configured', async () => {
+      const entity = createFakeChangeset();
+
+      findOneChangeset.mockResolvedValue(entity);
+      tryClosingChangeset.mockRejectedValueOnce(new TransactionFailureError('transaction failure'));
+
+      const repository = { createChangeset, updateChangeset, tryClosingChangeset, findOneChangeset };
+      changesetManagerWithRetries = new ChangesetManager(repository, jsLogger({ enabled: false }), config, {
+        transactionRetryPolicy: { enabled: true, amount: 1 },
+      });
+
+      const closePromise = changesetManagerWithRetries.closeChangeset(entity.changesetId);
+
+      await expect(closePromise).resolves.not.toThrow();
+      expect(tryClosingChangeset).toHaveBeenCalledTimes(2);
+    });
+
+    it('rejects with transaction failure error if closing changeset fails', async () => {
+      const entity = createFakeChangeset();
+
+      findOneChangeset.mockResolvedValue(entity);
+      tryClosingChangeset.mockRejectedValue(new TransactionFailureError('transaction failure'));
+
+      const closePromise = changesetManager.closeChangeset(entity.changesetId);
+
+      await expect(closePromise).rejects.toThrow(TransactionFailureError);
+    });
+
+    it('rejects with exceeded number of retries error if closing changeset fails when retries if configured', async () => {
+      const entity = createFakeChangeset();
+
+      findOneChangeset.mockResolvedValue(entity);
+      tryClosingChangeset.mockRejectedValue(new TransactionFailureError('transaction failure'));
+
+      const retries = faker.datatype.number({ min: 1, max: 10 });
+      const repository = { createChangeset, updateChangeset, tryClosingChangeset, findOneChangeset };
+      changesetManagerWithRetries = new ChangesetManager(repository, jsLogger({ enabled: false }), config, {
+        transactionRetryPolicy: { enabled: true, amount: retries },
+      });
+
+      const closePromise = changesetManagerWithRetries.closeChangeset(entity.changesetId);
+
+      await expect(closePromise).rejects.toThrow(ExceededNumberOfRetriesError);
+      expect(tryClosingChangeset).toHaveBeenCalledTimes(retries + 1);
+    });
+
+    it('rejects without transaction failure error when retries is configured due to another error raising', async () => {
+      const entity = createFakeChangeset();
+
+      findOneChangeset.mockResolvedValue(entity);
+      tryClosingChangeset.mockRejectedValue(new QueryFailedError('some query', undefined, new Error()));
+
+      const retries = faker.datatype.number({ min: 1, max: 10 });
+      const repository = { createChangeset, updateChangeset, tryClosingChangeset, findOneChangeset };
+      changesetManagerWithRetries = new ChangesetManager(repository, jsLogger({ enabled: false }), config, {
+        transactionRetryPolicy: { enabled: true, amount: retries },
+      });
+
+      const closePromise = changesetManagerWithRetries.closeChangeset(entity.changesetId);
+
+      await expect(closePromise).rejects.toThrow(QueryFailedError);
+      expect(tryClosingChangeset).toHaveBeenCalledTimes(1);
     });
 
     it('rejects if the changeset is not exists the db', async () => {

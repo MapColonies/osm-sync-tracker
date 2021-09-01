@@ -1,4 +1,6 @@
 import { EntityRepository, Repository } from 'typeorm';
+import { TransactionFailureError } from '../../../changeset/models/errors';
+import { isTransactionFailure } from '../../../common/db';
 import { File } from '../../models/file';
 import { IFileRepository } from '../fileRepository';
 import { File as FileDb } from './file';
@@ -30,24 +32,31 @@ export class FileRepository extends Repository<FileDb> implements IFileRepositor
   }
 
   public async tryClosingFile(fileId: string, schema: string): Promise<void> {
-    await this.manager.connection.transaction(async (transactionalEntityManager) => {
-      await transactionalEntityManager.query(
-        `UPDATE ${schema}.file as FILE set status = 'completed', end_date = current_timestamp
+    try {
+      await this.manager.connection.transaction('SERIALIZABLE', async (transactionalEntityManager) => {
+        await transactionalEntityManager.query(
+          `UPDATE ${schema}.file as FILE set status = 'completed', end_date = current_timestamp
         WHERE FILE.file_id = $1 and FILE.total_entities = (SELECT COUNT(*) as CompletedEntities
             FROM ${schema}.entity
             WHERE file_id = $1 and (status = 'completed' or status = 'not_synced'))`,
-        [fileId]
-      );
+          [fileId]
+        );
 
-      await transactionalEntityManager.query(
-        `UPDATE ${schema}.sync as sync_to_update set status = 'completed', end_date = current_timestamp
+        await transactionalEntityManager.query(
+          `UPDATE ${schema}.sync as sync_to_update set status = 'completed', end_date = current_timestamp
         FROM (
           SELECT distinct sync_id
           FROM ${schema}.file
           WHERE file_id = $1 and status = 'completed') as sync_from_file
         WHERE sync_to_update.id = sync_from_file.sync_id and sync_to_update.total_files = (SELECT count (*) from ${schema}.file where sync_id = sync_to_update.id and status = 'completed')`,
-        [fileId]
-      );
-    });
+          [fileId]
+        );
+      });
+    } catch (error) {
+      if (isTransactionFailure(error)) {
+        throw new TransactionFailureError(`closing file ${fileId} has failed due to read/write dependencies among transactions.`);
+      }
+      throw error;
+    }
   }
 }

@@ -10,13 +10,19 @@ metadata:
 data:
   REQUEST_PAYLOAD_LIMIT: {{ .Values.env.requestPayloadLimit | quote }}
   RESPONSE_COMPRESSION_ENABLED: {{ .Values.env.responseCompressionEnabled | quote }}
+  {{- if .Values.appConfig.transactionRetryPolicy.enabled }}
+  APP_TRANSACTION_RETRIES_ENABLED: "true"
+  APP_TRANSACTION_RETRIES_AMOUNT: {{ .Values.appConfig.transactionRetryPolicy.amount | quote }}
+  {{- else }}
+  APP_TRANSACTION_RETRIES_ENABLED: "false"
+  {{- end }}
   LOG_LEVEL: {{ .Values.env.logLevel | quote }}
   {{ if .Values.global.tracing.enabled }}
-  TELEMETRY_TRACING_ENABLED: 'true'
+  TELEMETRY_TRACING_ENABLED: "true"
   TELEMETRY_TRACING_URL: {{ $tracingUrl }}
   {{ end }}
   {{ if .Values.global.metrics.enabled }}
-  TELEMETRY_METRICS_ENABLED: 'true'
+  TELEMETRY_METRICS_ENABLED: "true"
   TELEMETRY_METRICS_URL: {{ $metricsUrl }}
   {{ end }}
   {{- with .Values.dbConfig }}

@@ -1,40 +1,50 @@
-import httpStatus, { StatusCodes } from 'http-status-codes';
-import { Application } from 'express';
-import { DependencyContainer } from 'tsyringe';
-import { Connection, QueryFailedError } from 'typeorm';
 import faker from 'faker';
-import { registerTestValues } from '../testContainerConfig';
+import { container } from 'tsyringe';
+import httpStatus, { StatusCodes } from 'http-status-codes';
+import { Connection, QueryFailedError } from 'typeorm';
 import { createStringifiedFakeSync } from '../sync/helpers/generators';
 import { StringifiedSync } from '../sync/types';
-import { postSync } from '../sync/helpers/requestSender';
-import { postFile } from '../file/helpers/requestSender';
+import { SyncRequestSender } from '../sync/helpers/requestSender';
+import { FileRequestSender } from '../file/helpers/requestSender';
+import { EntityRequestSender } from '../entity/helpers/requestSender';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { StringifiedFile } from '../file/types';
 import { ActionType, EntityStatus } from '../../../src/common/enums';
+import { getApp } from '../../../src/app';
 import { Entity } from '../../../src/entity/models/entity';
-import * as requestSender from './helpers/requestSender';
+import { getBaseRegisterOptions } from '../helpers';
+import { entityRepositorySymbol } from '../../../src/entity/DAL/entityRepository';
+import { TransactionFailureError } from '../../../src/changeset/models/errors';
+import { createFakeEntity, createFakeFile } from '../../helpers/helper';
+import { fileRepositorySymbol } from '../../../src/file/DAL/fileRepository';
+import { IApplication } from '../../../src/common/interfaces';
+import { Services } from '../../../src/common/constants';
 import { createStringifiedFakeEntity } from './helpers/generators';
 
 jest.setTimeout(3000000);
 
 describe('entity', function () {
-  let app: Application;
+  let entityRequestSender: EntityRequestSender;
+  let fileRequestSender: FileRequestSender;
+  let syncRequestSender: SyncRequestSender;
+  let mockEntityRequestSender: EntityRequestSender;
+
   let sync: StringifiedSync;
   let file: StringifiedFile;
-  let connection: Connection;
-  let container: DependencyContainer;
 
   beforeAll(async function () {
-    container = await registerTestValues();
-    app = requestSender.getApp(container);
+    const app = await getApp(getBaseRegisterOptions());
+    entityRequestSender = new EntityRequestSender(app);
+    fileRequestSender = new FileRequestSender(app);
+    syncRequestSender = new SyncRequestSender(app);
     sync = createStringifiedFakeSync();
-    await postSync(app, sync);
+    await syncRequestSender.postSync(sync);
     file = createStringifiedFakeFile();
-    await postFile(app, sync.id as string, file);
-    connection = container.resolve(Connection);
+    await fileRequestSender.postFile(sync.id as string, file);
   }, 15000);
 
   afterAll(async function () {
+    const connection = container.resolve(Connection);
     await connection.close();
     container.reset();
   });
@@ -43,7 +53,7 @@ describe('entity', function () {
     describe('POST /file/:fileId/entity', function () {
       it('should return 201 status code and Created body', async function () {
         const body = createStringifiedFakeEntity();
-        const response = await requestSender.postEntity(app, file.fileId as string, body);
+        const response = await entityRequestSender.postEntity(file.fileId as string, body);
 
         expect(response.status).toBe(httpStatus.CREATED);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
@@ -51,7 +61,7 @@ describe('entity', function () {
     });
     describe('POST /file/:fileId/entity/_bulk', function () {
       it('should return 201 status code and OK body', async function () {
-        const response = await requestSender.postEntityBulk(app, file.fileId as string, [
+        const response = await entityRequestSender.postEntityBulk(file.fileId as string, [
           createStringifiedFakeEntity(),
           createStringifiedFakeEntity(),
         ]);
@@ -63,22 +73,57 @@ describe('entity', function () {
     describe('PATCH /file/:fileId/entity/:entityId', function () {
       it('should return 200 status code and OK body', async function () {
         const body = createStringifiedFakeEntity();
-        expect(await requestSender.postEntity(app, file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
         const { entityId, ...updateBody } = body;
 
         updateBody.action = ActionType.MODIFY;
 
-        const response = await requestSender.patchEntity(app, file.fileId as string, body.entityId as string, updateBody);
+        const response = await entityRequestSender.patchEntity(file.fileId as string, body.entityId as string, updateBody);
 
         expect(response.status).toBe(httpStatus.OK);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
+      });
+
+      it('should return 200 status code when failing close file transaction once while retries is configured', async function () {
+        const fakeEntity = createFakeEntity();
+        const fakeFile = createFakeFile();
+        const findOneEntityMock = jest.fn().mockResolvedValue(fakeEntity);
+        const updateEntityMock = jest.fn();
+        const findOneFileMock = jest.fn().mockResolvedValue(fakeFile);
+        const tryClosingFileMock = jest.fn().mockRejectedValueOnce(new TransactionFailureError('transaction failure'));
+
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: entityRepositorySymbol,
+          provider: { useValue: { findOneEntity: findOneEntityMock, updateEntity: updateEntityMock } },
+        });
+        mockRegisterOptions.override.push({
+          token: fileRepositorySymbol,
+          provider: { useValue: { findOneFile: findOneFileMock, tryClosingFile: tryClosingFileMock } },
+        });
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, amount: 1 } };
+        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockEntityRequestSender = new EntityRequestSender(mockApp);
+
+        const body = createStringifiedFakeEntity();
+        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        const { entityId, ...updateBody } = body;
+        updateBody.action = ActionType.MODIFY;
+        updateBody.status = EntityStatus.NOT_SYNCED;
+
+        const response = await mockEntityRequestSender.patchEntity(file.fileId as string, body.entityId as string, updateBody);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
+        expect(tryClosingFileMock).toHaveBeenCalledTimes(2);
       });
     });
 
     describe('PATCH /entity/_bulk', function () {
       it('should return 200 status code and OK body', async function () {
         const body = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
-        expect(await requestSender.postEntityBulk(app, file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntityBulk(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
 
         body[0].action = ActionType.MODIFY;
         body[0].failReason = 'epic failure';
@@ -87,10 +132,39 @@ describe('entity', function () {
         body[1].failReason = 'epic failure';
         body[1].fileId = file.fileId;
 
-        const response = await requestSender.patchEntities(app, body);
+        const response = await entityRequestSender.patchEntities(body);
 
         expect(response.status).toBe(httpStatus.OK);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
+      });
+
+      it('should return 200 status code and OK body when closing transaction fails once while retries is configured', async function () {
+        const tryClosingFileMock = jest.fn().mockRejectedValueOnce(new TransactionFailureError('transaction failure'));
+
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({ token: fileRepositorySymbol, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, amount: 1 } };
+        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockEntityRequestSender = new EntityRequestSender(mockApp);
+
+        const body = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
+        expect(await entityRequestSender.postEntityBulk(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+
+        body[0].action = ActionType.MODIFY;
+        body[0].failReason = 'epic failure';
+        body[0].fileId = file.fileId;
+        body[0].status = EntityStatus.NOT_SYNCED;
+
+        body[1].failReason = 'epic failure';
+        body[1].fileId = file.fileId;
+        body[1].status = EntityStatus.NOT_SYNCED;
+
+        const response = await mockEntityRequestSender.patchEntities(body);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
+        expect(tryClosingFileMock).toHaveBeenCalledTimes(body.length + 1);
       });
     });
   });
@@ -100,7 +174,7 @@ describe('entity', function () {
       it('should return 400 if the fileId is not valid', async function () {
         const body = createStringifiedFakeEntity();
 
-        const response = await requestSender.postEntity(app, faker.random.word(), body);
+        const response = await entityRequestSender.postEntity(faker.random.word(), body);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', 'request.params.fileId should match format "uuid"');
@@ -109,7 +183,7 @@ describe('entity', function () {
       it('should return 400 if a required property is missing', async function () {
         const { status, ...body } = createStringifiedFakeEntity();
 
-        const response = await requestSender.postEntity(app, file.fileId as string, body as Entity);
+        const response = await entityRequestSender.postEntity(file.fileId as string, body as Entity);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', "request.body should have required property 'status'");
@@ -117,7 +191,7 @@ describe('entity', function () {
 
       it('should return 404 if the file was not found', async function () {
         const uuid = faker.datatype.uuid();
-        const response = await requestSender.postEntity(app, uuid, createStringifiedFakeEntity());
+        const response = await entityRequestSender.postEntity(uuid, createStringifiedFakeEntity());
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
         expect(response.body).toHaveProperty('message', `file = ${uuid} not found`);
@@ -125,9 +199,9 @@ describe('entity', function () {
 
       it('should return 409 if a entity already exists', async function () {
         const entity = createStringifiedFakeEntity();
-        expect(await requestSender.postEntity(app, file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntity(file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
 
-        const response = await requestSender.postEntity(app, file.fileId as string, entity);
+        const response = await entityRequestSender.postEntity(file.fileId as string, entity);
 
         expect(response).toHaveProperty('status', httpStatus.CONFLICT);
       });
@@ -137,7 +211,7 @@ describe('entity', function () {
       it('should return 400 if the file id is not valid', async function () {
         const body = createStringifiedFakeEntity();
 
-        const response = await requestSender.postEntityBulk(app, faker.random.word(), [body]);
+        const response = await entityRequestSender.postEntityBulk(faker.random.word(), [body]);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', 'request.params.fileId should match format "uuid"');
@@ -146,7 +220,7 @@ describe('entity', function () {
       it('should return 400 if a status is not valid', async function () {
         const body = createStringifiedFakeEntity({ status: faker.random.word() as EntityStatus });
 
-        const response = await requestSender.postEntityBulk(app, file.fileId as string, [body]);
+        const response = await entityRequestSender.postEntityBulk(file.fileId as string, [body]);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty(
@@ -158,7 +232,7 @@ describe('entity', function () {
       it('should return 404 if no file with the specified file id was found', async function () {
         const body = createStringifiedFakeEntity();
 
-        const response = await requestSender.postEntityBulk(app, faker.datatype.uuid(), [body]);
+        const response = await entityRequestSender.postEntityBulk(faker.datatype.uuid(), [body]);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
@@ -166,7 +240,7 @@ describe('entity', function () {
       it('should return 409 if one of the entity is duplicate', async function () {
         const entity = createStringifiedFakeEntity();
 
-        const response = await requestSender.postEntityBulk(app, file.fileId as string, [entity, entity]);
+        const response = await entityRequestSender.postEntityBulk(file.fileId as string, [entity, entity]);
 
         expect(response).toHaveProperty('status', httpStatus.CONFLICT);
       });
@@ -175,9 +249,9 @@ describe('entity', function () {
         const entity = createStringifiedFakeEntity();
         const entity2 = createStringifiedFakeEntity();
 
-        expect(await requestSender.postEntity(app, file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntity(file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
 
-        const response = await requestSender.postEntityBulk(app, file.fileId as string, [entity, entity2]);
+        const response = await entityRequestSender.postEntityBulk(file.fileId as string, [entity, entity2]);
 
         expect(response).toHaveProperty('status', httpStatus.CONFLICT);
       });
@@ -187,7 +261,7 @@ describe('entity', function () {
       it('should return 400 if the enittyId is not valid', async function () {
         const { entityId, ...updateBody } = createStringifiedFakeEntity();
 
-        const response = await requestSender.patchEntity(app, file.fileId as string, faker.random.word(), updateBody);
+        const response = await entityRequestSender.patchEntity(file.fileId as string, faker.random.word(), updateBody);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty(
@@ -199,7 +273,7 @@ describe('entity', function () {
       it('should return 400 if a status is not valid', async function () {
         const { entityId, ...updateBody } = createStringifiedFakeEntity({ status: faker.random.word() as EntityStatus });
 
-        const response = await requestSender.patchEntity(app, file.fileId as string, entityId as string, updateBody);
+        const response = await entityRequestSender.patchEntity(file.fileId as string, entityId as string, updateBody);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty(
@@ -211,7 +285,7 @@ describe('entity', function () {
       it('should return 404 if no entity with the specified id was found', async function () {
         const { entityId, ...updateBody } = createStringifiedFakeEntity();
 
-        const response = await requestSender.patchEntity(app, file.fileId as string, entityId as string, updateBody);
+        const response = await entityRequestSender.patchEntity(file.fileId as string, entityId as string, updateBody);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
@@ -221,7 +295,7 @@ describe('entity', function () {
       it('should return 400 if the sync id is not valid', async function () {
         const body = createStringifiedFakeEntity({ entityId: faker.random.word(), fileId: file.fileId });
 
-        const response = await requestSender.patchEntities(app, [body]);
+        const response = await entityRequestSender.patchEntities([body]);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
       });
@@ -229,7 +303,7 @@ describe('entity', function () {
       it('should return 400 if a status is not valid', async function () {
         const body = createStringifiedFakeEntity({ status: faker.random.word() as EntityStatus, fileId: file.fileId });
 
-        const response = await requestSender.patchEntities(app, [body]);
+        const response = await entityRequestSender.patchEntities([body]);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty(
@@ -241,18 +315,18 @@ describe('entity', function () {
       it('should return 404 if no entity with the specified entity id was found', async function () {
         const entity = createStringifiedFakeEntity({ fileId: file.fileId });
 
-        const response = await requestSender.patchEntities(app, [entity]);
+        const response = await entityRequestSender.patchEntities([entity]);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
 
       it('should return 404 if no entity with the specified file id was found', async function () {
         const entity = createStringifiedFakeEntity();
-        expect(await requestSender.postEntity(app, file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntity(file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
 
         const entities = [{ ...entity, status: EntityStatus.FAILED, failReason: faker.random.word(), fileId: faker.datatype.uuid() }];
 
-        const response = await requestSender.patchEntities(app, entities);
+        const response = await entityRequestSender.patchEntities(entities);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
@@ -260,14 +334,14 @@ describe('entity', function () {
       it('should return 404 if one of the entity does not exist in the db', async function () {
         const entity = createStringifiedFakeEntity();
 
-        expect(await requestSender.postEntity(app, file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntity(file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
 
         const entities = [
           { ...entity, status: EntityStatus.FAILED, failReason: faker.random.word(), fileId: file.fileId },
           createStringifiedFakeEntity({ fileId: file.fileId }),
         ];
 
-        const response = await requestSender.patchEntities(app, entities);
+        const response = await entityRequestSender.patchEntities(entities);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
@@ -275,7 +349,7 @@ describe('entity', function () {
       it('should return 409 if one of the updateEntitites entities is a duplicate', async function () {
         const entity = createStringifiedFakeEntity({ fileId: file.fileId });
 
-        const response = await requestSender.patchEntities(app, [entity, entity]);
+        const response = await entityRequestSender.patchEntities([entity, entity]);
 
         expect(response).toHaveProperty('status', httpStatus.CONFLICT);
       });
@@ -289,32 +363,37 @@ describe('entity', function () {
         const findOneEntityMock = jest.fn().mockResolvedValue(false);
         const findManyEntitesMock = jest.fn().mockResolvedValue(false);
 
-        const mockedApp = requestSender.getMockedRepoApp(container, {
-          createEntity: createEntityMock,
-          findOneEntity: findOneEntityMock,
-          findManyEntites: findManyEntitesMock,
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: entityRepositorySymbol,
+          provider: { useValue: { createEntity: createEntityMock, findOneEntity: findOneEntityMock, findManyEntites: findManyEntitesMock } },
         });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockEntityRequestSender = new EntityRequestSender(mockApp);
 
-        const response = await requestSender.postEntity(mockedApp, file.fileId as string, createStringifiedFakeEntity());
+        const response = await mockEntityRequestSender.postEntity(file.fileId as string, createStringifiedFakeEntity());
 
         expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
         expect(response.body).toHaveProperty('message', 'failed');
       });
     });
-    describe('POST /file/:fileId/entity/:entityId', function () {
+
+    describe('POST /file/:fileId/entity/_bulk', function () {
       it('should return 500 if the db throws an error', async function () {
         const createEntitiesMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
         const findOneEntityMock = jest.fn().mockResolvedValue(false);
         const findManyEntitesMock = jest.fn().mockResolvedValue(false);
 
-        const mockedApp = requestSender.getMockedRepoApp(container, {
-          createEntities: createEntitiesMock,
-          findOneEntity: findOneEntityMock,
-          findManyEntites: findManyEntitesMock,
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: entityRepositorySymbol,
+          provider: { useValue: { createEntities: createEntitiesMock, findOneEntity: findOneEntityMock, findManyEntites: findManyEntitesMock } },
         });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockEntityRequestSender = new EntityRequestSender(mockApp);
         const body = createStringifiedFakeEntity();
 
-        const response = await requestSender.postEntityBulk(mockedApp, file.fileId as string, [body]);
+        const response = await mockEntityRequestSender.postEntityBulk(file.fileId as string, [body]);
 
         expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
         expect(response.body).toHaveProperty('message', 'failed');
@@ -323,15 +402,130 @@ describe('entity', function () {
 
     describe('PATCH /file/:fileId/entity/:entityId', function () {
       it('should return 500 if the db throws an error', async function () {
-        const createEntitiesMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
+        const updateEntitiesMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
         const findOneEntityMock = jest.fn().mockResolvedValue(true);
-        const mockedApp = requestSender.getMockedRepoApp(container, { updateEntity: createEntitiesMock, findOneEntity: findOneEntityMock });
+
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: entityRepositorySymbol,
+          provider: { useValue: { updateEntity: updateEntitiesMock, findOneEntity: findOneEntityMock } },
+        });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockEntityRequestSender = new EntityRequestSender(mockApp);
+
         const { entityId, ...updateBody } = createStringifiedFakeEntity();
 
-        const response = await requestSender.patchEntity(mockedApp, file.fileId as string, entityId as string, updateBody);
+        const response = await mockEntityRequestSender.patchEntity(file.fileId as string, entityId as string, updateBody);
 
         expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
         expect(response.body).toHaveProperty('message', 'failed');
+      });
+
+      it('should return 500 when failing to close file due to transaction failure', async function () {
+        const fakeEntity = createFakeEntity();
+        const fakeFile = createFakeFile();
+        const findOneEntityMock = jest.fn().mockResolvedValue(fakeEntity);
+        const updateEntityMock = jest.fn();
+        const findOneFileMock = jest.fn().mockResolvedValue(fakeFile);
+        const tryClosingFileMock = jest.fn().mockRejectedValue(new TransactionFailureError('transaction failure'));
+
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: entityRepositorySymbol,
+          provider: { useValue: { findOneEntity: findOneEntityMock, updateEntity: updateEntityMock } },
+        });
+        mockRegisterOptions.override.push({
+          token: fileRepositorySymbol,
+          provider: { useValue: { findOneFile: findOneFileMock, tryClosingFile: tryClosingFileMock } },
+        });
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: false } };
+        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockEntityRequestSender = new EntityRequestSender(mockApp);
+
+        const body = createStringifiedFakeEntity();
+        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        const { entityId, ...updateBody } = body;
+        updateBody.action = ActionType.MODIFY;
+        updateBody.status = EntityStatus.NOT_SYNCED;
+
+        const response = await mockEntityRequestSender.patchEntity(file.fileId as string, body.entityId as string, updateBody);
+
+        expect(response.status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
+        expect(response.body).toHaveProperty('message', 'transaction failure');
+        expect(tryClosingFileMock).toHaveBeenCalledTimes(1);
+      });
+
+      it('should return 500 when failing to close file due to transaction failures when retries is configured', async function () {
+        const fakeEntity = createFakeEntity();
+        const fakeFile = createFakeFile();
+        const findOneEntityMock = jest.fn().mockResolvedValue(fakeEntity);
+        const updateEntityMock = jest.fn();
+        const findOneFileMock = jest.fn().mockResolvedValue(fakeFile);
+        const tryClosingFileMock = jest.fn().mockRejectedValue(new TransactionFailureError('transaction failure'));
+
+        const retries = faker.datatype.number({ min: 1, max: 10 });
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: entityRepositorySymbol,
+          provider: { useValue: { findOneEntity: findOneEntityMock, updateEntity: updateEntityMock } },
+        });
+        mockRegisterOptions.override.push({
+          token: fileRepositorySymbol,
+          provider: { useValue: { findOneFile: findOneFileMock, tryClosingFile: tryClosingFileMock } },
+        });
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, amount: retries } };
+        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockEntityRequestSender = new EntityRequestSender(mockApp);
+
+        const body = createStringifiedFakeEntity();
+        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        const { entityId, ...updateBody } = body;
+        updateBody.action = ActionType.MODIFY;
+        updateBody.status = EntityStatus.NOT_SYNCED;
+
+        const response = await mockEntityRequestSender.patchEntity(file.fileId as string, body.entityId as string, updateBody);
+
+        expect(response.status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
+        expect(response.body).toHavePropertyThatContains('message', `exceeded the number of retries (${retries})`);
+        expect(tryClosingFileMock).toHaveBeenCalledTimes(retries + 1);
+      });
+
+      it('should return 500 when failing to close file not due to a transaction failure when retries is configured', async function () {
+        const fakeEntity = createFakeEntity();
+        const fakeFile = createFakeFile();
+        const findOneEntityMock = jest.fn().mockResolvedValue(fakeEntity);
+        const updateEntityMock = jest.fn();
+        const findOneFileMock = jest.fn().mockResolvedValue(fakeFile);
+        const tryClosingFileMock = jest.fn().mockRejectedValue(new QueryFailedError('some query', undefined, new Error('failed')));
+
+        const retries = faker.datatype.number({ min: 1, max: 10 });
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: entityRepositorySymbol,
+          provider: { useValue: { findOneEntity: findOneEntityMock, updateEntity: updateEntityMock } },
+        });
+        mockRegisterOptions.override.push({
+          token: fileRepositorySymbol,
+          provider: { useValue: { findOneFile: findOneFileMock, tryClosingFile: tryClosingFileMock } },
+        });
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, amount: retries } };
+        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockEntityRequestSender = new EntityRequestSender(mockApp);
+
+        const body = createStringifiedFakeEntity();
+        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        const { entityId, ...updateBody } = body;
+        updateBody.action = ActionType.MODIFY;
+        updateBody.status = EntityStatus.NOT_SYNCED;
+
+        const response = await mockEntityRequestSender.patchEntity(file.fileId as string, body.entityId as string, updateBody);
+
+        expect(response.status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
+        expect(response.body).toHavePropertyThatContains('message', 'failed');
+        expect(tryClosingFileMock).toHaveBeenCalledTimes(1);
       });
     });
 
@@ -339,16 +533,106 @@ describe('entity', function () {
       it('should return 500 if the db throws an error', async function () {
         const updateEntitiesMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
         const countEntitiesByIdsMock = jest.fn().mockResolvedValue(1);
-        const mockedApp = requestSender.getMockedRepoApp(container, {
-          updateEntities: updateEntitiesMock,
-          countEntitiesByIds: countEntitiesByIdsMock,
+
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: entityRepositorySymbol,
+          provider: { useValue: { updateEntities: updateEntitiesMock, countEntitiesByIds: countEntitiesByIdsMock } },
         });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockEntityRequestSender = new EntityRequestSender(mockApp);
         const entity = createStringifiedFakeEntity({ fileId: file.fileId });
 
-        const response = await requestSender.patchEntities(mockedApp, [entity]);
+        const response = await mockEntityRequestSender.patchEntities([entity]);
 
         expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
         expect(response.body).toHaveProperty('message', 'failed');
+      });
+
+      it('should return 500 when failing to close file due to transaction failure', async function () {
+        const tryClosingFileMock = jest.fn().mockRejectedValue(new TransactionFailureError('transaction failure'));
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({ token: fileRepositorySymbol, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: false } };
+        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockEntityRequestSender = new EntityRequestSender(mockApp);
+
+        const body = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
+        expect(await entityRequestSender.postEntityBulk(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+
+        body[0].action = ActionType.MODIFY;
+        body[0].failReason = 'epic failure';
+        body[0].fileId = file.fileId;
+        body[0].status = EntityStatus.NOT_SYNCED;
+
+        body[1].failReason = 'epic failure';
+        body[1].fileId = file.fileId;
+        body[1].status = EntityStatus.NOT_SYNCED;
+
+        const response = await mockEntityRequestSender.patchEntities(body);
+
+        expect(response.status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
+        expect(response.body).toHaveProperty('message', 'transaction failure');
+        expect(tryClosingFileMock).toHaveBeenCalledTimes(body.length);
+      });
+
+      it('should return 500 when failing to close file due to transaction failures when retries is configured', async function () {
+        const tryClosingFileMock = jest.fn().mockRejectedValue(new TransactionFailureError('transaction failure'));
+        const retries = faker.datatype.number({ min: 1, max: 10 });
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({ token: fileRepositorySymbol, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, amount: retries } };
+        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockEntityRequestSender = new EntityRequestSender(mockApp);
+
+        const body = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
+        expect(await entityRequestSender.postEntityBulk(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+
+        body[0].action = ActionType.MODIFY;
+        body[0].failReason = 'epic failure';
+        body[0].fileId = file.fileId;
+        body[0].status = EntityStatus.NOT_SYNCED;
+
+        body[1].failReason = 'epic failure';
+        body[1].fileId = file.fileId;
+        body[1].status = EntityStatus.NOT_SYNCED;
+
+        const response = await mockEntityRequestSender.patchEntities(body);
+
+        expect(response.status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
+        expect(response.body).toHavePropertyThatContains('message', `exceeded the number of retries (${retries}).`);
+        expect(tryClosingFileMock).toHaveBeenCalledTimes((retries + 1) * body.length);
+      });
+
+      it('should return 500 when failing to close file not due to a transaction failure when retries is configured', async function () {
+        const tryClosingFileMock = jest.fn().mockRejectedValue(new QueryFailedError('some query', undefined, new Error('failed')));
+        const retries = faker.datatype.number({ min: 1, max: 10 });
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({ token: fileRepositorySymbol, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, amount: retries } };
+        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockEntityRequestSender = new EntityRequestSender(mockApp);
+
+        const body = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
+        expect(await entityRequestSender.postEntityBulk(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+
+        body[0].action = ActionType.MODIFY;
+        body[0].failReason = 'epic failure';
+        body[0].fileId = file.fileId;
+        body[0].status = EntityStatus.NOT_SYNCED;
+
+        body[1].failReason = 'epic failure';
+        body[1].fileId = file.fileId;
+        body[1].status = EntityStatus.NOT_SYNCED;
+
+        const response = await mockEntityRequestSender.patchEntities(body);
+
+        expect(response.status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
+        expect(response.body).toHaveProperty('message', 'failed');
+        expect(tryClosingFileMock).toHaveBeenCalledTimes(body.length);
       });
     });
   });

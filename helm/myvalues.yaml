@@ -6,7 +6,6 @@ global:
   tracing: {}
   metrics: {}
   environment: {}
-
 replicaCount: 1
 enabled: true
 initialDelaySeconds: 600
@@ -14,18 +13,15 @@ environment: development
 nodeSelector: {}
 tolerations: []
 affinity: {}
-
 cloudProvider:
   flavor: openshift
-  dockerRegistryUrl: my-registry.io
-
+  dockerRegistryUrl: acrarolibotnonprod.azurecr.io
 image:
   repository: osm-sync-tracker
   # Overrides the image tag whose default is the chart appVersion.
-  # tag: "v1.0.0"
-
+  tag: "v1.2.5-rc3"
 resources:
-  enabled: false
+  enabled: true
   value:
     limits:
       cpu: 100m
@@ -33,7 +29,6 @@ resources:
     requests:
       cpu: 100m
       memory: 128Mi
-
 env:
   port: 8080
   targetPort: 8080
@@ -48,24 +43,24 @@ env:
     enabled: false
     url: 'http://localhost:55681/v1/metrics'
 
+
 appConfig:
   transactionRetryPolicy:
-    enabled: false
-    #amount: 10
+    enabled: true
+    amount: 10
 
 # external
 dbConfig:
-  host: localhost
-  username: postgres
-  password: postgres
-  database: osm-sync-tracker
+  host: 10.8.1.4
+  username: vector
+  #password: postgres
+  database: osm-sync-tracker-dev
   sslAuth:
-    enabled: false
-    secretName: secret-name
+    enabled: true
+    secretName: cert-cluster-secret
     certFileName: postgresql.crt
     keyFileName: postgresql.key
     caFileName: root.crt
-
 route:
   enabled: true
   path: /

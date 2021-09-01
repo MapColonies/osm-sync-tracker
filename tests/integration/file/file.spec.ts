@@ -1,39 +1,43 @@
 import httpStatus, { StatusCodes } from 'http-status-codes';
-import { DependencyContainer } from 'tsyringe';
-import { Application } from 'express';
+import { container } from 'tsyringe';
 import faker from 'faker';
 import { Connection, QueryFailedError } from 'typeorm';
-import { registerTestValues } from '../testContainerConfig';
+import { getApp } from '../../../src/app';
 import { createStringifiedFakeSync } from '../sync/helpers/generators';
 import { StringifiedSync } from '../sync/types';
-import { postSync } from '../sync/helpers/requestSender';
-import * as requestSender from './helpers/requestSender';
+import { FileRequestSender } from '../file/helpers/requestSender';
+import { SyncRequestSender } from '../sync/helpers/requestSender';
+import { getBaseRegisterOptions } from '../helpers';
+import { fileRepositorySymbol } from '../../../src/file/DAL/fileRepository';
 import { createStringifiedFakeFile } from './helpers/generators';
 
 describe('file', function () {
-  let app: Application;
+  let fileRequestSender: FileRequestSender;
+  let syncRequestSender: SyncRequestSender;
+  let mockFileRequestSender: FileRequestSender;
+
   let sync: StringifiedSync;
-  let connection: Connection;
-  let container: DependencyContainer;
 
   beforeAll(async function () {
-    container = await registerTestValues();
-    app = requestSender.getApp(container);
+    const app = await getApp(getBaseRegisterOptions());
+    fileRequestSender = new FileRequestSender(app);
+    syncRequestSender = new SyncRequestSender(app);
+
     sync = createStringifiedFakeSync();
-    await postSync(app, sync);
-    connection = container.resolve(Connection);
+    await syncRequestSender.postSync(sync);
   }, 15000);
 
   afterAll(async function () {
-    container.reset();
+    const connection = container.resolve(Connection);
     await connection.close();
+    container.reset();
   });
 
   describe('Happy Path', function () {
     describe('POST /sync/:syncId/file', function () {
       it('should return 201 status code and Created body', async function () {
         const body = createStringifiedFakeFile();
-        const response = await requestSender.postFile(app, sync.id as string, body);
+        const response = await fileRequestSender.postFile(sync.id as string, body);
 
         expect(response.status).toBe(httpStatus.CREATED);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
@@ -41,7 +45,7 @@ describe('file', function () {
     });
     describe('POST /sync/:syncId/file/_bulk', function () {
       it('should return 200 status code and OK body', async function () {
-        const response = await requestSender.postFileBulk(app, sync.id as string, [createStringifiedFakeFile(), createStringifiedFakeFile()]);
+        const response = await fileRequestSender.postFileBulk(sync.id as string, [createStringifiedFakeFile(), createStringifiedFakeFile()]);
 
         expect(response.status).toBe(httpStatus.CREATED);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
@@ -54,7 +58,7 @@ describe('file', function () {
       it('should return 400 if the syncId is not valid', async function () {
         const body = createStringifiedFakeFile();
 
-        const response = await requestSender.postFile(app, faker.random.word(), body);
+        const response = await fileRequestSender.postFile(faker.random.word(), body);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', 'request.params.syncId should match format "uuid"');
@@ -63,7 +67,7 @@ describe('file', function () {
       it('should return 400 if a required property is missing', async function () {
         const { startDate, ...body } = createStringifiedFakeFile();
 
-        const response = await requestSender.postFile(app, sync.id as string, body);
+        const response = await fileRequestSender.postFile(sync.id as string, body);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', "request.body should have required property 'startDate'");
@@ -71,7 +75,7 @@ describe('file', function () {
 
       it('should return 404 if the sync was not found', async function () {
         const uuid = faker.datatype.uuid();
-        const response = await requestSender.postFile(app, uuid, createStringifiedFakeFile());
+        const response = await fileRequestSender.postFile(uuid, createStringifiedFakeFile());
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
         expect(response.body).toHaveProperty('message', `sync = ${uuid} not found`);
@@ -79,9 +83,9 @@ describe('file', function () {
 
       it('should return 409 if a file already exists', async function () {
         const file = createStringifiedFakeFile();
-        expect(await requestSender.postFile(app, sync.id as string, file)).toHaveStatus(StatusCodes.CREATED);
+        expect(await fileRequestSender.postFile(sync.id as string, file)).toHaveStatus(StatusCodes.CREATED);
 
-        const response = await requestSender.postFile(app, sync.id as string, file);
+        const response = await fileRequestSender.postFile(sync.id as string, file);
 
         expect(response).toHaveProperty('status', httpStatus.CONFLICT);
       });
@@ -91,7 +95,7 @@ describe('file', function () {
       it('should return 400 if the sync id is not valid', async function () {
         const body = createStringifiedFakeFile();
 
-        const response = await requestSender.postFileBulk(app, faker.random.word(), [body]);
+        const response = await fileRequestSender.postFileBulk(faker.random.word(), [body]);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', 'request.params.syncId should match format "uuid"');
@@ -100,7 +104,7 @@ describe('file', function () {
       it('should return 400 if a date is not valid', async function () {
         const body = createStringifiedFakeFile({ startDate: faker.random.word() });
 
-        const response = await requestSender.postFileBulk(app, sync.id as string, [body]);
+        const response = await fileRequestSender.postFileBulk(sync.id as string, [body]);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', 'request.body[0].startDate should match format "date-time"');
@@ -109,7 +113,7 @@ describe('file', function () {
       it('should return 404 if no sync with the specified sync id was found', async function () {
         const body = createStringifiedFakeFile();
 
-        const response = await requestSender.postFileBulk(app, faker.datatype.uuid(), [body]);
+        const response = await fileRequestSender.postFileBulk(faker.datatype.uuid(), [body]);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
@@ -117,7 +121,7 @@ describe('file', function () {
       it('should return 409 if one of the file is duplicate', async function () {
         const file = createStringifiedFakeFile();
 
-        const response = await requestSender.postFileBulk(app, sync.id as string, [file, file]);
+        const response = await fileRequestSender.postFileBulk(sync.id as string, [file, file]);
 
         expect(response).toHaveProperty('status', httpStatus.CONFLICT);
       });
@@ -126,9 +130,9 @@ describe('file', function () {
         const file = createStringifiedFakeFile();
         const file2 = createStringifiedFakeFile();
 
-        expect(await requestSender.postFile(app, sync.id as string, file2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await fileRequestSender.postFile(sync.id as string, file2)).toHaveStatus(StatusCodes.CREATED);
 
-        const response = await requestSender.postFileBulk(app, sync.id as string, [file, file2]);
+        const response = await fileRequestSender.postFileBulk(sync.id as string, [file, file2]);
 
         expect(response).toHaveProperty('status', httpStatus.CONFLICT);
       });
@@ -141,23 +145,37 @@ describe('file', function () {
         const createFileMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
         const findOneFileMock = jest.fn().mockResolvedValue(false);
 
-        const mockedApp = requestSender.getMockedRepoApp(container, { createFile: createFileMock, findOneFile: findOneFileMock });
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: fileRepositorySymbol,
+          provider: { useValue: { createFile: createFileMock, findOneFile: findOneFileMock } },
+        });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockFileRequestSender = new FileRequestSender(mockApp);
 
-        const response = await requestSender.postFile(mockedApp, sync.id as string, createStringifiedFakeFile());
+        const response = await mockFileRequestSender.postFile(sync.id as string, createStringifiedFakeFile());
 
         expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
         expect(response.body).toHaveProperty('message', 'failed');
       });
     });
+
     describe('POST /sync/:syncId/file/_bulk', function () {
       it('should return 500 if the db throws an error', async function () {
         const createFilesMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
         const findManyFilesMock = jest.fn().mockResolvedValue(false);
 
-        const mockedApp = requestSender.getMockedRepoApp(container, { createFiles: createFilesMock, findManyFiles: findManyFilesMock });
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: fileRepositorySymbol,
+          provider: { useValue: { createFiles: createFilesMock, findManyFiles: findManyFilesMock } },
+        });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockFileRequestSender = new FileRequestSender(mockApp);
+
         const body = createStringifiedFakeFile();
 
-        const response = await requestSender.postFileBulk(mockedApp, sync.id as string, [body]);
+        const response = await mockFileRequestSender.postFileBulk(sync.id as string, [body]);
 
         expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
         expect(response.body).toHaveProperty('message', 'failed');
