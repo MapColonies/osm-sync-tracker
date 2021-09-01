@@ -37,7 +37,6 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
 
   const connectionOptions = config.get<DbConfig>('db');
   const connection = await initConnection(connectionOptions);
-  await connection.query(`select 1 from ${config.get<string>('db.schema')}.migrations_table`);
 
   const metrics = new Metrics('osm-sync-tracker');
 
