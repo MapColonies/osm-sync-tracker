@@ -3,6 +3,10 @@ import { HealthCheck } from '@godaddy/terminus';
 import { Connection, ConnectionOptions, createConnection, QueryFailedError } from 'typeorm';
 import { DbConfig } from '../interfaces';
 import { promiseTimeout } from '../utils/promiseTimeout';
+import { SyncDb } from '../../sync/DAL/typeorm/sync';
+import { Entity } from '../../entity/DAL/typeorm/entity';
+import { Changeset } from '../../changeset/DAL/typeorm/changeset';
+import { File } from '../../file/DAL/typeorm/file';
 
 let connectionSingleton: Connection | undefined;
 
@@ -22,13 +26,15 @@ export const isTransactionFailure = (error: QueryFailedError): boolean => {
   return code === TransactionFailure.SERIALIZATION_FAILURE || code === TransactionFailure.DEADLOCK_DETECTED;
 };
 
+export const DB_ENTITIES = [Changeset, Entity, File, SyncDb];
+
 export const createConnectionOptions = (dbConfig: DbConfig): ConnectionOptions => {
   const { enableSslAuth, sslPaths, ...connectionOptions } = dbConfig;
   if (enableSslAuth && connectionOptions.type === 'postgres') {
     connectionOptions.password = undefined;
     connectionOptions.ssl = { key: readFileSync(sslPaths.key), cert: readFileSync(sslPaths.cert), ca: readFileSync(sslPaths.ca) };
   }
-  return { entities: ['**/DAL/typeorm/*.js', '**/DAL/typeorm/*.ts'], ...connectionOptions };
+  return { entities: [...DB_ENTITIES, '**/DAL/typeorm/*.js'], ...connectionOptions };
 };
 
 export const initConnection = async (dbConfig: DbConfig): Promise<Connection> => {
