@@ -7,7 +7,7 @@ import { createStringifiedFakeSync } from '../sync/helpers/generators';
 import { StringifiedSync } from '../sync/types';
 import { FileRequestSender } from '../file/helpers/requestSender';
 import { SyncRequestSender } from '../sync/helpers/requestSender';
-import { getBaseRegisterOptions } from '../helpers';
+import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions } from '../helpers';
 import { fileRepositorySymbol } from '../../../src/file/DAL/fileRepository';
 import { createStringifiedFakeFile } from './helpers/generators';
 
@@ -25,7 +25,7 @@ describe('file', function () {
 
     sync = createStringifiedFakeSync();
     await syncRequestSender.postSync(sync);
-  }, 15000);
+  }, BEFORE_ALL_TIMEOUT);
 
   afterAll(async function () {
     const connection = container.resolve(Connection);

@@ -12,7 +12,7 @@ import { StringifiedFile } from '../file/types';
 import { ActionType, EntityStatus } from '../../../src/common/enums';
 import { getApp } from '../../../src/app';
 import { Entity } from '../../../src/entity/models/entity';
-import { getBaseRegisterOptions } from '../helpers';
+import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions } from '../helpers';
 import { entityRepositorySymbol } from '../../../src/entity/DAL/entityRepository';
 import { TransactionFailureError } from '../../../src/changeset/models/errors';
 import { createFakeEntity, createFakeFile } from '../../helpers/helper';
@@ -39,7 +39,7 @@ describe('entity', function () {
     await syncRequestSender.postSync(sync);
     file = createStringifiedFakeFile();
     await fileRequestSender.postFile(sync.id as string, file);
-  }, 15000);
+  }, BEFORE_ALL_TIMEOUT);
 
   afterAll(async function () {
     const connection = container.resolve(Connection);
@@ -486,7 +486,8 @@ describe('entity', function () {
         const response = await mockEntityRequestSender.patchEntity(file.fileId as string, body.entityId as string, updateBody);
 
         expect(response.status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
-        expect(response.body).toHavePropertyThatContains('message', `exceeded the number of retries (${retries})`);
+        const message = (response.body as { message: string }).message;
+        expect(message).toContain(`exceeded the number of retries (${retries}).`);
         expect(tryClosingFileMock).toHaveBeenCalledTimes(retries + 1);
       });
 
@@ -522,7 +523,8 @@ describe('entity', function () {
         const response = await mockEntityRequestSender.patchEntity(file.fileId as string, body.entityId as string, updateBody);
 
         expect(response.status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
-        expect(response.body).toHavePropertyThatContains('message', 'failed');
+        const message = (response.body as { message: string }).message;
+        expect(message).toContain(`failed`);
         expect(tryClosingFileMock).toHaveBeenCalledTimes(1);
       });
     });
@@ -600,7 +602,8 @@ describe('entity', function () {
         const response = await mockEntityRequestSender.patchEntities(body);
 
         expect(response.status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
-        expect(response.body).toHavePropertyThatContains('message', `exceeded the number of retries (${retries}).`);
+        const message = (response.body as { message: string }).message;
+        expect(message).toContain(`exceeded the number of retries (${retries}).`);
         expect(tryClosingFileMock).toHaveBeenCalledTimes((retries + 1) * body.length);
       });
 

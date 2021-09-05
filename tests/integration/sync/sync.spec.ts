@@ -3,7 +3,7 @@ import { container } from 'tsyringe';
 import faker from 'faker';
 import { Connection, QueryFailedError } from 'typeorm';
 import { getApp } from '../../../src/app';
-import { getBaseRegisterOptions } from '../helpers';
+import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions } from '../helpers';
 import { syncRepositorySymbol } from '../../../src/sync/DAL/syncRepository';
 import { createStringifiedFakeSync } from './helpers/generators';
 import { SyncRequestSender } from './helpers/requestSender';
@@ -15,7 +15,7 @@ describe('sync', function () {
   beforeAll(async function () {
     const app = await getApp(getBaseRegisterOptions());
     syncRequestSender = new SyncRequestSender(app);
-  }, 15000);
+  }, BEFORE_ALL_TIMEOUT);
 
   afterAll(async function () {
     const connection = container.resolve(Connection);
