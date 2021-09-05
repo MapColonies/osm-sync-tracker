@@ -46,7 +46,7 @@ export class ChangesetManager {
     if (!this.transactionRetryPolicy.enabled) {
       return this.changesetRepository.tryClosingChangeset(changesetId, this.dbSchema);
     }
-    const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.amount as number };
+    const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
     const functionRef = this.changesetRepository.tryClosingChangeset.bind(this.changesetRepository);
     await retryFunctionWrapper(retryOptions, functionRef, changesetId, this.dbSchema);
   }

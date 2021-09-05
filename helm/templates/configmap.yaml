@@ -12,7 +12,7 @@ data:
   RESPONSE_COMPRESSION_ENABLED: {{ .Values.env.responseCompressionEnabled | quote }}
   {{- if .Values.appConfig.transactionRetryPolicy.enabled }}
   APP_TRANSACTION_RETRIES_ENABLED: "true"
-  APP_TRANSACTION_RETRIES_AMOUNT: {{ .Values.appConfig.transactionRetryPolicy.amount | quote }}
+  APP_TRANSACTION_NUM_RETRIES: {{ .Values.appConfig.transactionRetryPolicy.numRetries | quote }}
   {{- else }}
   APP_TRANSACTION_RETRIES_ENABLED: "false"
   {{- end }}

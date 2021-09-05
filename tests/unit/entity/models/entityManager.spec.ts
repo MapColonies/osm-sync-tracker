@@ -193,7 +193,7 @@ describe('EntityManager', () => {
         fileRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, amount: 1 } }
+        { transactionRetryPolicy: { enabled: true, numRetries: 1 } }
       );
 
       const updatePromise = entityManagerWithRetries.updateEntity(file.fileId, entity.entityId, entity);
@@ -265,7 +265,7 @@ describe('EntityManager', () => {
         fileRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, amount: retries } }
+        { transactionRetryPolicy: { enabled: true, numRetries: retries } }
       );
 
       const updatePromise = entityManagerWithRetries.updateEntity(file.fileId, entity.entityId, entity);
@@ -290,7 +290,7 @@ describe('EntityManager', () => {
         fileRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, amount: retries } }
+        { transactionRetryPolicy: { enabled: true, numRetries: retries } }
       );
 
       const updatePromise = entityManagerWithRetries.updateEntity(file.fileId, entity.entityId, entity);
@@ -340,7 +340,7 @@ describe('EntityManager', () => {
         fileRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, amount: 1 } }
+        { transactionRetryPolicy: { enabled: true, numRetries: 1 } }
       );
 
       const updateBulkPromise = entityManagerWithRetries.updateEntities(entities as UpdateEntities);
@@ -414,7 +414,7 @@ describe('EntityManager', () => {
         fileRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, amount: retries } }
+        { transactionRetryPolicy: { enabled: true, numRetries: retries } }
       );
 
       const updateBulkPromise = entityManagerWithRetries.updateEntities(entities as UpdateEntities);
@@ -440,7 +440,7 @@ describe('EntityManager', () => {
         fileRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, amount: retries } }
+        { transactionRetryPolicy: { enabled: true, numRetries: retries } }
       );
 
       const updateBulkPromise = entityManagerWithRetries.updateEntities(entities as UpdateEntities);

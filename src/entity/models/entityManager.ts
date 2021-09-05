@@ -99,20 +99,14 @@ export class EntityManager {
     }
 
     await this.entityRepository.updateEntities(entities);
-    await Promise.all(
-      entities
-        .filter((entity) => entity.status === EntityStatus.NOT_SYNCED)
-        .map(async (entity) => {
-          await this.closeFile(entity.fileId);
-        })
-    );
+    await Promise.all(entities.filter((entity) => entity.status === EntityStatus.NOT_SYNCED).map(async (entity) => this.closeFile(entity.fileId)));
   }
 
   private async closeFile(fileId: string): Promise<void> {
     if (!this.transactionRetryPolicy.enabled) {
       return this.fileRepository.tryClosingFile(fileId, this.dbSchema);
     }
-    const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.amount as number };
+    const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
     const functionRef = this.fileRepository.tryClosingFile.bind(this.entityRepository);
     await retryFunctionWrapper(retryOptions, functionRef, fileId, this.dbSchema);
   }

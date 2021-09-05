@@ -100,7 +100,7 @@ describe('ChangesetManager', () => {
 
       const repository = { createChangeset, updateChangeset, tryClosingChangeset, findOneChangeset };
       changesetManagerWithRetries = new ChangesetManager(repository, jsLogger({ enabled: false }), config, {
-        transactionRetryPolicy: { enabled: true, amount: 1 },
+        transactionRetryPolicy: { enabled: true, numRetries: 1 },
       });
 
       const closePromise = changesetManagerWithRetries.closeChangeset(entity.changesetId);
@@ -129,7 +129,7 @@ describe('ChangesetManager', () => {
       const retries = faker.datatype.number({ min: 1, max: 10 });
       const repository = { createChangeset, updateChangeset, tryClosingChangeset, findOneChangeset };
       changesetManagerWithRetries = new ChangesetManager(repository, jsLogger({ enabled: false }), config, {
-        transactionRetryPolicy: { enabled: true, amount: retries },
+        transactionRetryPolicy: { enabled: true, numRetries: retries },
       });
 
       const closePromise = changesetManagerWithRetries.closeChangeset(entity.changesetId);
@@ -147,7 +147,7 @@ describe('ChangesetManager', () => {
       const retries = faker.datatype.number({ min: 1, max: 10 });
       const repository = { createChangeset, updateChangeset, tryClosingChangeset, findOneChangeset };
       changesetManagerWithRetries = new ChangesetManager(repository, jsLogger({ enabled: false }), config, {
-        transactionRetryPolicy: { enabled: true, amount: retries },
+        transactionRetryPolicy: { enabled: true, numRetries: retries },
       });
 
       const closePromise = changesetManagerWithRetries.closeChangeset(entity.changesetId);

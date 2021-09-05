@@ -41,8 +41,8 @@
         "__name": "APP_TRANSACTION_RETRIES_ENABLED",
         "__format": "boolean"
       },
-      "amount": {
-        "__name": "APP_TRANSACTION_RETRIES_AMOUNT",
+      "numRetries": {
+        "__name": "APP_TRANSACTION_NUM_RETRIES",
         "__format": "number"
       }
     }

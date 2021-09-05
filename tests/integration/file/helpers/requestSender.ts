@@ -1,5 +1,4 @@
 import * as supertest from 'supertest';
-import { Application } from 'express';
 import { StringifiedFile } from '../types';
 
 export class FileRequestSender {
@@ -13,9 +12,3 @@ export class FileRequestSender {
     return supertest.agent(this.app).post(`/sync/${syncId}/file/_bulk`).set('Content-Type', 'application/json').send(body);
   }
 }
-
-// export function getMockedRepoApp(container: DependencyContainer, repo: unknown): Application {
-//   container.register(fileRepositorySymbol, { useValue: repo });
-//   const builder = container.resolve<ServerBuilder>(ServerBuilder);
-//   return builder.build();
-// }

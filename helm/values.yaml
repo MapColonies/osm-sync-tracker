@@ -51,7 +51,7 @@ env:
 appConfig:
   transactionRetryPolicy:
     enabled: false
-    #amount: 10
+    numRetries: 3
 
 # external
 dbConfig:

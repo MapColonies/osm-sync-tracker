@@ -7,7 +7,7 @@ export interface IConfig {
 
 export interface TransactionRetryPolicy {
   enabled: boolean;
-  amount?: number;
+  numRetries?: number;
 }
 
 export interface IApplication {

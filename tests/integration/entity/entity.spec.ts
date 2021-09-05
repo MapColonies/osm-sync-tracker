@@ -21,8 +21,6 @@ import { IApplication } from '../../../src/common/interfaces';
 import { Services } from '../../../src/common/constants';
 import { createStringifiedFakeEntity } from './helpers/generators';
 
-jest.setTimeout(3000000);
-
 describe('entity', function () {
   let entityRequestSender: EntityRequestSender;
   let fileRequestSender: FileRequestSender;
@@ -101,7 +99,7 @@ describe('entity', function () {
           token: fileRepositorySymbol,
           provider: { useValue: { findOneFile: findOneFileMock, tryClosingFile: tryClosingFileMock } },
         });
-        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, amount: 1 } };
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: 1 } };
         mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
@@ -143,7 +141,7 @@ describe('entity', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({ token: fileRepositorySymbol, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
-        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, amount: 1 } };
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: 1 } };
         mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
@@ -474,7 +472,7 @@ describe('entity', function () {
           token: fileRepositorySymbol,
           provider: { useValue: { findOneFile: findOneFileMock, tryClosingFile: tryClosingFileMock } },
         });
-        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, amount: retries } };
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries } };
         mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
@@ -510,7 +508,7 @@ describe('entity', function () {
           token: fileRepositorySymbol,
           provider: { useValue: { findOneFile: findOneFileMock, tryClosingFile: tryClosingFileMock } },
         });
-        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, amount: retries } };
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries } };
         mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
@@ -582,7 +580,7 @@ describe('entity', function () {
         const retries = faker.datatype.number({ min: 1, max: 10 });
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({ token: fileRepositorySymbol, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
-        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, amount: retries } };
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries } };
         mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
@@ -611,7 +609,7 @@ describe('entity', function () {
         const retries = faker.datatype.number({ min: 1, max: 10 });
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({ token: fileRepositorySymbol, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
-        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, amount: retries } };
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries } };
         mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);

@@ -16,9 +16,3 @@ export class SyncRequestSender {
     return supertest.agent(this.app).get(`/sync/latest`).query({ layerId: layerId });
   }
 }
-
-// export function getMockedRepoApp(container: DependencyContainer, repo: unknown): Application {
-//   container.register(syncRepositorySymbol, { useValue: repo });
-//   const builder = container.resolve<ServerBuilder>(ServerBuilder);
-//   return builder.build();
-// }

@@ -19,7 +19,7 @@ import { IApplication } from '../../../src/common/interfaces';
 import { ChangesetRequestSender } from './helpers/requestSender';
 import { createStringifiedFakeChangeset } from './helpers/generators';
 
-jest.setTimeout(3000000);
+jest.setTimeout(10000);
 
 describe('changeset', function () {
   let changesetRequestSender: ChangesetRequestSender;
@@ -88,7 +88,7 @@ describe('changeset', function () {
           token: changesetRepositorySymbol,
           provider: { useValue: { tryClosingChangeset: tryClosingChangesetMock, findOneChangeset: findOneChangesetMock } },
         });
-        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, amount: 1 } };
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: 1 } };
         mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
@@ -278,7 +278,7 @@ describe('changeset', function () {
           provider: { useValue: { tryClosingChangeset: tryClosingChangesetMock, findOneChangeset: findOneChangesetMock } },
         });
         const retries = faker.datatype.number({ min: 1, max: 10 });
-        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, amount: retries } };
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries } };
         mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
@@ -303,7 +303,7 @@ describe('changeset', function () {
           provider: { useValue: { tryClosingChangeset: tryClosingChangesetMock, findOneChangeset: findOneChangesetMock } },
         });
         const retries = faker.datatype.number({ min: 1, max: 10 });
-        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, amount: retries } };
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries } };
         mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
