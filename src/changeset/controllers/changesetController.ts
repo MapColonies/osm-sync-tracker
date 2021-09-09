@@ -7,7 +7,7 @@ import { Services } from '../../common/constants';
 import { Changeset, UpdateChangeset } from '../models/changeset';
 import { ChangesetManager } from '../models/changesetManager';
 import { HttpError } from '../../common/errors';
-import { ChangesetAlreadyExistsError, ChangesetNotFoundError } from '../models/errors';
+import { ChangesetAlreadyExistsError, ChangesetNotFoundError, ExceededNumberOfRetriesError } from '../models/errors';
 
 type PostChangesetHandler = RequestHandler<undefined, string, Changeset>;
 type PatchChangesetHandler = RequestHandler<{ changesetId: string }, string, UpdateChangeset>;
@@ -50,6 +50,9 @@ export class ChangesetController {
     } catch (error) {
       if (error instanceof ChangesetNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
+      }
+      if (error instanceof ExceededNumberOfRetriesError) {
+        this.logger.info(`could not close changeset ${req.params.changesetId} number of retries exceeded`);
       }
       return next(error);
     }

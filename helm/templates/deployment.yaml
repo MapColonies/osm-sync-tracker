@@ -2,6 +2,7 @@
 {{- $chartName := include "osm-sync-tracker.name" . -}}
 {{- $cloudProviderFlavor := include "osm-sync-tracker.cloudProviderFlavor" . -}}
 {{- $cloudProviderDockerRegistryUrl := include "osm-sync-tracker.cloudProviderDockerRegistryUrl" . -}}
+{{- $tag := include "osm-sync-tracker.tag" . -}}
 {{- if .Values.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -34,9 +35,9 @@ spec:
         - name: {{ $releaseName }}-{{ $chartName }}-deployment
           {{- with .Values.image }}
           {{- if ne $cloudProviderFlavor "minikube" }}
-          image: {{ $cloudProviderDockerRegistryUrl }}/{{ .repository }}:{{ .tag }}
+          image: {{ $cloudProviderDockerRegistryUrl }}/{{ .repository }}:{{ $tag }}
           {{- else }}
-          image: {{ .repository }}:{{ .tag }}
+          image: {{ .repository }}:{{ $tag }}
           {{- end }}
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -53,11 +54,6 @@ spec:
               containerPort: {{ .Values.env.targetPort }}
               protocol: {{ .Values.env.protocol }}
           livenessProbe:
-            initialDelaySeconds: {{ .Values.initialDelaySeconds }}
-            httpGet:
-              path: /liveness
-              port: http
-          readinessProbe:
             initialDelaySeconds: {{ .Values.initialDelaySeconds }}
             httpGet:
               path: /liveness

@@ -20,6 +20,7 @@ module.exports = {
   rootDir: '../../../.',
   testMatch: ['<rootDir>/tests/integration/**/*.spec.ts'],
   setupFiles: ['<rootDir>/tests/configurations/jest.setup.js'],
+  globalSetup: '<rootDir>/tests/configurations/jest.globalSetup.ts',
   reporters: [
     'default',
     [
@@ -27,7 +28,6 @@ module.exports = {
       { multipleReportsUnitePath: './report', pageTitle: 'integration', publicPath: './reports', filename: 'integration.html' },
     ],
   ],
-  collectCoverage: true,
   moduleDirectories: ['node_modules', 'src'],
   preset: 'ts-jest',
   testEnvironment: 'node',

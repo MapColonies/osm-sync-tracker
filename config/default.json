@@ -24,6 +24,11 @@
       }
     }
   },
+  "application": {
+    "transactionRetryPolicy": {
+      "enabled": false
+    }
+  },
   "db": {
     "type": "postgres",
     "host": "localhost",

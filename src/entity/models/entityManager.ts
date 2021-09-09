@@ -1,9 +1,11 @@
 import { Logger } from '@map-colonies/js-logger';
 import lodash from 'lodash';
 import { inject, injectable } from 'tsyringe';
+import { TransactionFailureError } from '../../changeset/models/errors';
 import { Services } from '../../common/constants';
 import { EntityStatus } from '../../common/enums';
-import { IConfig } from '../../common/interfaces';
+import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
+import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
 import { IFileRepository, fileRepositorySymbol } from '../../file/DAL/fileRepository';
 import { FileNotFoundError } from '../../file/models/errors';
 import { IEntityRepository, entityRepositorySymbol } from '../DAL/entityRepository';
@@ -13,13 +15,17 @@ import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } f
 @injectable()
 export class EntityManager {
   private readonly dbSchema: string;
+  private readonly transactionRetryPolicy: TransactionRetryPolicy;
+
   public constructor(
     @inject(entityRepositorySymbol) private readonly entityRepository: IEntityRepository,
     @inject(fileRepositorySymbol) private readonly fileRepository: IFileRepository,
     @inject(Services.LOGGER) private readonly logger: Logger,
-    @inject(Services.CONFIG) private readonly config: IConfig
+    @inject(Services.CONFIG) private readonly config: IConfig,
+    @inject(Services.APPLICATION) private readonly appConfig: IApplication
   ) {
     this.dbSchema = this.config.get('db.schema');
+    this.transactionRetryPolicy = this.appConfig.transactionRetryPolicy;
   }
 
   public async createEntity(fileId: string, entity: Entity): Promise<void> {
@@ -72,7 +78,7 @@ export class EntityManager {
 
     await this.entityRepository.updateEntity(entityId, fileId, entity);
     if (entity.status === EntityStatus.NOT_SYNCED) {
-      await this.fileRepository.tryClosingFile(fileId, this.dbSchema);
+      await this.closeFile(fileId);
     }
   }
 
@@ -93,10 +99,15 @@ export class EntityManager {
     }
 
     await this.entityRepository.updateEntities(entities);
-    await Promise.all(
-      entities
-        .filter((entity) => entity.status === EntityStatus.NOT_SYNCED)
-        .map(async (entity) => this.fileRepository.tryClosingFile(entity.fileId, this.dbSchema))
-    );
+    await Promise.all(entities.filter((entity) => entity.status === EntityStatus.NOT_SYNCED).map(async (entity) => this.closeFile(entity.fileId)));
+  }
+
+  private async closeFile(fileId: string): Promise<void> {
+    if (!this.transactionRetryPolicy.enabled) {
+      return this.fileRepository.tryClosingFile(fileId, this.dbSchema);
+    }
+    const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
+    const functionRef = this.fileRepository.tryClosingFile.bind(this.entityRepository);
+    await retryFunctionWrapper(retryOptions, functionRef, fileId, this.dbSchema);
   }
 }

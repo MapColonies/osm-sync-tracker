@@ -22,7 +22,7 @@ cloudProvider:
 image:
   repository: osm-sync-tracker
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "v1.0.0"
+  # tag: "v1.0.0"
 
 resources:
   enabled: false
@@ -47,6 +47,9 @@ env:
   metrics:
     enabled: false
     url: 'http://localhost:55681/v1/metrics'
+  transactionRetryPolicy:
+    enabled: false
+    numRetries: 3
 
 # external
 dbConfig:

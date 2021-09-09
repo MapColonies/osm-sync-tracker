@@ -2,17 +2,25 @@ import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
 import { Services } from '../../common/constants';
 import { IChangesetRepository, changesetRepositorySymbol } from '../DAL/changsetRepository';
-import { IConfig } from '../../common/interfaces';
+import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
+import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
 import { Changeset, UpdateChangeset } from './changeset';
-import { ChangesetAlreadyExistsError, ChangesetNotFoundError } from './errors';
+import { ChangesetAlreadyExistsError, ChangesetNotFoundError, TransactionFailureError } from './errors';
 
 @injectable()
 export class ChangesetManager {
+  private readonly dbSchema: string;
+  private readonly transactionRetryPolicy: TransactionRetryPolicy;
+
   public constructor(
     @inject(changesetRepositorySymbol) private readonly changesetRepository: IChangesetRepository,
     @inject(Services.LOGGER) private readonly logger: Logger,
-    @inject(Services.CONFIG) private readonly config: IConfig
-  ) {}
+    @inject(Services.CONFIG) private readonly config: IConfig,
+    @inject(Services.APPLICATION) private readonly appConfig: IApplication
+  ) {
+    this.dbSchema = this.config.get('db.schema');
+    this.transactionRetryPolicy = this.appConfig.transactionRetryPolicy;
+  }
 
   public async createChangeset(changeset: Changeset): Promise<void> {
     const changesetEntity = await this.changesetRepository.findOneChangeset(changeset.changesetId);
@@ -35,6 +43,11 @@ export class ChangesetManager {
     if (!changesetEntity) {
       throw new ChangesetNotFoundError(`changeset = ${changesetId} not found`);
     }
-    await this.changesetRepository.closeChangeset(changesetId, this.config.get('db.schema'));
+    if (!this.transactionRetryPolicy.enabled) {
+      return this.changesetRepository.tryClosingChangeset(changesetId, this.dbSchema);
+    }
+    const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
+    const functionRef = this.changesetRepository.tryClosingChangeset.bind(this.changesetRepository);
+    await retryFunctionWrapper(retryOptions, functionRef, changesetId, this.dbSchema);
   }
 }

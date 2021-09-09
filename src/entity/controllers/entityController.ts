@@ -9,6 +9,7 @@ import { EntityManager } from '../models/entityManager';
 import { HttpError } from '../../common/errors';
 import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } from '../models/errors';
 import { FileNotFoundError } from '../../file/models/errors';
+import { ExceededNumberOfRetriesError } from '../../changeset/models/errors';
 
 type PostEntityHandler = RequestHandler<{ fileId: string }, string, Entity>;
 type PostEntitiesHandler = RequestHandler<{ fileId: string }, string, Entity[]>;
@@ -57,6 +58,10 @@ export class EntityController {
       if (error instanceof EntityNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
+      if (error instanceof ExceededNumberOfRetriesError) {
+        const { entityId, fileId } = req.params;
+        this.logger.info(`could not update entity ${entityId} from file ${fileId} due to exceeded number of retries`);
+      }
       return next(error);
     }
   };
@@ -70,6 +75,9 @@ export class EntityController {
         (error as HttpError).status = StatusCodes.CONFLICT;
       } else if (error instanceof EntityNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
+      }
+      if (error instanceof ExceededNumberOfRetriesError) {
+        this.logger.info(`could not update entities due to exceeded number of retries`);
       }
       return next(error);
     }

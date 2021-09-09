@@ -4,6 +4,20 @@ export interface IConfig {
   get: <T>(setting: string) => T;
   has: (setting: string) => boolean;
 }
+
+export interface TransactionRetryPolicy {
+  enabled: boolean;
+  numRetries?: number;
+}
+
+export interface IApplication {
+  transactionRetryPolicy: TransactionRetryPolicy;
+}
+
+export interface IServerConfig {
+  port: string;
+}
+
 export type DbConfig = {
   enableSslAuth: boolean;
   sslPaths: { ca: string; cert: string; key: string };

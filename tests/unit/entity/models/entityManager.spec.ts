@@ -1,5 +1,6 @@
 import jsLogger from '@map-colonies/js-logger';
 import faker from 'faker';
+import { QueryFailedError } from 'typeorm';
 import { EntityManager } from '../../../../src/entity/models/entityManager';
 import { createFakeEntities, createFakeEntity, createFakeFile } from '../../../helpers/helper';
 import { DuplicateEntityError, EntityAlreadyExistsError } from '../../../../src/entity/models/errors';
@@ -7,8 +8,14 @@ import { EntityNotFoundError } from '../../../../src/entity/models/errors';
 import { FileNotFoundError } from '../../../../src/file/models/errors';
 import { UpdateEntities } from '../../../../src/entity/models/entity';
 import { EntityStatus } from '../../../../src/common/enums';
+import { ExceededNumberOfRetriesError, TransactionFailureError } from '../../../../src/changeset/models/errors';
+import { IEntityRepository } from '../../../../src/entity/DAL/entityRepository';
+import { IFileRepository } from '../../../../src/file/DAL/fileRepository';
 
 let entityManager: EntityManager;
+let entityManagerWithRetries: EntityManager;
+let entityRepository: IEntityRepository;
+let fileRepository: IFileRepository;
 
 describe('EntityManager', () => {
   let createEntity: jest.Mock;
@@ -40,10 +47,16 @@ describe('EntityManager', () => {
     countEntitiesByIds = jest.fn();
     tryClosingFile = jest.fn();
 
-    const repository = { createEntity, createEntities, updateEntity, findOneEntity, findManyEntites, updateEntities, countEntitiesByIds };
-    const fileRepository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile };
+    entityRepository = { createEntity, createEntities, updateEntity, findOneEntity, findManyEntites, updateEntities, countEntitiesByIds };
+    fileRepository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile };
 
-    entityManager = new EntityManager(repository, fileRepository, jsLogger({ enabled: false }), { get: jest.fn(), has: jest.fn() });
+    entityManager = new EntityManager(
+      entityRepository,
+      fileRepository,
+      jsLogger({ enabled: false }),
+      { get: jest.fn(), has: jest.fn() },
+      { transactionRetryPolicy: { enabled: false } }
+    );
   });
 
   afterEach(() => {
@@ -150,6 +163,45 @@ describe('EntityManager', () => {
       await expect(updatePromise).resolves.not.toThrow();
     });
 
+    it('resolves without errors if the entity status is not_synced', async () => {
+      const entity = createFakeEntity();
+      const file = createFakeFile();
+      entity.status = EntityStatus.NOT_SYNCED;
+
+      findOneFile.mockResolvedValue(file);
+      findOneEntity.mockResolvedValue(entity);
+      updateEntity.mockResolvedValue(undefined);
+      tryClosingFile.mockResolvedValue(undefined);
+
+      const updatePromise = entityManager.updateEntity(file.fileId, entity.entityId, entity);
+
+      await expect(updatePromise).resolves.not.toThrow();
+    });
+
+    it('resolves without errors if the entity exists in the db when transaction has failed once while retries is configured', async () => {
+      const entity = createFakeEntity();
+      entity.status = EntityStatus.NOT_SYNCED;
+      const file = createFakeFile();
+
+      findOneEntity.mockResolvedValue(entity);
+      findOneFile.mockResolvedValue(file);
+      tryClosingFile.mockRejectedValueOnce(new TransactionFailureError('transaction failure'));
+      entityRepository = { ...entityRepository, findOneEntity };
+      fileRepository = { ...fileRepository, findOneFile, tryClosingFile };
+      entityManagerWithRetries = new EntityManager(
+        entityRepository,
+        fileRepository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        { transactionRetryPolicy: { enabled: true, numRetries: 1 } }
+      );
+
+      const updatePromise = entityManagerWithRetries.updateEntity(file.fileId, entity.entityId, entity);
+
+      await expect(updatePromise).resolves.not.toThrow();
+      expect(tryClosingFile).toHaveBeenCalledTimes(2);
+    });
+
     it('rejects if the entity is not exists in the db', async () => {
       const entity = createFakeEntity();
       const file = createFakeFile();
@@ -173,19 +225,78 @@ describe('EntityManager', () => {
       await expect(updatePromise).rejects.toThrow(FileNotFoundError);
     });
 
-    it('resolves without errors if the entity status is not_synced', async () => {
+    it('rejects with transaction failure error if closing the file has failed', async () => {
       const entity = createFakeEntity();
-      const file = createFakeFile();
       entity.status = EntityStatus.NOT_SYNCED;
+      const file = createFakeFile();
 
-      findOneFile.mockResolvedValue(file);
       findOneEntity.mockResolvedValue(entity);
-      updateEntity.mockResolvedValue(undefined);
-      tryClosingFile.mockResolvedValue(undefined);
+      findOneFile.mockResolvedValue(file);
+      tryClosingFile.mockRejectedValue(new TransactionFailureError('transaction failure'));
+      entityRepository = { ...entityRepository, findOneEntity };
+      fileRepository = { ...fileRepository, findOneFile, tryClosingFile };
+      entityManagerWithRetries = new EntityManager(
+        entityRepository,
+        fileRepository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        { transactionRetryPolicy: { enabled: false } }
+      );
 
-      const updatePromise = entityManager.updateEntity(file.fileId, entity.entityId, entity);
+      const updatePromise = entityManagerWithRetries.updateEntity(file.fileId, entity.entityId, entity);
 
-      await expect(updatePromise).resolves.not.toThrow();
+      await expect(updatePromise).rejects.toThrow(TransactionFailureError);
+      expect(tryClosingFile).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects with exceeded number of retries error if closing file has failed when retries is configured', async () => {
+      const entity = createFakeEntity();
+      entity.status = EntityStatus.NOT_SYNCED;
+      const file = createFakeFile();
+
+      findOneEntity.mockResolvedValue(entity);
+      findOneFile.mockResolvedValue(file);
+      tryClosingFile.mockRejectedValue(new TransactionFailureError('transaction failure'));
+      entityRepository = { ...entityRepository, findOneEntity };
+      fileRepository = { ...fileRepository, findOneFile, tryClosingFile };
+      const retries = faker.datatype.number({ min: 1, max: 10 });
+      entityManagerWithRetries = new EntityManager(
+        entityRepository,
+        fileRepository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        { transactionRetryPolicy: { enabled: true, numRetries: retries } }
+      );
+
+      const updatePromise = entityManagerWithRetries.updateEntity(file.fileId, entity.entityId, entity);
+
+      await expect(updatePromise).rejects.toThrow(ExceededNumberOfRetriesError);
+      expect(tryClosingFile).toHaveBeenCalledTimes(retries + 1);
+    });
+
+    it('rejects without transaction failure error when retries is configured due to another error raising', async () => {
+      const entity = createFakeEntity();
+      entity.status = EntityStatus.NOT_SYNCED;
+      const file = createFakeFile();
+
+      findOneEntity.mockResolvedValue(entity);
+      findOneFile.mockResolvedValue(file);
+      tryClosingFile.mockRejectedValue(new QueryFailedError('some query', undefined, new Error()));
+      entityRepository = { ...entityRepository, findOneEntity };
+      fileRepository = { ...fileRepository, findOneFile, tryClosingFile };
+      const retries = faker.datatype.number({ min: 1, max: 10 });
+      entityManagerWithRetries = new EntityManager(
+        entityRepository,
+        fileRepository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        { transactionRetryPolicy: { enabled: true, numRetries: retries } }
+      );
+
+      const updatePromise = entityManagerWithRetries.updateEntity(file.fileId, entity.entityId, entity);
+
+      await expect(updatePromise).rejects.toThrow(QueryFailedError);
+      expect(tryClosingFile).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -199,6 +310,43 @@ describe('EntityManager', () => {
       const updateBulkPromise = entityManager.updateEntities(entities as UpdateEntities);
 
       await expect(updateBulkPromise).resolves.not.toThrow();
+    });
+
+    it('resolves without errors if one of the entities status is not_synced', async () => {
+      const entities = createFakeEntities(faker.datatype.number());
+      entities[0].status = EntityStatus.NOT_SYNCED;
+
+      countEntitiesByIds.mockResolvedValue(entities.length);
+      updateEntities.mockResolvedValue(undefined);
+
+      const updateBulkPromise = entityManager.updateEntities(entities as UpdateEntities);
+
+      await expect(updateBulkPromise).resolves.not.toThrow();
+    });
+
+    it('resolves without errors if one of the entities status is not_synced when retries is configured and failed once', async () => {
+      const entities = createFakeEntities(faker.datatype.number());
+      entities[0].status = EntityStatus.NOT_SYNCED;
+
+      countEntitiesByIds.mockResolvedValue(entities.length);
+      updateEntities.mockResolvedValue(undefined);
+      tryClosingFile.mockRejectedValueOnce(new TransactionFailureError('transaction failure'));
+
+      entityRepository = { ...entityRepository, countEntitiesByIds, updateEntities };
+      fileRepository = { ...fileRepository, tryClosingFile };
+
+      entityManagerWithRetries = new EntityManager(
+        entityRepository,
+        fileRepository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        { transactionRetryPolicy: { enabled: true, numRetries: 1 } }
+      );
+
+      const updateBulkPromise = entityManagerWithRetries.updateEntities(entities as UpdateEntities);
+
+      await expect(updateBulkPromise).resolves.not.toThrow();
+      expect(tryClosingFile).toHaveBeenCalledTimes(2);
     });
 
     it("rejects if one of the entitysId's is duplicate", async () => {
@@ -224,16 +372,81 @@ describe('EntityManager', () => {
       await expect(createBulkPromise).rejects.toThrow(EntityNotFoundError);
     });
 
-    it('resolves without errors if one of the entities status is not_synced', async () => {
+    it('rejects with transaction failure error if closing the files has failed', async () => {
       const entities = createFakeEntities(faker.datatype.number());
       entities[0].status = EntityStatus.NOT_SYNCED;
 
       countEntitiesByIds.mockResolvedValue(entities.length);
       updateEntities.mockResolvedValue(undefined);
+      tryClosingFile.mockRejectedValue(new TransactionFailureError('transaction failure'));
 
-      const updateBulkPromise = entityManager.updateEntities(entities as UpdateEntities);
+      entityRepository = { ...entityRepository, countEntitiesByIds, updateEntities };
+      fileRepository = { ...fileRepository, tryClosingFile };
 
-      await expect(updateBulkPromise).resolves.not.toThrow();
+      entityManagerWithRetries = new EntityManager(
+        entityRepository,
+        fileRepository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        { transactionRetryPolicy: { enabled: false } }
+      );
+
+      const updateBulkPromise = entityManagerWithRetries.updateEntities(entities as UpdateEntities);
+
+      await expect(updateBulkPromise).rejects.toThrow(TransactionFailureError);
+      expect(tryClosingFile).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects with exceeded number of retries error if closing files has failed when retries is configured', async () => {
+      const entities = createFakeEntities(faker.datatype.number());
+      entities[0].status = EntityStatus.NOT_SYNCED;
+
+      countEntitiesByIds.mockResolvedValue(entities.length);
+      updateEntities.mockResolvedValue(undefined);
+      tryClosingFile.mockRejectedValue(new TransactionFailureError('transaction failure'));
+
+      entityRepository = { ...entityRepository, countEntitiesByIds, updateEntities };
+      fileRepository = { ...fileRepository, tryClosingFile };
+
+      const retries = faker.datatype.number({ min: 1, max: 10 });
+      entityManagerWithRetries = new EntityManager(
+        entityRepository,
+        fileRepository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        { transactionRetryPolicy: { enabled: true, numRetries: retries } }
+      );
+
+      const updateBulkPromise = entityManagerWithRetries.updateEntities(entities as UpdateEntities);
+
+      await expect(updateBulkPromise).rejects.toThrow(ExceededNumberOfRetriesError);
+      expect(tryClosingFile).toHaveBeenCalledTimes(retries + 1);
+    });
+
+    it('rejects without transaction failure error when retries is configured due to another error raising', async () => {
+      const entities = createFakeEntities(faker.datatype.number());
+      entities[0].status = EntityStatus.NOT_SYNCED;
+
+      countEntitiesByIds.mockResolvedValue(entities.length);
+      updateEntities.mockResolvedValue(undefined);
+      tryClosingFile.mockRejectedValue(new QueryFailedError('some query', undefined, new Error()));
+
+      entityRepository = { ...entityRepository, countEntitiesByIds, updateEntities };
+      fileRepository = { ...fileRepository, tryClosingFile };
+
+      const retries = faker.datatype.number({ min: 1, max: 10 });
+      entityManagerWithRetries = new EntityManager(
+        entityRepository,
+        fileRepository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        { transactionRetryPolicy: { enabled: true, numRetries: retries } }
+      );
+
+      const updateBulkPromise = entityManagerWithRetries.updateEntities(entities as UpdateEntities);
+
+      await expect(updateBulkPromise).rejects.toThrow(QueryFailedError);
+      expect(tryClosingFile).toHaveBeenCalledTimes(1);
     });
   });
 });

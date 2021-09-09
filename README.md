@@ -12,6 +12,10 @@
 
 This is the API for tracking the progress of the osm-sync
 
+Transactions to the database are being called in parallel. while scaling the application horizontally this can produce a race condition on what transaction will be called before the other affecting the integrity of the stored data. thus a [transaction isolation](https://www.postgresql.org/docs/current/transaction-iso.html) in a serializable level is being used on closing a file and a changeset.
+To minimize the number of HTTP calls between the app and the client a Transaction Retry Policy is available. in the case a transaction has failed due to the isolation the transaction will be retried for the number of retries specified.
+This can be configured under `application.transactionRetryPolicy`, which has two parameters, an `enabled` flag and `numRetries` the number of retries for a transaction.
+
 ## API
 Checkout the OpenAPI spec [here](/openapi3.yaml)
 

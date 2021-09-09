@@ -1,1 +1,8 @@
-{}
+{
+  "application": {
+    "transactionRetryPolicy": {
+      "enabled": true,
+      "numRetries": 3
+    }
+  }
+}

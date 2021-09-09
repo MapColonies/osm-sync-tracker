@@ -1,28 +1,18 @@
 import * as supertest from 'supertest';
-import { Application } from 'express';
-import { DependencyContainer } from 'tsyringe';
-import { ServerBuilder } from '../../../../src/serverBuilder';
 import { StringifiedSync } from '../types';
-import { syncRepositorySymbol } from '../../../../src/sync/DAL/syncRepository';
 
-export function getApp(container: DependencyContainer): Application {
-  return container.resolve(ServerBuilder).build();
-}
+export class SyncRequestSender {
+  public constructor(private readonly app: Express.Application) {}
 
-export function getMockedRepoApp(container: DependencyContainer, repo: unknown): Application {
-  container.register(syncRepositorySymbol, { useValue: repo });
-  const builder = container.resolve<ServerBuilder>(ServerBuilder);
-  return builder.build();
-}
+  public async postSync(body: StringifiedSync): Promise<supertest.Response> {
+    return supertest.agent(this.app).post('/sync').set('Content-Type', 'application/json').send(body);
+  }
 
-export async function postSync(app: Application, body: StringifiedSync): Promise<supertest.Response> {
-  return supertest.agent(app).post('/sync').set('Content-Type', 'application/json').send(body);
-}
+  public async patchSync(syncId: string, body: Omit<StringifiedSync, 'id'>): Promise<supertest.Response> {
+    return supertest.agent(this.app).patch(`/sync/${syncId}`).set('Content-Type', 'application/json').send(body);
+  }
 
-export async function patchSync(app: Application, syncId: string, body: Omit<StringifiedSync, 'id'>): Promise<supertest.Response> {
-  return supertest.agent(app).patch(`/sync/${syncId}`).set('Content-Type', 'application/json').send(body);
-}
-
-export async function getLatestSync(app: Application, layerId: number): Promise<supertest.Response> {
-  return supertest.agent(app).get(`/sync/latest`).query({ layerId: layerId });
+  public async getLatestSync(layerId: number): Promise<supertest.Response> {
+    return supertest.agent(this.app).get(`/sync/latest`).query({ layerId: layerId });
+  }
 }
