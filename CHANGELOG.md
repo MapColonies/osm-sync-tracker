@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.3.0](https://github.com/MapColonies/osm-sync-tracker/compare/v1.2.4...v1.3.0) (2021-09-09)
+
+
+### Features
+
+* **changeset:** transaction isolation with retry policy ([#21](https://github.com/MapColonies/osm-sync-tracker/issues/21)) ([7600b0e](https://github.com/MapColonies/osm-sync-tracker/commit/7600b0ebd5d9a76b27fa6f48db2e801dda6b51ad))
+
+
+### Bug Fixes
+
+* **configurations:** added readinessProbe to helm chart ([#19](https://github.com/MapColonies/osm-sync-tracker/issues/19)) ([aa59fe2](https://github.com/MapColonies/osm-sync-tracker/commit/aa59fe23987041500799cceac0d75211b65033cc))
+
 ### [1.2.4](https://github.com/MapColonies/osm-sync-tracker/compare/v1.2.3...v1.2.4) (2021-08-18)
 
 
