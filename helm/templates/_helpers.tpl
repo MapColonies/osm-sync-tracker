@@ -5,8 +5,11 @@ Expand the name of the chart.
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
+{{/*
+Returns the tag of the chart.
+*/}}
 {{- define "osm-sync-tracker.tag" -}}
-{{- default .Chart.AppVersion .Values.image.tag }}
+{{- default (printf "v%s" .Chart.AppVersion) .Values.image.tag }}
 {{- end }}
 
 {{/*
