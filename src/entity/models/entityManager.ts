@@ -107,7 +107,7 @@ export class EntityManager {
       return this.fileRepository.tryClosingFile(fileId, this.dbSchema);
     }
     const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
-    const functionRef = this.fileRepository.tryClosingFile.bind(this.entityRepository);
+    const functionRef = this.fileRepository.tryClosingFile.bind(this.fileRepository);
     await retryFunctionWrapper(retryOptions, functionRef, fileId, this.dbSchema);
   }
 }

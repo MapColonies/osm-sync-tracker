@@ -82,6 +82,27 @@ describe('entity', function () {
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
       });
 
+      it('should return 200 status code and OK body when retries is configured', async function () {
+        const numOfRetries = faker.datatype.number({ min: 1, max: 10 });
+        const appConfigWithRetries: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: numOfRetries } };
+        const registerOptions = getBaseRegisterOptions();
+        registerOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfigWithRetries } });
+        const appWithRetries = await getApp(registerOptions);
+        const entityRequestSenderWithRetries = new EntityRequestSender(appWithRetries);
+
+        const body = createStringifiedFakeEntity();
+        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        const { entityId, ...updateBody } = body;
+
+        updateBody.action = ActionType.MODIFY;
+        updateBody.status = EntityStatus.NOT_SYNCED;
+
+        const response = await entityRequestSenderWithRetries.patchEntity(file.fileId as string, body.entityId as string, updateBody);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
+      });
+
       it('should return 200 status code when failing close file transaction once while retries is configured', async function () {
         const fakeEntity = createFakeEntity();
         const fakeFile = createFakeFile();
