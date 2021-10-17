@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "@godaddy/terminus": "4.7.1",
-    "@map-colonies/error-express-handler": "^2.0.0",
+    "@map-colonies/error-express-handler": "^2.1.0",
     "@map-colonies/express-access-log-middleware": "^0.0.3",
     "@map-colonies/openapi-express-viewer": "^2.0.1",
     "@map-colonies/telemetry": "^3.1.0",

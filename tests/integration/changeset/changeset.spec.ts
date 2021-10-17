@@ -21,7 +21,8 @@ import { createStringifiedFakeChangeset } from './helpers/generators';
 
 describe('changeset', function () {
   let changesetRequestSender: ChangesetRequestSender;
-  let entityRequestSender: EntityRequestSender;
+  let changesetRequestSenderWithRetries: ChangesetRequestSender;
+  let entityRequestSenderWithRetries: EntityRequestSender;
   let fileRequestSender: FileRequestSender;
   let syncRequestSender: SyncRequestSender;
   let mockChangesetRequestSender: ChangesetRequestSender;
@@ -29,9 +30,16 @@ describe('changeset', function () {
   beforeAll(async () => {
     const app = await getApp(getBaseRegisterOptions());
     changesetRequestSender = new ChangesetRequestSender(app);
-    entityRequestSender = new EntityRequestSender(app);
     fileRequestSender = new FileRequestSender(app);
     syncRequestSender = new SyncRequestSender(app);
+
+    const numOfRetries = faker.datatype.number({ min: 1, max: 10 });
+    const appConfigWithRetries: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: numOfRetries } };
+    const registerOptions = getBaseRegisterOptions();
+    registerOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfigWithRetries } });
+    const appWithRetries = await getApp(registerOptions);
+    changesetRequestSenderWithRetries = new ChangesetRequestSender(appWithRetries);
+    entityRequestSenderWithRetries = new EntityRequestSender(appWithRetries);
   }, BEFORE_ALL_TIMEOUT);
   afterAll(async function () {
     const connection = container.resolve(Connection);
@@ -72,6 +80,16 @@ describe('changeset', function () {
         await changesetRequestSender.postChangeset(body);
 
         const response = await changesetRequestSender.putChangeset(body.changesetId as string);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
+      });
+
+      it('should return 200 status code and OK body when retries is configured', async function () {
+        const body = createStringifiedFakeChangeset();
+        await changesetRequestSenderWithRetries.postChangeset(body);
+
+        const response = await changesetRequestSenderWithRetries.putChangeset(body.changesetId as string);
 
         expect(response.status).toBe(httpStatus.OK);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
@@ -342,8 +360,8 @@ describe('changeset', function () {
           createStringifiedFakeEntity(),
           createStringifiedFakeEntity(),
         ];
-        await entityRequestSender.postEntityBulk(file1.fileId as string, file1Entities);
-        await entityRequestSender.postEntityBulk(file2.fileId as string, file2Entities);
+        expect(await entityRequestSenderWithRetries.postEntityBulk(file1.fileId as string, file1Entities)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSenderWithRetries.postEntityBulk(file2.fileId as string, file2Entities)).toHaveStatus(StatusCodes.CREATED);
         file1Entities.forEach((entity) => {
           entity.fileId = file1.fileId;
         });
@@ -356,11 +374,11 @@ describe('changeset', function () {
         // create 2 changesets
         const changeset1 = createStringifiedFakeChangeset();
         const changeset2 = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSenderWithRetries.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
 
         expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
 
-        expect(await changesetRequestSender.postChangeset(changeset2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSenderWithRetries.postChangeset(changeset2)).toHaveStatus(StatusCodes.CREATED);
 
         // patch all entities except the not synced one, the sync should not complete yet
         const patchBody = [...file1Entities, ...file2Entities].map((entity, index) => ({
@@ -368,18 +386,18 @@ describe('changeset', function () {
           fileId: entity.fileId,
           changesetId: index % 2 === 0 ? changeset1.changesetId : changeset2.changesetId,
         }));
-        expect(await entityRequestSender.patchEntities(patchBody)).toHaveStatus(StatusCodes.OK);
-        expect(await changesetRequestSender.putChangeset(changeset1.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await entityRequestSenderWithRetries.patchEntities(patchBody)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.putChangeset(changeset1.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
         expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
 
-        expect(await changesetRequestSender.putChangeset(changeset2.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.putChangeset(changeset2.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
         expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
 
         // patch the not synced entity should complete the sync
         expect(
-          await entityRequestSender.patchEntity(notSyncedEntity.fileId as string, notSyncedEntity.entityId as string, {
+          await entityRequestSenderWithRetries.patchEntity(notSyncedEntity.fileId as string, notSyncedEntity.entityId as string, {
             status: EntityStatus.NOT_SYNCED,
           })
         ).toHaveStatus(StatusCodes.OK);
@@ -409,7 +427,7 @@ describe('changeset', function () {
 
         // create entities, one will be synced the other won't
         const fileEntities = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
-        expect(await entityRequestSender.postEntityBulk(file.fileId as string, fileEntities)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSenderWithRetries.postEntityBulk(file.fileId as string, fileEntities)).toHaveStatus(StatusCodes.CREATED);
 
         fileEntities.forEach((entity) => {
           entity.fileId = file.fileId;
@@ -419,21 +437,23 @@ describe('changeset', function () {
 
         // create changeset
         const changeset = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSenderWithRetries.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
 
         // patch the first entity, the sync shouldn't complete
         expect(
-          await entityRequestSender.patchEntity(syncedEntity.fileId as string, syncedEntity.entityId as string, {
+          await entityRequestSenderWithRetries.patchEntity(syncedEntity.fileId as string, syncedEntity.entityId as string, {
             changesetId: changeset.changesetId as string,
           })
         ).toHaveStatus(StatusCodes.OK);
-        expect(await changesetRequestSender.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
         expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
 
         // patch the other entity as not synced should complete the whole sync
         expect(
-          await entityRequestSender.patchEntity(file.fileId as string, notSyncedEntity.entityId as string, { status: EntityStatus.NOT_SYNCED })
+          await entityRequestSenderWithRetries.patchEntity(file.fileId as string, notSyncedEntity.entityId as string, {
+            status: EntityStatus.NOT_SYNCED,
+          })
         ).toHaveStatus(StatusCodes.OK);
 
         const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number);
@@ -459,7 +479,7 @@ describe('changeset', function () {
 
         // create entities, one will be synced the other won't
         const fileEntities = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
-        expect(await entityRequestSender.postEntityBulk(file.fileId as string, fileEntities)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSenderWithRetries.postEntityBulk(file.fileId as string, fileEntities)).toHaveStatus(StatusCodes.CREATED);
 
         fileEntities.forEach((entity) => {
           entity.fileId = file.fileId;
@@ -469,23 +489,25 @@ describe('changeset', function () {
 
         // create changeset
         const changeset = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSenderWithRetries.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
 
         // patch the first not synced entity, the sync shouldn't complete
         expect(
-          await entityRequestSender.patchEntity(file.fileId as string, notSyncedEntity.entityId as string, { status: EntityStatus.NOT_SYNCED })
+          await entityRequestSenderWithRetries.patchEntity(file.fileId as string, notSyncedEntity.entityId as string, {
+            status: EntityStatus.NOT_SYNCED,
+          })
         ).toHaveStatus(StatusCodes.OK);
-        expect(await changesetRequestSender.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
         expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
 
         // patch the other entity as synced. this should complete the whole sync
         expect(
-          await entityRequestSender.patchEntity(syncedEntity.fileId as string, syncedEntity.entityId as string, {
+          await entityRequestSenderWithRetries.patchEntity(syncedEntity.fileId as string, syncedEntity.entityId as string, {
             changesetId: changeset.changesetId as string,
           })
         ).toHaveStatus(StatusCodes.OK);
-        expect(await changesetRequestSender.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
         const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number);
 
@@ -516,8 +538,8 @@ describe('changeset', function () {
         const file1Entities = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
         const file2Entity = createStringifiedFakeEntity();
 
-        expect(await entityRequestSender.postEntityBulk(file1.fileId as string, file1Entities)).toHaveStatus(StatusCodes.CREATED);
-        expect(await entityRequestSender.postEntity(file2.fileId as string, file2Entity)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSenderWithRetries.postEntityBulk(file1.fileId as string, file1Entities)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSenderWithRetries.postEntity(file2.fileId as string, file2Entity)).toHaveStatus(StatusCodes.CREATED);
 
         file1Entities.forEach((entity) => {
           entity.fileId = file1.fileId;
@@ -528,35 +550,35 @@ describe('changeset', function () {
         // create changeset
         const changeset = createStringifiedFakeChangeset();
 
-        expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSenderWithRetries.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
 
         // patch first synced entity of file1
         expect(
-          await entityRequestSender.patchEntity(syncedEntity.fileId as string, syncedEntity.entityId as string, {
+          await entityRequestSenderWithRetries.patchEntity(syncedEntity.fileId as string, syncedEntity.entityId as string, {
             changesetId: changeset.changesetId as string,
           })
         ).toHaveStatus(StatusCodes.OK);
-        expect(await changesetRequestSender.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
         expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
 
         // patch second not synced entity of file1. will close the file but not the sync
         expect(
-          await entityRequestSender.patchEntity(notSyncedEntity.fileId as string, notSyncedEntity.entityId as string, {
+          await entityRequestSenderWithRetries.patchEntity(notSyncedEntity.fileId as string, notSyncedEntity.entityId as string, {
             status: EntityStatus.NOT_SYNCED,
           })
         ).toHaveStatus(StatusCodes.OK);
-        expect(await changesetRequestSender.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
         expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
 
         // patch the last entity, should close the sync
         expect(
-          await entityRequestSender.patchEntity(file2.fileId as string, file2Entity.entityId as string, {
+          await entityRequestSenderWithRetries.patchEntity(file2.fileId as string, file2Entity.entityId as string, {
             changesetId: changeset.changesetId as string,
           })
         ).toHaveStatus(StatusCodes.OK);
-        expect(await changesetRequestSender.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
         const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number);
 
