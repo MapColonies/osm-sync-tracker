@@ -1,6 +1,7 @@
 import { Logger } from '@map-colonies/js-logger';
 import lodash from 'lodash';
 import { inject, injectable } from 'tsyringe';
+import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { TransactionFailureError } from '../../changeset/models/errors';
 import { Services } from '../../common/constants';
 import { EntityStatus } from '../../common/enums';
@@ -16,6 +17,7 @@ import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } f
 export class EntityManager {
   private readonly dbSchema: string;
   private readonly transactionRetryPolicy: TransactionRetryPolicy;
+  private readonly transactionIsolationLevel: IsolationLevel;
 
   public constructor(
     @inject(entityRepositorySymbol) private readonly entityRepository: IEntityRepository,
@@ -26,6 +28,7 @@ export class EntityManager {
   ) {
     this.dbSchema = this.config.get('db.schema');
     this.transactionRetryPolicy = this.appConfig.transactionRetryPolicy;
+    this.transactionIsolationLevel = this.appConfig.isolationLevel;
   }
 
   public async createEntity(fileId: string, entity: Entity): Promise<void> {
@@ -104,10 +107,10 @@ export class EntityManager {
 
   private async closeFile(fileId: string): Promise<void> {
     if (!this.transactionRetryPolicy.enabled) {
-      return this.fileRepository.tryClosingFile(fileId, this.dbSchema);
+      return this.fileRepository.tryClosingFile(fileId, this.dbSchema, this.transactionIsolationLevel);
     }
     const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
     const functionRef = this.fileRepository.tryClosingFile.bind(this.fileRepository);
-    await retryFunctionWrapper(retryOptions, functionRef, fileId, this.dbSchema);
+    await retryFunctionWrapper(retryOptions, functionRef, fileId, this.dbSchema, this.transactionIsolationLevel);
   }
 }

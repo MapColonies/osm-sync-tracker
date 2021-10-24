@@ -1,3 +1,4 @@
+import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { File } from '../models/file';
 import { File as FileDb } from './typeorm/file';
 
@@ -12,5 +13,5 @@ export interface IFileRepository {
 
   findManyFiles: (files: File[]) => Promise<FileDb[] | undefined>;
 
-  tryClosingFile: (fileId: string, schema: string) => Promise<void>;
+  tryClosingFile: (fileId: string, schema: string, isolationLevel: IsolationLevel) => Promise<void>;
 }

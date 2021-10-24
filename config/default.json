@@ -25,6 +25,7 @@
     }
   },
   "application": {
+    "isolationLevel": "SERIALIZABLE",
     "transactionRetryPolicy": {
       "enabled": false
     }

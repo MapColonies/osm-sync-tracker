@@ -16,6 +16,7 @@ data:
   {{- else }}
   APP_TRANSACTION_RETRIES_ENABLED: "false"
   {{- end }}
+  APP_TRANSACTION_ISOLATION_LEVEL: {{ .Values.env.isolationLevel | quote }}
   LOG_LEVEL: {{ .Values.env.logLevel | quote }}
   {{ if .Values.global.tracing.enabled }}
   TELEMETRY_TRACING_ENABLED: "true"

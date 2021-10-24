@@ -8,7 +8,9 @@ const changesetRouterFactory: FactoryFunction<Router> = (dependencyContainer) =>
 
   router.post('', controller.postChangeset);
   router.patch('/:changesetId', controller.patchChangeset);
+  router.patch('/:changesetId/entities', controller.patchChangesetEntities);
   router.put('/:changesetId/close', controller.putChangeset);
+  router.put('/close/_bulk', controller.putChangesets);
 
   return router;
 };

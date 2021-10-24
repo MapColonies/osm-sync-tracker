@@ -1,4 +1,5 @@
 import { ConnectionOptions } from 'typeorm';
+import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 
 export interface IConfig {
   get: <T>(setting: string) => T;
@@ -11,6 +12,7 @@ export interface TransactionRetryPolicy {
 }
 
 export interface IApplication {
+  isolationLevel: IsolationLevel;
   transactionRetryPolicy: TransactionRetryPolicy;
 }
 

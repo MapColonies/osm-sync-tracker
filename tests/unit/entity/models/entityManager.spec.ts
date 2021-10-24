@@ -11,6 +11,7 @@ import { EntityStatus } from '../../../../src/common/enums';
 import { ExceededNumberOfRetriesError, TransactionFailureError } from '../../../../src/changeset/models/errors';
 import { IEntityRepository } from '../../../../src/entity/DAL/entityRepository';
 import { IFileRepository } from '../../../../src/file/DAL/fileRepository';
+import { DEFAULT_ISOLATION_LEVEL } from '../../../integration/helpers';
 
 let entityManager: EntityManager;
 let entityManagerWithRetries: EntityManager;
@@ -55,7 +56,7 @@ describe('EntityManager', () => {
       fileRepository,
       jsLogger({ enabled: false }),
       { get: jest.fn(), has: jest.fn() },
-      { transactionRetryPolicy: { enabled: false } }
+      { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
     );
   });
 
@@ -193,7 +194,7 @@ describe('EntityManager', () => {
         fileRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, numRetries: 1 } }
+        { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
       );
 
       const updatePromise = entityManagerWithRetries.updateEntity(file.fileId, entity.entityId, entity);
@@ -240,7 +241,7 @@ describe('EntityManager', () => {
         fileRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: false } }
+        { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
       );
 
       const updatePromise = entityManagerWithRetries.updateEntity(file.fileId, entity.entityId, entity);
@@ -265,7 +266,7 @@ describe('EntityManager', () => {
         fileRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, numRetries: retries } }
+        { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
       );
 
       const updatePromise = entityManagerWithRetries.updateEntity(file.fileId, entity.entityId, entity);
@@ -290,7 +291,7 @@ describe('EntityManager', () => {
         fileRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, numRetries: retries } }
+        { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
       );
 
       const updatePromise = entityManagerWithRetries.updateEntity(file.fileId, entity.entityId, entity);
@@ -340,7 +341,7 @@ describe('EntityManager', () => {
         fileRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, numRetries: 1 } }
+        { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
       );
 
       const updateBulkPromise = entityManagerWithRetries.updateEntities(entities as UpdateEntities);
@@ -388,7 +389,7 @@ describe('EntityManager', () => {
         fileRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: false } }
+        { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
       );
 
       const updateBulkPromise = entityManagerWithRetries.updateEntities(entities as UpdateEntities);
@@ -414,7 +415,7 @@ describe('EntityManager', () => {
         fileRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, numRetries: retries } }
+        { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
       );
 
       const updateBulkPromise = entityManagerWithRetries.updateEntities(entities as UpdateEntities);
@@ -440,7 +441,7 @@ describe('EntityManager', () => {
         fileRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, numRetries: retries } }
+        { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
       );
 
       const updateBulkPromise = entityManagerWithRetries.updateEntities(entities as UpdateEntities);

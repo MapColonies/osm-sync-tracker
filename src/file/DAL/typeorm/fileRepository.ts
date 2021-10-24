@@ -1,4 +1,5 @@
 import { EntityManager, EntityRepository, Repository } from 'typeorm';
+import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { TransactionFailureError } from '../../../changeset/models/errors';
 import { isTransactionFailure } from '../../../common/db';
 import { File } from '../../models/file';
@@ -31,9 +32,9 @@ export class FileRepository extends Repository<FileDb> implements IFileRepositor
     return filesEntities;
   }
 
-  public async tryClosingFile(fileId: string, schema: string): Promise<void> {
+  public async tryClosingFile(fileId: string, schema: string, isolationLevel: IsolationLevel): Promise<void> {
     try {
-      await this.manager.connection.transaction('SERIALIZABLE', async (transactionalEntityManager) => {
+      await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager) => {
         await this.updateFileAsCompleted(fileId, schema, transactionalEntityManager);
 
         await this.updateSyncAsCompleted(fileId, schema, transactionalEntityManager);

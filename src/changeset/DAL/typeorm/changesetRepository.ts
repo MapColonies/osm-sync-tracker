@@ -1,4 +1,5 @@
 import { EntityManager, EntityRepository, Repository } from 'typeorm';
+import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { isTransactionFailure } from '../../../common/db';
 import { EntityStatus } from '../../../common/enums';
 import { Entity } from '../../../entity/DAL/typeorm/entity';
@@ -17,14 +18,37 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
     await this.update(changesetId, changeset);
   }
 
-  public async tryClosingChangeset(changesetId: string, schema: string): Promise<void> {
+  public async updateEntitiesOfChangesetAsCompleted(changesetId: string): Promise<void> {
+    await this.createQueryBuilder()
+      .update(Entity)
+      .set({ status: EntityStatus.COMPLETED })
+      .where(`changesetId = :changesetId`, { changesetId })
+      .execute();
+  }
+
+  public async tryClosingChangesets(changesetIds: string[], schema: string, isolationLevel: IsolationLevel): Promise<void> {
     try {
-      await this.manager.connection.transaction('SERIALIZABLE', async (transactionalEntityManager) => {
-        await this.updateChangesetAsCompleted(changesetId, schema, transactionalEntityManager);
+      await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager) => {
+        await this.updateFileAsCompleted(changesetIds, schema, transactionalEntityManager);
 
-        await this.updateFileAsCompleted(changesetId, schema, transactionalEntityManager);
+        await this.updateSyncAsCompleted(changesetIds, schema, transactionalEntityManager);
+      });
+    } catch (error) {
+      if (isTransactionFailure(error)) {
+        throw new TransactionFailureError(`closing changesets has failed due to read/write dependencies among transactions.`);
+      }
+      throw error;
+    }
+  }
 
-        await this.updateSyncAsCompleted(changesetId, schema, transactionalEntityManager);
+  public async tryClosingChangeset(changesetId: string, schema: string, isolationLevel: IsolationLevel): Promise<void> {
+    try {
+      await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager) => {
+        await this.updateEntitiesOfChangesetAsCompletedInTransaction(changesetId, transactionalEntityManager);
+
+        await this.updateFileAsCompleted([changesetId], schema, transactionalEntityManager);
+
+        await this.updateSyncAsCompleted([changesetId], schema, transactionalEntityManager);
       });
     } catch (error) {
       if (isTransactionFailure(error)) {
@@ -42,7 +66,7 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
     return changesetEntity;
   }
 
-  private async updateChangesetAsCompleted(changesetId: string, schema: string, transactionalEntityManager: EntityManager): Promise<void> {
+  private async updateEntitiesOfChangesetAsCompletedInTransaction(changesetId: string, transactionalEntityManager: EntityManager): Promise<void> {
     await transactionalEntityManager
       .createQueryBuilder()
       .update(Entity)
@@ -51,12 +75,12 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
       .execute();
   }
 
-  private async updateFileAsCompleted(changesetId: string, schema: string, transactionalEntityManager: EntityManager): Promise<void> {
+  private async updateFileAsCompleted(changesetIds: string[], schema: string, transactionalEntityManager: EntityManager): Promise<void> {
     await transactionalEntityManager.query(
       `WITH touched_files AS (
       SELECT DISTINCT file_id
       FROM ${schema}.entity
-      WHERE changeset_id = $1)
+      WHERE changeset_id = ANY($1))
 
     UPDATE ${schema}.file AS FILE SET status = 'completed', end_date = current_timestamp
     FROM (
@@ -65,16 +89,16 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
       WHERE file_id IN (SELECT * FROM touched_files) AND (status = 'completed' or status = 'not_synced')
       GROUP BY file_id) AS FILES_TO_UPDATE
     WHERE FILE.file_id = FILES_TO_UPDATE.file_id AND FILES_TO_UPDATE.CompletedEntities = FILE.total_entities`,
-      [changesetId]
+      [changesetIds]
     );
   }
 
-  private async updateSyncAsCompleted(changesetId: string, schema: string, transactionalEntityManager: EntityManager): Promise<void> {
+  private async updateSyncAsCompleted(changesetIds: string[], schema: string, transactionalEntityManager: EntityManager): Promise<void> {
     await transactionalEntityManager.query(
       `WITH touched_files AS (
       SELECT DISTINCT file_id
       FROM ${schema}.entity
-      WHERE changeset_id = $1)
+      WHERE changeset_id = ANY($1))
 
     UPDATE ${schema}.sync AS sync_to_update SET status = 'completed', end_date = current_timestamp
     FROM (
@@ -82,7 +106,7 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
       FROM ${schema}.file
       WHERE file_id IN (SELECT * FROM touched_files) AND status = 'completed') AS sync_from_changeset
     WHERE sync_to_update.id = sync_from_changeset.sync_id AND sync_to_update.total_files = (SELECT COUNT(*) FROM ${schema}.file WHERE sync_id = sync_to_update.id AND status = 'completed')`,
-      [changesetId]
+      [changesetIds]
     );
   }
 }

@@ -16,4 +16,12 @@ export class ChangesetRequestSender {
   public async putChangeset(changesetId: string): Promise<supertest.Response> {
     return supertest.agent(this.app).put(`/changeset/${changesetId}/close`).set('Content-Type', 'application/json');
   }
+
+  public async patchChangesetEntities(changesetId: string): Promise<supertest.Response> {
+    return supertest.agent(this.app).patch(`/changeset/${changesetId}/entities`).set('Content-Type', 'application/json');
+  }
+
+  public async putChangesets(changesetIds: string[]): Promise<supertest.Response> {
+    return supertest.agent(this.app).put(`/changeset/close/_bulk`).set('Content-Type', 'application/json').send(changesetIds);
+  }
 }
