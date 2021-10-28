@@ -1,4 +1,3 @@
-import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { Changeset, UpdateChangeset } from '../models/changeset';
 import { Changeset as ChangesetDb } from './typeorm/changeset';
 
@@ -11,9 +10,9 @@ export interface IChangesetRepository {
 
   updateEntitiesOfChangesetAsCompleted: (changesetId: string) => Promise<void>;
 
-  tryClosingChangeset: (changesetId: string, schema: string, isolationLevel: IsolationLevel) => Promise<void>;
+  tryClosingChangeset: (changesetId: string, schema: string) => Promise<void>;
 
-  tryClosingChangesets: (changesetIds: string[], schema: string, isolationLevel: IsolationLevel) => Promise<void>;
+  tryClosingChangesets: (changesetIds: string[], schema: string) => Promise<void>;
 
   findOneChangeset: (changesetId: string) => Promise<ChangesetDb | undefined>;
 }

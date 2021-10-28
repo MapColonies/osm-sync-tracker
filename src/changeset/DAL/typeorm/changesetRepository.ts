@@ -1,4 +1,5 @@
 import { EntityManager, EntityRepository, Repository } from 'typeorm';
+import { inject } from 'tsyringe';
 import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { isTransactionFailure } from '../../../common/db';
 import { EntityStatus } from '../../../common/enums';
@@ -6,10 +7,19 @@ import { Entity } from '../../../entity/DAL/typeorm/entity';
 import { Changeset, UpdateChangeset } from '../../models/changeset';
 import { TransactionFailureError } from '../../models/errors';
 import { IChangesetRepository } from '../changsetRepository';
+import { Services } from '../../../common/constants';
+import { IApplication } from '../../../common/interfaces';
 import { Changeset as ChangesetDb } from './changeset';
 
 @EntityRepository(ChangesetDb)
 export class ChangesetRepository extends Repository<ChangesetDb> implements IChangesetRepository {
+  private readonly transationIsolationLevel: IsolationLevel;
+
+  public constructor(@inject(Services.APPLICATION) private readonly appConfig: IApplication) {
+    super();
+    this.transationIsolationLevel = this.appConfig.isolationLevel;
+  }
+
   public async createChangeset(changeset: Changeset): Promise<void> {
     await this.insert(changeset);
   }
@@ -26,9 +36,9 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
       .execute();
   }
 
-  public async tryClosingChangesets(changesetIds: string[], schema: string, isolationLevel: IsolationLevel): Promise<void> {
+  public async tryClosingChangesets(changesetIds: string[], schema: string): Promise<void> {
     try {
-      await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager) => {
+      await this.manager.connection.transaction(this.transationIsolationLevel, async (transactionalEntityManager) => {
         await this.updateFileAsCompleted(changesetIds, schema, transactionalEntityManager);
 
         await this.updateSyncAsCompleted(changesetIds, schema, transactionalEntityManager);
@@ -41,9 +51,9 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
     }
   }
 
-  public async tryClosingChangeset(changesetId: string, schema: string, isolationLevel: IsolationLevel): Promise<void> {
+  public async tryClosingChangeset(changesetId: string, schema: string): Promise<void> {
     try {
-      await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager) => {
+      await this.manager.connection.transaction(this.transationIsolationLevel, async (transactionalEntityManager) => {
         await this.updateEntitiesOfChangesetAsCompletedInTransaction(changesetId, transactionalEntityManager);
 
         await this.updateFileAsCompleted([changesetId], schema, transactionalEntityManager);

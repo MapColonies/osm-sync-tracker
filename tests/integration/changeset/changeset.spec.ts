@@ -672,9 +672,6 @@ describe('changeset', function () {
           changesetId: index % 2 === 0 ? changeset1.changesetId : changeset2.changesetId,
         }));
         expect(await entityRequestSenderWithRetries.patchEntities(patchBody)).toHaveStatus(StatusCodes.OK);
-        // expect(await changesetRequestSenderWithRetries.putChangeset(changeset1.changesetId as string)).toHaveStatus(StatusCodes.OK);
-
-        // expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
 
         expect(
           await changesetRequestSenderWithRetries.putChangesets([changeset1.changesetId as string, changeset2.changesetId as string])
