@@ -38,6 +38,23 @@ export class ChangesetManager {
     await this.changesetRepository.updateChangeset(changesetId, changeset);
   }
 
+  public async updateChangesetEntities(changesetId: string): Promise<void> {
+    const changesetEntity = await this.changesetRepository.findOneChangeset(changesetId);
+    if (!changesetEntity) {
+      throw new ChangesetNotFoundError(`changeset = ${changesetId} not found`);
+    }
+    await this.changesetRepository.updateEntitiesOfChangesetAsCompleted(changesetId);
+  }
+
+  public async closeChangesets(changesetIds: string[]): Promise<void> {
+    if (!this.transactionRetryPolicy.enabled) {
+      return this.changesetRepository.tryClosingChangesets(changesetIds, this.dbSchema);
+    }
+    const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
+    const functionRef = this.changesetRepository.tryClosingChangesets.bind(this.changesetRepository);
+    await retryFunctionWrapper(retryOptions, functionRef, changesetIds, this.dbSchema);
+  }
+
   public async closeChangeset(changesetId: string): Promise<void> {
     const changesetEntity = await this.changesetRepository.findOneChangeset(changesetId);
     if (!changesetEntity) {

@@ -14,7 +14,7 @@ import { SyncRequestSender } from '../sync/helpers/requestSender';
 import { Services } from '../../../src/common/constants';
 import { changesetRepositorySymbol } from '../../../src/changeset/DAL/changsetRepository';
 import { TransactionFailureError } from '../../../src/changeset/models/errors';
-import { BEFORE_ALL_TIMEOUT, FLOW_TEST_TIMEOUT, getBaseRegisterOptions } from '../helpers';
+import { BEFORE_ALL_TIMEOUT, DEFAULT_ISOLATION_LEVEL, FLOW_TEST_TIMEOUT, getBaseRegisterOptions } from '../helpers';
 import { IApplication } from '../../../src/common/interfaces';
 import { ChangesetRequestSender } from './helpers/requestSender';
 import { createStringifiedFakeChangeset } from './helpers/generators';
@@ -34,7 +34,10 @@ describe('changeset', function () {
     syncRequestSender = new SyncRequestSender(app);
 
     const numOfRetries = faker.datatype.number({ min: 1, max: 10 });
-    const appConfigWithRetries: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: numOfRetries } };
+    const appConfigWithRetries: IApplication = {
+      transactionRetryPolicy: { enabled: true, numRetries: numOfRetries },
+      isolationLevel: 'SERIALIZABLE',
+    };
     const registerOptions = getBaseRegisterOptions();
     registerOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfigWithRetries } });
     const appWithRetries = await getApp(registerOptions);
@@ -74,6 +77,19 @@ describe('changeset', function () {
       });
     });
 
+    describe('PATCH /changeset/{changesetId}/entities', function () {
+      it('should return 200 status code and OK body', async function () {
+        const changeset = createStringifiedFakeChangeset();
+
+        expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await changesetRequestSender.patchChangesetEntities(changeset.changesetId as string);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
+      });
+    });
+
     describe('PUT /changeset/{changesetId}/close', function () {
       it('should return 200 status code and OK body', async function () {
         const body = createStringifiedFakeChangeset();
@@ -104,7 +120,7 @@ describe('changeset', function () {
           token: changesetRepositorySymbol,
           provider: { useValue: { tryClosingChangeset: tryClosingChangesetMock, findOneChangeset: findOneChangesetMock } },
         });
-        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: 1 } };
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
@@ -115,6 +131,55 @@ describe('changeset', function () {
 
         expect(response.status).toBe(StatusCodes.OK);
         expect(tryClosingChangesetMock).toHaveBeenCalledTimes(2);
+        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
+      });
+    });
+
+    describe('PUT /changeset/close/_bulk', function () {
+      it('should return 200 status code and OK body', async function () {
+        const changeset1 = createStringifiedFakeChangeset();
+        const changeset2 = createStringifiedFakeChangeset();
+        expect(await changesetRequestSender.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(changeset2)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await changesetRequestSender.putChangesets([changeset1.changesetId as string, changeset2.changesetId as string]);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
+      });
+
+      it('should return 200 status code and OK body when retries is configured', async function () {
+        const changeset1 = createStringifiedFakeChangeset();
+        const changeset2 = createStringifiedFakeChangeset();
+        expect(await changesetRequestSender.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(changeset2)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await changesetRequestSenderWithRetries.putChangesets([changeset1.changesetId as string, changeset2.changesetId as string]);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
+      });
+
+      it('should return 200 status code and OK body when transaction retries is enabled and transaction fails once', async function () {
+        const tryClosingChangesetsMock = jest.fn().mockRejectedValueOnce(new TransactionFailureError('transaction failure'));
+        const findOneChangesetMock = jest.fn().mockResolvedValue(true);
+
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: changesetRepositorySymbol,
+          provider: { useValue: { tryClosingChangesets: tryClosingChangesetsMock, findOneChangeset: findOneChangesetMock } },
+        });
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
+        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
+        const changeset = createStringifiedFakeChangeset();
+        expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await mockChangesetRequestSender.putChangesets([changeset.changesetId as string]);
+
+        expect(response.status).toBe(StatusCodes.OK);
+        expect(tryClosingChangesetsMock).toHaveBeenCalledTimes(2);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
       });
     });
@@ -177,6 +242,21 @@ describe('changeset', function () {
       });
     });
 
+    describe('PATCH /changeset/{changesetId}/entities', function () {
+      it('should return 400 if the id is not valid', async function () {
+        const response = await changesetRequestSender.patchChangesetEntities(faker.random.word());
+
+        expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
+        expect(response.body).toHaveProperty('message', 'request.params.changesetId should match format "uuid"');
+      });
+
+      it('should return 404 if no changeset with the specified id was found', async function () {
+        const response = await changesetRequestSender.patchChangesetEntities(faker.datatype.uuid());
+
+        expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
+      });
+    });
+
     describe('PUT /changeset/{changesetId}/close', function () {
       it('should return 400 if the id is not valid', async function () {
         const response = await changesetRequestSender.putChangeset(faker.random.word());
@@ -189,6 +269,15 @@ describe('changeset', function () {
         const response = await changesetRequestSender.putChangeset(faker.datatype.uuid());
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
+      });
+    });
+
+    describe('PUT /changeset/close/_bulk', function () {
+      it('should return 400 if the id is not valid', async function () {
+        const response = await changesetRequestSender.putChangesets([faker.random.word()]);
+
+        expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
+        expect(response.body).toHaveProperty('message', 'request.body[0] should match format "uuid"');
       });
     });
   });
@@ -238,6 +327,32 @@ describe('changeset', function () {
       });
     });
 
+    describe('PATCH /changeset/{changeset}/entities', function () {
+      it('should return 500 if the db throws an error', async function () {
+        const updateEntitiesOfChangesetAsCompletedMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
+        const findOneChangesetMock = jest.fn().mockResolvedValue(true);
+
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: changesetRepositorySymbol,
+          provider: {
+            useValue: { updateEntitiesOfChangesetAsCompleted: updateEntitiesOfChangesetAsCompletedMock, findOneChangeset: findOneChangesetMock },
+          },
+        });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
+        const changeset = createStringifiedFakeChangeset();
+
+        expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+
+        const { changesetId } = changeset;
+        const response = await mockChangesetRequestSender.patchChangesetEntities(changesetId as string);
+
+        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+        expect(response.body).toHaveProperty('message', 'failed');
+      });
+    });
+
     describe('PUT /changeset/{changesetId}/close', function () {
       it('should return 500 if the db throws an error', async function () {
         const tryClosingChangesetMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
@@ -269,7 +384,7 @@ describe('changeset', function () {
           token: changesetRepositorySymbol,
           provider: { useValue: { tryClosingChangeset: tryClosingChangesetMock, findOneChangeset: findOneChangesetMock } },
         });
-        const appConfig: IApplication = { transactionRetryPolicy: { enabled: false } };
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
@@ -294,7 +409,7 @@ describe('changeset', function () {
           provider: { useValue: { tryClosingChangeset: tryClosingChangesetMock, findOneChangeset: findOneChangesetMock } },
         });
         const retries = faker.datatype.number({ min: 1, max: 10 });
-        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries } };
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
@@ -320,7 +435,7 @@ describe('changeset', function () {
           provider: { useValue: { tryClosingChangeset: tryClosingChangesetMock, findOneChangeset: findOneChangesetMock } },
         });
         const retries = faker.datatype.number({ min: 1, max: 10 });
-        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries } };
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
@@ -332,6 +447,103 @@ describe('changeset', function () {
 
         expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
         expect(tryClosingChangesetMock).toHaveBeenCalledTimes(1);
+        const message = (response.body as { message: string }).message;
+        expect(message).toContain(`failed`);
+      });
+    });
+
+    describe('PUT /changeset/close/_bulk', function () {
+      it('should return 500 if the db throws an error', async function () {
+        const tryClosingChangesetsMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
+
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: changesetRepositorySymbol,
+          provider: { useValue: { tryClosingChangesets: tryClosingChangesetsMock } },
+        });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
+
+        const changeset1 = createStringifiedFakeChangeset();
+        const changeset2 = createStringifiedFakeChangeset();
+        expect(await changesetRequestSender.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(changeset2)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await mockChangesetRequestSender.putChangesets([changeset1.changesetId as string, changeset2.changesetId as string]);
+
+        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+        expect(response.body).toHaveProperty('message', 'failed');
+      });
+
+      it('should return 500 if transaction failure occurs with transaction retries not enabled', async function () {
+        const tryClosingChangesetsMock = jest.fn().mockRejectedValue(new TransactionFailureError('transaction failure'));
+
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: changesetRepositorySymbol,
+          provider: { useValue: { tryClosingChangesets: tryClosingChangesetsMock } },
+        });
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
+        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
+
+        const changeset = createStringifiedFakeChangeset();
+        expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await mockChangesetRequestSender.putChangesets([changeset.changesetId as string]);
+
+        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+        expect(tryClosingChangesetsMock).toHaveBeenCalledTimes(1);
+        expect(response.body).toHaveProperty('message', 'transaction failure');
+      });
+
+      it('should return 500 if transaction failure occurs on multiple retries', async function () {
+        const tryClosingChangesetsMock = jest.fn().mockRejectedValue(new TransactionFailureError('transaction failure'));
+
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: changesetRepositorySymbol,
+          provider: { useValue: { tryClosingChangesets: tryClosingChangesetsMock } },
+        });
+        const retries = faker.datatype.number({ min: 1, max: 10 });
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
+        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
+
+        const changeset = createStringifiedFakeChangeset();
+        expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await mockChangesetRequestSender.putChangesets([changeset.changesetId as string]);
+
+        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+        expect(tryClosingChangesetsMock).toHaveBeenCalledTimes(retries + 1);
+        const message = (response.body as { message: string }).message;
+        expect(message).toContain(`exceeded the number of retries (${retries}).`);
+      });
+
+      it('should return 500 without transaction failure error on multiple retries due to another error raising', async function () {
+        const tryClosingChangesetsMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
+
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: changesetRepositorySymbol,
+          provider: { useValue: { tryClosingChangesets: tryClosingChangesetsMock } },
+        });
+        const retries = faker.datatype.number({ min: 1, max: 10 });
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
+        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        const mockApp = await getApp(mockRegisterOptions);
+        mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
+
+        const changeset = createStringifiedFakeChangeset();
+        expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await mockChangesetRequestSender.putChangesets([changeset.changesetId as string]);
+
+        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+        expect(tryClosingChangesetsMock).toHaveBeenCalledTimes(1);
         const message = (response.body as { message: string }).message;
         expect(message).toContain(`failed`);
       });
@@ -400,6 +612,86 @@ describe('changeset', function () {
           await entityRequestSenderWithRetries.patchEntity(notSyncedEntity.fileId as string, notSyncedEntity.entityId as string, {
             status: EntityStatus.NOT_SYNCED,
           })
+        ).toHaveStatus(StatusCodes.OK);
+
+        const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number);
+
+        expect(latestSyncResponse).toHaveStatus(StatusCodes.OK);
+        expect(latestSyncResponse).toHaveProperty('body.status', Status.COMPLETED);
+        expect(latestSyncResponse).toHaveProperty('body.endDate');
+        expect((latestSyncResponse.body as Sync).endDate).not.toBeNull();
+      },
+      FLOW_TEST_TIMEOUT
+    );
+
+    it(
+      'should create sync, files, entities, changeset and close it by closing the entities and then the changeset',
+      async function () {
+        // create a sync
+        const sync = createStringifiedFakeSync({ totalFiles: 2 });
+        expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
+
+        // create two files with 6 entities overall
+        const file1 = createStringifiedFakeFile({ totalEntities: 2 });
+        const file2 = createStringifiedFakeFile({ totalEntities: 4 });
+        expect(await fileRequestSender.postFile(sync.id as string, file1)).toHaveStatus(StatusCodes.CREATED);
+        expect(await fileRequestSender.postFile(sync.id as string, file2)).toHaveStatus(StatusCodes.CREATED);
+
+        // create the entities, one of them won't be synced
+        const file1Entities = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
+        let file2Entities = [
+          createStringifiedFakeEntity(),
+          createStringifiedFakeEntity(),
+          createStringifiedFakeEntity(),
+          createStringifiedFakeEntity(),
+        ];
+        expect(await entityRequestSenderWithRetries.postEntityBulk(file1.fileId as string, file1Entities)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSenderWithRetries.postEntityBulk(file2.fileId as string, file2Entities)).toHaveStatus(StatusCodes.CREATED);
+        file1Entities.forEach((entity) => {
+          entity.fileId = file1.fileId;
+        });
+        file2Entities.forEach((entity) => {
+          entity.fileId = file2.fileId;
+        });
+        const [notSyncedEntity, ...tempArr] = file2Entities;
+        file2Entities = tempArr;
+
+        // create 2 changesets
+        const changeset1 = createStringifiedFakeChangeset();
+        const changeset2 = createStringifiedFakeChangeset();
+        expect(await changesetRequestSenderWithRetries.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
+
+        expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+
+        expect(await changesetRequestSenderWithRetries.postChangeset(changeset2)).toHaveStatus(StatusCodes.CREATED);
+
+        // patch all entities except the not synced one, the sync should not complete yet
+        const patchBody = [...file1Entities, ...file2Entities].map((entity, index) => ({
+          entityId: entity.entityId,
+          fileId: entity.fileId,
+          changesetId: index % 2 === 0 ? changeset1.changesetId : changeset2.changesetId,
+        }));
+        expect(await entityRequestSenderWithRetries.patchEntities(patchBody)).toHaveStatus(StatusCodes.OK);
+
+        expect(
+          await changesetRequestSenderWithRetries.putChangesets([changeset1.changesetId as string, changeset2.changesetId as string])
+        ).toHaveStatus(StatusCodes.OK);
+
+        expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+
+        // patch the not synced entity should complete the sync
+        expect(
+          await entityRequestSenderWithRetries.patchEntity(notSyncedEntity.fileId as string, notSyncedEntity.entityId as string, {
+            status: EntityStatus.NOT_SYNCED,
+          })
+        ).toHaveStatus(StatusCodes.OK);
+
+        expect(await changesetRequestSenderWithRetries.patchChangesetEntities(changeset1.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+        expect(await changesetRequestSenderWithRetries.patchChangesetEntities(changeset2.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+        expect(
+          await changesetRequestSenderWithRetries.putChangesets([changeset1.changesetId as string, changeset2.changesetId as string])
         ).toHaveStatus(StatusCodes.OK);
 
         const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number);

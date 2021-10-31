@@ -36,6 +36,7 @@
     }
   },
   "application": {
+    "isolationLevel": "APP_TRANSACTION_ISOLATION_LEVEL",
     "transactionRetryPolicy": {
       "enabled": {
         "__name": "APP_TRANSACTION_RETRIES_ENABLED",

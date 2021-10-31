@@ -27,6 +27,6 @@ export class File {
   @Column({ type: 'enum', enum: Status, default: Status.IN_PROGRESS })
   public status!: Status;
 
-  @Column({ name: 'total_entities', nullable: true, type: 'integer' }) //TODO: fix this to total_entites
+  @Column({ name: 'total_entities', nullable: true, type: 'integer' })
   public totalEntities!: number | null;
 }

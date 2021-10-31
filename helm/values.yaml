@@ -50,6 +50,7 @@ env:
   transactionRetryPolicy:
     enabled: false
     numRetries: 3
+  isolationLevel: 'SERIALIZABLE' #'READ UNCOMMITTED' | 'READ COMMITTED' | 'REPEATABLE READ' | 'SERIALIZABLE'
 
 # external
 dbConfig:
@@ -67,3 +68,6 @@ dbConfig:
 route:
   enabled: true
   path: /
+  timeout:
+    enabled: false # defaults to 30s by openshift
+    duration: 60s # supported units (us, ms, s, m, h, d)
