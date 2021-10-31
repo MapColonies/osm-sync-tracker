@@ -4,7 +4,7 @@ info:
   description: Api to update on the progress of a cycle of entities sync
   license:
     name: MIT
-  version: 1.3.0
+  version: 1.4.0
 tags:
   - name: sync
   - name: file
@@ -338,8 +338,7 @@ paths:
   /changeset/{changesetId}/entities:
     patch:
       summary: close the entities of the changeset
-      description: >-
-        closes the changeset, sets all its entities as done
+      description: closes the changeset, sets all its entities as done
       parameters:
         - $ref: '#/components/parameters/changesetId'
       operationId: closeChangesetEntities
@@ -357,8 +356,7 @@ paths:
   /changeset/close/_bulk:
     put:
       summary: close the changeset file or sync if needed
-      description: >-
-        checks if the file or sync are completed
+      description: checks if the file or sync are completed
       requestBody:
         description: the changeset ids to check for close
         content:

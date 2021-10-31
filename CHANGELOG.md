@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.4.0](https://github.com/MapColonies/osm-sync-tracker/compare/v1.3.0...v1.4.0) (2021-10-31)
+
+
+### Features
+
+* **changeset:** separate closing changeset entities and try closing changeset files and sync ([#28](https://github.com/MapColonies/osm-sync-tracker/issues/28)) ([75a83eb](https://github.com/MapColonies/osm-sync-tracker/commit/75a83eb583fbfb3b27e1307e814946a72275e291))
+
+
+### Bug Fixes
+
+* **configurations:** helm tag definition helper adds v as header to default ([#23](https://github.com/MapColonies/osm-sync-tracker/issues/23)) ([85b1dfd](https://github.com/MapColonies/osm-sync-tracker/commit/85b1dfd1214dd5a0460652916bce11ee11f3449f))
+* **entity:** patching an entity while retries is configured bug fix ([#25](https://github.com/MapColonies/osm-sync-tracker/issues/25)) ([a821269](https://github.com/MapColonies/osm-sync-tracker/commit/a821269e4f39b9c5455a292b6484d84e5519da06))
+
 ## [1.3.0](https://github.com/MapColonies/osm-sync-tracker/compare/v1.2.4...v1.3.0) (2021-09-09)
 
 
