@@ -65,7 +65,7 @@ export class EntityManager {
     await this.entityRepository.createEntities(entitiesWithFileId);
   }
 
-  public async updateEntity(fileId: string, entityId: string, entity: UpdateEntity): Promise<void> {
+  public async updateEntity(fileId: string, entityId: string, entity: UpdateEntity): Promise<string[]> {
     const fileEntity = await this.fileRepository.findOneFile(fileId);
     if (!fileEntity) {
       throw new FileNotFoundError(`file = ${fileId} not found`);
@@ -77,9 +77,12 @@ export class EntityManager {
     }
 
     await this.entityRepository.updateEntity(entityId, fileId, entity);
+
+    let completedSyncIds: string[] = [];
     if (entity.status === EntityStatus.NOT_SYNCED) {
-      await this.closeFile(fileId);
+      completedSyncIds = await this.closeFile(fileId);
     }
+    return completedSyncIds;
   }
 
   public async updateEntities(entities: UpdateEntities): Promise<void> {
@@ -102,12 +105,12 @@ export class EntityManager {
     await Promise.all(entities.filter((entity) => entity.status === EntityStatus.NOT_SYNCED).map(async (entity) => this.closeFile(entity.fileId)));
   }
 
-  private async closeFile(fileId: string): Promise<void> {
+  private async closeFile(fileId: string): Promise<string[]> {
     if (!this.transactionRetryPolicy.enabled) {
       return this.fileRepository.tryClosingFile(fileId, this.dbSchema);
     }
     const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
     const functionRef = this.fileRepository.tryClosingFile.bind(this.fileRepository);
-    await retryFunctionWrapper(retryOptions, functionRef, fileId, this.dbSchema);
+    return retryFunctionWrapper(retryOptions, functionRef, fileId, this.dbSchema);
   }
 }

@@ -10,7 +10,7 @@ export const retryFunctionWrapper = async <R, A extends unknown[], F extends (..
   options: RetryOptions<E>,
   func: F,
   ...args: A
-): Promise<ReturnType<F> | undefined> => {
+): Promise<ReturnType<F>> => {
   for (let i = 0; i <= options.numberOfRetries; i++) {
     try {
       return await func(...args);

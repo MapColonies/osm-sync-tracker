@@ -52,3 +52,5 @@ export const getDbHealthCheckFunction = (connection: Connection): HealthCheck =>
     return promiseTimeout<void>(DB_TIMEOUT, check);
   };
 };
+
+export type UpdateResult<T> = [T[], number];

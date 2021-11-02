@@ -13,7 +13,7 @@ type PostChangesetHandler = RequestHandler<undefined, string, Changeset>;
 type PatchChangesetHandler = RequestHandler<{ changesetId: string }, string, UpdateChangeset>;
 type PutChangesetHandler = RequestHandler<{ changesetId: string }, string, undefined>;
 type PatchChangesetEntitiesHandler = RequestHandler<{ changesetId: string }, string, undefined>;
-type PutChangesetsHandler = RequestHandler<undefined, string, string[]>;
+type PutChangesetsHandler = RequestHandler<undefined, string[], string[]>;
 
 const txtplain = mime.contentType('text/plain') as string;
 
@@ -74,8 +74,8 @@ export class ChangesetController {
 
   public putChangesets: PutChangesetsHandler = async (req, res, next) => {
     try {
-      await this.manager.closeChangesets(req.body);
-      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.OK));
+      const completedSyncIds = await this.manager.closeChangesets(req.body);
+      return res.status(httpStatus.OK).json(completedSyncIds);
     } catch (error) {
       if (error instanceof ExceededNumberOfRetriesError) {
         this.logger.info(`could not close changesets number of retries exceeded`);

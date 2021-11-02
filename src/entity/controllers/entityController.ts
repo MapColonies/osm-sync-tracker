@@ -13,7 +13,7 @@ import { ExceededNumberOfRetriesError } from '../../changeset/models/errors';
 
 type PostEntityHandler = RequestHandler<{ fileId: string }, string, Entity>;
 type PostEntitiesHandler = RequestHandler<{ fileId: string }, string, Entity[]>;
-type PatchEntityHandler = RequestHandler<{ fileId: string; entityId: string }, string, UpdateEntity>;
+type PatchEntityHandler = RequestHandler<{ fileId: string; entityId: string }, string[], UpdateEntity>;
 type PatchEntitiesHandler = RequestHandler<undefined, string, UpdateEntities>;
 
 const txtplain = mime.contentType('text/plain') as string;
@@ -52,8 +52,8 @@ export class EntityController {
 
   public patchEntity: PatchEntityHandler = async (req, res, next) => {
     try {
-      await this.manager.updateEntity(req.params.fileId, req.params.entityId, req.body);
-      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.OK));
+      const completedSyncIds = await this.manager.updateEntity(req.params.fileId, req.params.entityId, req.body);
+      return res.status(httpStatus.OK).json(completedSyncIds);
     } catch (error) {
       if (error instanceof EntityNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
