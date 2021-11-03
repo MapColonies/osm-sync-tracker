@@ -45,7 +45,7 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
       return await this.manager.connection.transaction(this.transationIsolationLevel, async (transactionalEntityManager) => {
         let completedSyncIds: string[] = [];
         const completedFilesResult = await this.updateFileAsCompleted(changesetIds, schema, transactionalEntityManager);
-        // check if there are affected rows from the update
+        // check if are there affected rows from the update
         if (completedFilesResult[1] !== 0) {
           const fileIds = completedFilesResult[0].map((file) => file.id);
           const completedSyncsResult = await this.updateSyncAsCompletedByFiles(fileIds, schema, transactionalEntityManager);

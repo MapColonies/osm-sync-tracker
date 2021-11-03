@@ -21,9 +21,12 @@ interface QueryFailedErrorWithCode extends QueryFailedError {
   code: string | undefined;
 }
 
-export const isTransactionFailure = (error: QueryFailedError): boolean => {
-  const code = (error as QueryFailedErrorWithCode).code;
-  return code === TransactionFailure.SERIALIZATION_FAILURE || code === TransactionFailure.DEADLOCK_DETECTED;
+export const isTransactionFailure = (error: unknown): boolean => {
+  if (error instanceof QueryFailedError) {
+    const code = (error as QueryFailedErrorWithCode).code;
+    return code === TransactionFailure.SERIALIZATION_FAILURE || code === TransactionFailure.DEADLOCK_DETECTED;
+  }
+  return false;
 };
 
 export const DB_ENTITIES = [Changeset, Entity, File, SyncDb];

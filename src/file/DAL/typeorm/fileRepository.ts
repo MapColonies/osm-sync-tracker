@@ -51,7 +51,7 @@ export class FileRepository extends Repository<FileDb> implements IFileRepositor
       return await this.manager.connection.transaction(this.transationIsolationLevel, async (transactionalEntityManager) => {
         let completedSyncIds: string[] = [];
         const completedFilesResult = await this.updateFileAsCompleted(fileId, schema, transactionalEntityManager);
-        // check if there are affected rows from the update
+        // check if are there affected rows from the update
         if (completedFilesResult[1] !== 0) {
           const completedSyncsResult = await this.updateSyncAsCompleted(fileId, schema, transactionalEntityManager);
           completedSyncIds = completedSyncsResult[0].map((sync) => sync.id);
