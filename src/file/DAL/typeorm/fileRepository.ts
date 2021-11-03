@@ -3,11 +3,15 @@ import { inject } from 'tsyringe';
 import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { TransactionFailureError } from '../../../changeset/models/errors';
 import { Services } from '../../../common/constants';
-import { isTransactionFailure } from '../../../common/db';
+import { isTransactionFailure, UpdateResult } from '../../../common/db';
 import { IApplication } from '../../../common/interfaces';
 import { File } from '../../models/file';
 import { IFileRepository } from '../fileRepository';
 import { File as FileDb } from './file';
+
+interface UpdatedId {
+  id: string;
+}
 
 @EntityRepository(FileDb)
 export class FileRepository extends Repository<FileDb> implements IFileRepository {
@@ -42,12 +46,17 @@ export class FileRepository extends Repository<FileDb> implements IFileRepositor
     return filesEntities;
   }
 
-  public async tryClosingFile(fileId: string, schema: string): Promise<void> {
+  public async tryClosingFile(fileId: string, schema: string): Promise<string[]> {
     try {
-      await this.manager.connection.transaction(this.transationIsolationLevel, async (transactionalEntityManager) => {
-        await this.updateFileAsCompleted(fileId, schema, transactionalEntityManager);
-
-        await this.updateSyncAsCompleted(fileId, schema, transactionalEntityManager);
+      return await this.manager.connection.transaction(this.transationIsolationLevel, async (transactionalEntityManager) => {
+        let completedSyncIds: string[] = [];
+        const completedFilesResult = await this.updateFileAsCompleted(fileId, schema, transactionalEntityManager);
+        // check if are there affected rows from the update
+        if (completedFilesResult[1] !== 0) {
+          const completedSyncsResult = await this.updateSyncAsCompleted(fileId, schema, transactionalEntityManager);
+          completedSyncIds = completedSyncsResult[0].map((sync) => sync.id);
+        }
+        return completedSyncIds;
       });
     } catch (error) {
       if (isTransactionFailure(error)) {
@@ -57,25 +66,27 @@ export class FileRepository extends Repository<FileDb> implements IFileRepositor
     }
   }
 
-  private async updateFileAsCompleted(fileId: string, schema: string, transactionalEntityManager: EntityManager): Promise<void> {
-    await transactionalEntityManager.query(
+  private async updateFileAsCompleted(fileId: string, schema: string, transactionalEntityManager: EntityManager): Promise<UpdateResult<UpdatedId>> {
+    return (await transactionalEntityManager.query(
       `UPDATE ${schema}.file AS FILE SET status = 'completed', end_date = current_timestamp
     WHERE FILE.file_id = $1 AND FILE.total_entities = (SELECT COUNT(*) AS CompletedEntities
         FROM ${schema}.entity
-        WHERE file_id = $1 AND (status = 'completed' OR status = 'not_synced'))`,
+        WHERE file_id = $1 AND (status = 'completed' OR status = 'not_synced'))
+        RETURNING FILE.file_id AS id`,
       [fileId]
-    );
+    )) as UpdateResult<UpdatedId>;
   }
 
-  private async updateSyncAsCompleted(fileId: string, schema: string, transactionalEntityManager: EntityManager): Promise<void> {
-    await transactionalEntityManager.query(
+  private async updateSyncAsCompleted(fileId: string, schema: string, transactionalEntityManager: EntityManager): Promise<UpdateResult<UpdatedId>> {
+    return (await transactionalEntityManager.query(
       `UPDATE ${schema}.sync AS sync_to_update SET status = 'completed', end_date = current_timestamp
     FROM (
       SELECT DISTINCT sync_id
       FROM ${schema}.file
       WHERE file_id = $1 AND status = 'completed') AS sync_from_file
-    WHERE sync_to_update.id = sync_from_file.sync_id AND sync_to_update.total_files = (SELECT COUNT(*) FROM ${schema}.file WHERE sync_id = sync_to_update.id AND status = 'completed')`,
+    WHERE sync_to_update.id = sync_from_file.sync_id AND sync_to_update.total_files = (SELECT COUNT(*) FROM ${schema}.file WHERE sync_id = sync_to_update.id AND status = 'completed')
+    RETURNING sync_to_update.id`,
       [fileId]
-    );
+    )) as UpdateResult<UpdatedId>;
   }
 }

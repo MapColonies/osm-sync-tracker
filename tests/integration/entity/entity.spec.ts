@@ -69,7 +69,7 @@ describe('entity', function () {
       });
     });
     describe('PATCH /file/:fileId/entity/:entityId', function () {
-      it('should return 200 status code and OK body', async function () {
+      it('should return 200 status code and empty array body', async function () {
         const body = createStringifiedFakeEntity();
         expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
         const { entityId, ...updateBody } = body;
@@ -79,7 +79,7 @@ describe('entity', function () {
         const response = await entityRequestSender.patchEntity(file.fileId as string, body.entityId as string, updateBody);
 
         expect(response.status).toBe(httpStatus.OK);
-        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
+        expect(response.body).toMatchObject([]);
       });
 
       it('should return 200 status code and OK body when retries is configured', async function () {
@@ -103,7 +103,7 @@ describe('entity', function () {
         const response = await entityRequestSenderWithRetries.patchEntity(file.fileId as string, body.entityId as string, updateBody);
 
         expect(response.status).toBe(httpStatus.OK);
-        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
+        expect(response.body).toMatchObject([]);
       });
 
       it('should return 200 status code when failing close file transaction once while retries is configured', async function () {
@@ -112,7 +112,7 @@ describe('entity', function () {
         const findOneEntityMock = jest.fn().mockResolvedValue(fakeEntity);
         const updateEntityMock = jest.fn();
         const findOneFileMock = jest.fn().mockResolvedValue(fakeFile);
-        const tryClosingFileMock = jest.fn().mockRejectedValueOnce(new TransactionFailureError('transaction failure'));
+        const tryClosingFileMock = jest.fn().mockRejectedValueOnce(new TransactionFailureError('transaction failure')).mockReturnValue([]);
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
@@ -137,7 +137,7 @@ describe('entity', function () {
         const response = await mockEntityRequestSender.patchEntity(file.fileId as string, body.entityId as string, updateBody);
 
         expect(response.status).toBe(httpStatus.OK);
-        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
+        expect(response.body).toMatchObject([]);
         expect(tryClosingFileMock).toHaveBeenCalledTimes(2);
       });
     });

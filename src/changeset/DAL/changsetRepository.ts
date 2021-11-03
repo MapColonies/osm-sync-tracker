@@ -12,7 +12,7 @@ export interface IChangesetRepository {
 
   tryClosingChangeset: (changesetId: string, schema: string) => Promise<void>;
 
-  tryClosingChangesets: (changesetIds: string[], schema: string) => Promise<void>;
+  tryClosingChangesets: (changesetIds: string[], schema: string) => Promise<string[]>;
 
   findOneChangeset: (changesetId: string) => Promise<ChangesetDb | undefined>;
 }

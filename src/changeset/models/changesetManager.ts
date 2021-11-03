@@ -46,13 +46,13 @@ export class ChangesetManager {
     await this.changesetRepository.updateEntitiesOfChangesetAsCompleted(changesetId);
   }
 
-  public async closeChangesets(changesetIds: string[]): Promise<void> {
+  public async closeChangesets(changesetIds: string[]): Promise<string[]> {
     if (!this.transactionRetryPolicy.enabled) {
       return this.changesetRepository.tryClosingChangesets(changesetIds, this.dbSchema);
     }
     const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
     const functionRef = this.changesetRepository.tryClosingChangesets.bind(this.changesetRepository);
-    await retryFunctionWrapper(retryOptions, functionRef, changesetIds, this.dbSchema);
+    return retryFunctionWrapper(retryOptions, functionRef, changesetIds, this.dbSchema);
   }
 
   public async closeChangeset(changesetId: string): Promise<void> {
