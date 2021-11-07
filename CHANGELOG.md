@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.5.0](https://github.com/MapColonies/osm-sync-tracker/compare/v1.4.0...v1.5.0) (2021-11-07)
+
+
+### Features
+
+* **changeset, entity:** improved quries performance ([#30](https://github.com/MapColonies/osm-sync-tracker/issues/30)) ([a34be66](https://github.com/MapColonies/osm-sync-tracker/commit/a34be6658503ece0cf7234dd962633e057a73ab6))
+
 ## [1.4.0](https://github.com/MapColonies/osm-sync-tracker/compare/v1.3.0...v1.4.0) (2021-10-31)
 
 
