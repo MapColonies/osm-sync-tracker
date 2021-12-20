@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { FactoryFunction } from 'tsyringe';
 import { ChangesetController } from '../controllers/changesetController';
 
-const changesetRouterFactory: FactoryFunction<Router> = (dependencyContainer) => {
+export const changesetRouterSymbol = Symbol('changesetRouterSymbol');
+
+export const changesetRouterFactory: FactoryFunction<Router> = (dependencyContainer) => {
   const router = Router();
   const controller = dependencyContainer.resolve(ChangesetController);
 
@@ -14,5 +16,3 @@ const changesetRouterFactory: FactoryFunction<Router> = (dependencyContainer) =>
 
   return router;
 };
-
-export default changesetRouterFactory;

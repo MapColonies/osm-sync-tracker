@@ -3,7 +3,7 @@ import { RequestHandler } from 'express';
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { injectable, inject } from 'tsyringe';
 import mime from 'mime-types';
-import { Services } from '../../common/constants';
+import { SERVICES } from '../../common/constants';
 import { Sync } from '../models/sync';
 import { SyncManager } from '../models/syncManager';
 import { HttpError } from '../../common/errors';
@@ -19,7 +19,7 @@ const txtplain = mime.contentType('text/plain') as string;
 
 @injectable()
 export class SyncController {
-  public constructor(@inject(Services.LOGGER) private readonly logger: Logger, private readonly manager: SyncManager) {}
+  public constructor(@inject(SERVICES.LOGGER) private readonly logger: Logger, private readonly manager: SyncManager) {}
 
   public getLatestSync: GetLatestSyncHandler = async (req, res, next) => {
     try {

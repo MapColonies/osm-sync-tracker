@@ -2,10 +2,9 @@ import { DependencyContainer } from 'tsyringe';
 import config from 'config';
 import { logMethod } from '@map-colonies/telemetry';
 import jsLogger, { LoggerOptions } from '@map-colonies/js-logger';
-import { Metrics } from '@map-colonies/telemetry';
 import { Connection } from 'typeorm';
 import { trace } from '@opentelemetry/api';
-import { Services } from './common/constants';
+import { HEALTHCHECK, ON_SIGNAL, SERVICES, SERVICE_NAME } from './common/constants';
 import { DbConfig, IApplication } from './common/interfaces';
 import { getDbHealthCheckFunction, initConnection } from './common/db';
 import { tracing } from './common/tracing';
@@ -17,10 +16,10 @@ import { entityRepositorySymbol, IEntityRepository } from './entity/DAL/entityRe
 import { EntityRepository } from './entity/DAL/typeorm/entityRepository';
 import { changesetRepositorySymbol, IChangesetRepository } from './changeset/DAL/changsetRepository';
 import { ChangesetRepository } from './changeset/DAL/typeorm/changesetRepository';
-import { syncRouterFactory } from './sync/routes/syncRouter';
-import fileRouterFactory from './file/routes/fileRouter';
-import entityRouterFactory from './entity/routes/entityRouter';
-import changesetRouterFactory from './changeset/routes/changesetRouter';
+import { syncRouterFactory, syncRouterSymbol } from './sync/routes/syncRouter';
+import { fileRouterSymbol, fileRouterFactory } from './file/routes/fileRouter';
+import { entityRouterFactory, entityRouterSymbol } from './entity/routes/entityRouter';
+import { changesetRouterSymbol, changesetRouterFactory } from './changeset/routes/changesetRouter';
 import { InjectionObject, registerDependencies } from './common/dependencyRegistration';
 
 export interface RegisterOptions {
@@ -31,26 +30,21 @@ export interface RegisterOptions {
 export const registerExternalValues = async (options?: RegisterOptions): Promise<DependencyContainer> => {
   const loggerConfig = config.get<LoggerOptions>('telemetry.logger');
   // @ts-expect-error the signature is wrong
-  const logger = jsLogger({ ...loggerConfig, prettyPrint: false, hooks: { logMethod } });
+  const logger = jsLogger({ ...loggerConfig, hooks: { logMethod } });
 
   const appConfig = config.get<IApplication>('application');
 
   const connectionOptions = config.get<DbConfig>('db');
   const connection = await initConnection(connectionOptions);
 
-  const metrics = new Metrics('osm-sync-tracker');
-
-  const meter = metrics.start();
-
   tracing.start();
-  const tracer = trace.getTracer('osm-sync-tracker');
+  const tracer = trace.getTracer(SERVICE_NAME);
 
   const dependencies: InjectionObject<unknown>[] = [
-    { token: Services.CONFIG, provider: { useValue: config } },
-    { token: Services.LOGGER, provider: { useValue: logger } },
-    { token: Services.TRACER, provider: { useValue: tracer } },
-    { token: Services.METER, provider: { useValue: meter } },
-    { token: Services.APPLICATION, provider: { useValue: appConfig } },
+    { token: SERVICES.CONFIG, provider: { useValue: config } },
+    { token: SERVICES.LOGGER, provider: { useValue: logger } },
+    { token: SERVICES.TRACER, provider: { useValue: tracer } },
+    { token: SERVICES.APPLICATION, provider: { useValue: appConfig } },
     {
       token: Connection,
       provider: {
@@ -89,16 +83,16 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
         },
       },
     },
-    { token: 'sync', provider: { useFactory: syncRouterFactory } },
-    { token: 'file', provider: { useFactory: fileRouterFactory } },
-    { token: 'entity', provider: { useFactory: entityRouterFactory } },
-    { token: 'changeset', provider: { useFactory: changesetRouterFactory } },
-    { token: 'healthcheck', provider: { useFactory: (container): unknown => getDbHealthCheckFunction(container.resolve<Connection>(Connection)) } },
+    { token: syncRouterSymbol, provider: { useFactory: syncRouterFactory } },
+    { token: fileRouterSymbol, provider: { useFactory: fileRouterFactory } },
+    { token: entityRouterSymbol, provider: { useFactory: entityRouterFactory } },
+    { token: changesetRouterSymbol, provider: { useFactory: changesetRouterFactory } },
+    { token: HEALTHCHECK, provider: { useFactory: (container): unknown => getDbHealthCheckFunction(container.resolve<Connection>(Connection)) } },
     {
-      token: 'onSignal',
+      token: ON_SIGNAL,
       provider: {
         useValue: async (): Promise<void> => {
-          await Promise.all([tracing.stop(), metrics.stop(), connection.close()]);
+          await Promise.all([tracing.stop(), connection.close()]);
         },
       },
     },

@@ -39,6 +39,7 @@ env:
   targetPort: 8080
   protocol: TCP
   logLevel: info
+  logPrettyPrintEnabled: false
   requestPayloadLimit: 1mb
   responseCompressionEnabled: true
   tracing:

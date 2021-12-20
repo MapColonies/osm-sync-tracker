@@ -2,7 +2,7 @@ import { Logger } from '@map-colonies/js-logger';
 import lodash from 'lodash';
 import { inject, injectable } from 'tsyringe';
 import { TransactionFailureError } from '../../changeset/models/errors';
-import { Services } from '../../common/constants';
+import { SERVICES } from '../../common/constants';
 import { EntityStatus } from '../../common/enums';
 import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
 import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
@@ -20,9 +20,9 @@ export class EntityManager {
   public constructor(
     @inject(entityRepositorySymbol) private readonly entityRepository: IEntityRepository,
     @inject(fileRepositorySymbol) private readonly fileRepository: IFileRepository,
-    @inject(Services.LOGGER) private readonly logger: Logger,
-    @inject(Services.CONFIG) private readonly config: IConfig,
-    @inject(Services.APPLICATION) private readonly appConfig: IApplication
+    @inject(SERVICES.LOGGER) private readonly logger: Logger,
+    @inject(SERVICES.CONFIG) private readonly config: IConfig,
+    @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication
   ) {
     this.dbSchema = this.config.get('db.schema');
     this.transactionRetryPolicy = this.appConfig.transactionRetryPolicy;
