@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { FactoryFunction } from 'tsyringe';
 import { EntityController } from '../../entity/controllers/entityController';
 
-const fileRouterFactory: FactoryFunction<Router> = (dependencyContainer) => {
+export const fileRouterSymbol = Symbol('fileRouterFactory');
+
+export const fileRouterFactory: FactoryFunction<Router> = (dependencyContainer) => {
   const router = Router();
   const controller = dependencyContainer.resolve(EntityController);
 
@@ -12,5 +14,3 @@ const fileRouterFactory: FactoryFunction<Router> = (dependencyContainer) => {
 
   return router;
 };
-
-export default fileRouterFactory;

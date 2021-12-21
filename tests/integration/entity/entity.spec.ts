@@ -18,7 +18,7 @@ import { TransactionFailureError } from '../../../src/changeset/models/errors';
 import { createFakeEntity, createFakeFile } from '../../helpers/helper';
 import { fileRepositorySymbol } from '../../../src/file/DAL/fileRepository';
 import { IApplication } from '../../../src/common/interfaces';
-import { Services } from '../../../src/common/constants';
+import { SERVICES } from '../../../src/common/constants';
 import { createStringifiedFakeEntity } from './helpers/generators';
 
 describe('entity', function () {
@@ -89,7 +89,7 @@ describe('entity', function () {
           isolationLevel: DEFAULT_ISOLATION_LEVEL,
         };
         const registerOptions = getBaseRegisterOptions();
-        registerOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfigWithRetries } });
+        registerOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfigWithRetries } });
         const appWithRetries = await getApp(registerOptions);
         const entityRequestSenderWithRetries = new EntityRequestSender(appWithRetries);
 
@@ -124,7 +124,7 @@ describe('entity', function () {
           provider: { useValue: { findOneFile: findOneFileMock, tryClosingFile: tryClosingFileMock } },
         });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
-        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
@@ -166,7 +166,7 @@ describe('entity', function () {
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({ token: fileRepositorySymbol, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
-        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
@@ -461,7 +461,7 @@ describe('entity', function () {
           provider: { useValue: { findOneFile: findOneFileMock, tryClosingFile: tryClosingFileMock } },
         });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
-        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
@@ -497,7 +497,7 @@ describe('entity', function () {
           provider: { useValue: { findOneFile: findOneFileMock, tryClosingFile: tryClosingFileMock } },
         });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
-        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
@@ -534,7 +534,7 @@ describe('entity', function () {
           provider: { useValue: { findOneFile: findOneFileMock, tryClosingFile: tryClosingFileMock } },
         });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
-        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
@@ -578,7 +578,7 @@ describe('entity', function () {
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({ token: fileRepositorySymbol, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
-        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
@@ -607,7 +607,7 @@ describe('entity', function () {
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({ token: fileRepositorySymbol, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
-        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
@@ -637,7 +637,7 @@ describe('entity', function () {
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({ token: fileRepositorySymbol, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
-        mockRegisterOptions.override.push({ token: Services.APPLICATION, provider: { useValue: appConfig } });
+        mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
         const mockApp = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 

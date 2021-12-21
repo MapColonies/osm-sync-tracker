@@ -8,20 +8,24 @@ import { inject, injectable } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import httpLogger from '@map-colonies/express-access-log-middleware';
 import { getTraceContexHeaderMiddleware } from '@map-colonies/telemetry';
-import { Services } from './common/constants';
+import { SERVICES } from './common/constants';
 import { IConfig } from './common/interfaces';
+import { fileRouterSymbol } from './file/routes/fileRouter';
+import { syncRouterSymbol } from './sync/routes/syncRouter';
+import { entityRouterSymbol } from './entity/routes/entityRouter';
+import { changesetRouterSymbol } from './changeset/routes/changesetRouter';
 
 @injectable()
 export class ServerBuilder {
   private readonly serverInstance: express.Application;
 
   public constructor(
-    @inject(Services.CONFIG) private readonly config: IConfig,
-    @inject(Services.LOGGER) private readonly logger: Logger,
-    @inject('file') private readonly fileRouter: Router,
-    @inject('sync') private readonly syncRouter: Router,
-    @inject('entity') private readonly entityRouter: Router,
-    @inject('changeset') private readonly changesetRouter: Router
+    @inject(SERVICES.CONFIG) private readonly config: IConfig,
+    @inject(SERVICES.LOGGER) private readonly logger: Logger,
+    @inject(fileRouterSymbol) private readonly fileRouter: Router,
+    @inject(syncRouterSymbol) private readonly syncRouter: Router,
+    @inject(entityRouterSymbol) private readonly entityRouter: Router,
+    @inject(changesetRouterSymbol) private readonly changesetRouter: Router
   ) {
     this.serverInstance = express();
   }

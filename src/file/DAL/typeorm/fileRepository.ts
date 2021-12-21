@@ -2,7 +2,7 @@ import { EntityManager, EntityRepository, Repository } from 'typeorm';
 import { inject } from 'tsyringe';
 import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { TransactionFailureError } from '../../../changeset/models/errors';
-import { Services } from '../../../common/constants';
+import { SERVICES } from '../../../common/constants';
 import { isTransactionFailure, UpdateResult } from '../../../common/db';
 import { IApplication } from '../../../common/interfaces';
 import { File } from '../../models/file';
@@ -17,7 +17,7 @@ interface UpdatedId {
 export class FileRepository extends Repository<FileDb> implements IFileRepository {
   private readonly transationIsolationLevel: IsolationLevel;
 
-  public constructor(@inject(Services.APPLICATION) private readonly appConfig: IApplication) {
+  public constructor(@inject(SERVICES.APPLICATION) private readonly appConfig: IApplication) {
     super();
     this.transationIsolationLevel = this.appConfig.isolationLevel;
   }

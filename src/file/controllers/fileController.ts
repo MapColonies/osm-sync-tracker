@@ -3,7 +3,7 @@ import { RequestHandler } from 'express';
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { injectable, inject } from 'tsyringe';
 import mime from 'mime-types';
-import { Services } from '../../common/constants';
+import { SERVICES } from '../../common/constants';
 import { File } from '../models/file';
 import { FileManager } from '../models/fileManager';
 import { HttpError } from '../../common/errors';
@@ -17,7 +17,7 @@ const txtplain = mime.contentType('text/plain') as string;
 
 @injectable()
 export class FileController {
-  public constructor(@inject(Services.LOGGER) private readonly logger: Logger, private readonly manager: FileManager) {}
+  public constructor(@inject(SERVICES.LOGGER) private readonly logger: Logger, private readonly manager: FileManager) {}
 
   public postFile: PostFileHandler = async (req, res, next) => {
     try {

@@ -2,6 +2,7 @@ import { Entity, UpdateEntities, UpdateEntity } from '../models/entity';
 import { Entity as EntityDb } from './typeorm/entity';
 
 export const entityRepositorySymbol = Symbol('EntityRepository');
+
 export interface IEntityRepository {
   createEntity: (entity: Entity) => Promise<void>;
 

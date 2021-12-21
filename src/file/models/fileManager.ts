@@ -1,7 +1,7 @@
 import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
 import lodash from 'lodash';
-import { Services } from '../../common/constants';
+import { SERVICES } from '../../common/constants';
 import { ISyncRepository, syncRepositorySymbol } from '../../sync/DAL/syncRepository';
 import { SyncNotFoundError } from '../../sync/models/errors';
 import { IFileRepository, fileRepositorySymbol } from '../DAL/fileRepository';
@@ -13,7 +13,7 @@ export class FileManager {
   public constructor(
     @inject(fileRepositorySymbol) private readonly fileRepository: IFileRepository,
     @inject(syncRepositorySymbol) private readonly syncRepository: ISyncRepository,
-    @inject(Services.LOGGER) private readonly logger: Logger
+    @inject(SERVICES.LOGGER) private readonly logger: Logger
   ) {}
 
   public async createFile(syncId: string, file: File): Promise<void> {

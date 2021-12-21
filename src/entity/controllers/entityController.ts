@@ -3,7 +3,7 @@ import { RequestHandler } from 'express';
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { injectable, inject } from 'tsyringe';
 import mime from 'mime-types';
-import { Services } from '../../common/constants';
+import { SERVICES } from '../../common/constants';
 import { Entity, UpdateEntities, UpdateEntity } from '../models/entity';
 import { EntityManager } from '../models/entityManager';
 import { HttpError } from '../../common/errors';
@@ -20,7 +20,7 @@ const txtplain = mime.contentType('text/plain') as string;
 
 @injectable()
 export class EntityController {
-  public constructor(@inject(Services.LOGGER) private readonly logger: Logger, private readonly manager: EntityManager) {}
+  public constructor(@inject(SERVICES.LOGGER) private readonly logger: Logger, private readonly manager: EntityManager) {}
 
   public postEntity: PostEntityHandler = async (req, res, next) => {
     try {

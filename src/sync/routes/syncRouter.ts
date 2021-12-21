@@ -3,7 +3,9 @@ import { FactoryFunction } from 'tsyringe';
 import { FileController } from '../../file/controllers/fileController';
 import { SyncController } from '../controllers/syncController';
 
-const syncRouterFactory: FactoryFunction<Router> = (dependencyContainer) => {
+export const syncRouterSymbol = Symbol('syncRouterFactory');
+
+export const syncRouterFactory: FactoryFunction<Router> = (dependencyContainer) => {
   const router = Router();
   const syncController = dependencyContainer.resolve(SyncController);
   const controller = dependencyContainer.resolve(FileController);
@@ -17,5 +19,3 @@ const syncRouterFactory: FactoryFunction<Router> = (dependencyContainer) => {
 
   return router;
 };
-
-export { syncRouterFactory };

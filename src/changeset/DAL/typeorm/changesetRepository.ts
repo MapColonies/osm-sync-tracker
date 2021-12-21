@@ -7,8 +7,8 @@ import { Entity } from '../../../entity/DAL/typeorm/entity';
 import { Changeset, UpdateChangeset } from '../../models/changeset';
 import { TransactionFailureError } from '../../models/errors';
 import { IChangesetRepository } from '../changsetRepository';
-import { Services } from '../../../common/constants';
 import { IApplication } from '../../../common/interfaces';
+import { SERVICES } from '../../../common/constants';
 import { Changeset as ChangesetDb } from './changeset';
 
 interface UpdatedId {
@@ -19,7 +19,7 @@ interface UpdatedId {
 export class ChangesetRepository extends Repository<ChangesetDb> implements IChangesetRepository {
   private readonly transationIsolationLevel: IsolationLevel;
 
-  public constructor(@inject(Services.APPLICATION) private readonly appConfig: IApplication) {
+  public constructor(@inject(SERVICES.APPLICATION) private readonly appConfig: IApplication) {
     super();
     this.transationIsolationLevel = this.appConfig.isolationLevel;
   }
