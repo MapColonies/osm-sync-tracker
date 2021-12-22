@@ -71,20 +71,20 @@ describe('SyncManager', () => {
 
   describe('#getLatestSync', () => {
     it('resolves without errors if the sync exists in the db', async () => {
-      const entity = createFakeSync();
+      const sync = createFakeSync();
 
-      getLatestSync.mockResolvedValue(entity);
+      getLatestSync.mockResolvedValue(sync);
 
-      const getLatestPromise = syncManager.getLatestSync(entity.layerId);
+      const getLatestPromise = syncManager.getLatestSync(sync.layerId, sync.geometryType);
 
       await expect(getLatestPromise).resolves.not.toThrow();
     });
 
-    it('rejects if the sync is not exists in the db', async () => {
-      const entity = createFakeSync();
+    it('rejects if the sync does not exist in the db', async () => {
+      const sync = createFakeSync();
 
       getLatestSync.mockResolvedValue(undefined);
-      const getLatestPromise = syncManager.getLatestSync(entity.layerId);
+      const getLatestPromise = syncManager.getLatestSync(sync.layerId, sync.geometryType);
 
       await expect(getLatestPromise).rejects.toThrow(SyncNotFoundError);
     });

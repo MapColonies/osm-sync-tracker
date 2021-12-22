@@ -1,4 +1,4 @@
-import { Status } from '../../common/enums';
+import { Status, GeometryType } from '../../common/enums';
 
 export interface Sync {
   id: string;
@@ -16,4 +16,6 @@ export interface Sync {
   isFull: boolean;
 
   totalFiles: number | null;
+
+  geometryType: GeometryType;
 }

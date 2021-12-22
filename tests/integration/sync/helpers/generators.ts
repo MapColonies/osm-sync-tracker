@@ -1,5 +1,5 @@
 import faker from 'faker';
-import { Status } from '../../../../src/common/enums';
+import { GeometryType, Status } from '../../../../src/common/enums';
 import { StringifiedSync } from '../types';
 
 export type FakeStringifiedSyncParams = Partial<StringifiedSync>;
@@ -19,5 +19,7 @@ export const createStringifiedFakeSync = (params: FakeStringifiedSyncParams = {}
     isFull: params.isFull ?? faker.datatype.boolean(),
 
     totalFiles: params.totalFiles ?? faker.datatype.number(),
+
+    geometryType: params.geometryType ?? GeometryType.POLY,
   };
 };

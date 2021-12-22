@@ -8,10 +8,11 @@ import { Sync } from '../models/sync';
 import { SyncManager } from '../models/syncManager';
 import { HttpError } from '../../common/errors';
 import { SyncAlreadyExistsError, SyncNotFoundError } from '../models/errors';
+import { GeometryType } from '../../common/enums';
 
 type PatchReqBody = Omit<Sync, 'id'>;
 
-type GetLatestSyncHandler = RequestHandler<undefined, Sync, undefined, { layerId: number }>;
+type GetLatestSyncHandler = RequestHandler<undefined, Sync, undefined, { layerId: number; geometryType: GeometryType }>;
 type PostSyncHandler = RequestHandler<undefined, string, Sync>;
 type PatchSyncHandler = RequestHandler<{ syncId: string }, string, PatchReqBody>;
 
@@ -22,8 +23,9 @@ export class SyncController {
   public constructor(@inject(SERVICES.LOGGER) private readonly logger: Logger, private readonly manager: SyncManager) {}
 
   public getLatestSync: GetLatestSyncHandler = async (req, res, next) => {
+    const { layerId, geometryType } = req.query;
     try {
-      const latestSync = await this.manager.getLatestSync(req.query.layerId);
+      const latestSync = await this.manager.getLatestSync(layerId, geometryType);
       return res.status(httpStatus.OK).json(latestSync);
     } catch (error) {
       if (error instanceof SyncNotFoundError) {

@@ -1,5 +1,5 @@
 import faker from 'faker';
-import { ActionType, EntityStatus, Status } from '../../src/common/enums';
+import { ActionType, EntityStatus, GeometryType, Status } from '../../src/common/enums';
 import { Sync } from '../../src/sync/models/sync';
 import { File } from '../../src/file/models/file';
 import { Entity } from '../../src/entity/models/entity';
@@ -20,6 +20,8 @@ export const createFakeSync = (): Sync => {
     isFull: faker.datatype.boolean(),
 
     totalFiles: faker.datatype.number(),
+
+    geometryType: GeometryType.POLY,
   };
 };
 

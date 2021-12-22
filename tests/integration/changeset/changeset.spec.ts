@@ -5,7 +5,7 @@ import { Connection, QueryFailedError } from 'typeorm';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { createStringifiedFakeSync } from '../sync/helpers/generators';
 import { createStringifiedFakeEntity } from '../entity/helpers/generators';
-import { EntityStatus, Status } from '../../../src/common/enums';
+import { EntityStatus, GeometryType, Status } from '../../../src/common/enums';
 import { Sync } from '../../../src/sync/models/sync';
 import { getApp } from '../../../src/app';
 import { EntityRequestSender } from '../entity/helpers/requestSender';
@@ -588,7 +588,10 @@ describe('changeset', function () {
         const changeset2 = createStringifiedFakeChangeset();
         expect(await changesetRequestSenderWithRetries.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
 
-        expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+        expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
+          'body.status',
+          Status.IN_PROGRESS
+        );
 
         expect(await changesetRequestSenderWithRetries.postChangeset(changeset2)).toHaveStatus(StatusCodes.CREATED);
 
@@ -601,11 +604,17 @@ describe('changeset', function () {
         expect(await entityRequestSenderWithRetries.patchEntities(patchBody)).toHaveStatus(StatusCodes.OK);
         expect(await changesetRequestSenderWithRetries.putChangeset(changeset1.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
-        expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+        expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
+          'body.status',
+          Status.IN_PROGRESS
+        );
 
         expect(await changesetRequestSenderWithRetries.putChangeset(changeset2.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
-        expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+        expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
+          'body.status',
+          Status.IN_PROGRESS
+        );
 
         // patch the not synced entity should complete the sync
         const patchEntityResponse = await entityRequestSenderWithRetries.patchEntity(
@@ -618,7 +627,7 @@ describe('changeset', function () {
         expect(patchEntityResponse).toHaveStatus(StatusCodes.OK);
         expect(patchEntityResponse.body).toMatchObject([sync.id]);
 
-        const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number);
+        const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType);
 
         expect(latestSyncResponse).toHaveStatus(StatusCodes.OK);
         expect(latestSyncResponse).toHaveProperty('body.status', Status.COMPLETED);
@@ -665,7 +674,10 @@ describe('changeset', function () {
         const changeset2 = createStringifiedFakeChangeset();
         expect(await changesetRequestSenderWithRetries.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
 
-        expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+        expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
+          'body.status',
+          Status.IN_PROGRESS
+        );
 
         expect(await changesetRequestSenderWithRetries.postChangeset(changeset2)).toHaveStatus(StatusCodes.CREATED);
 
@@ -684,7 +696,10 @@ describe('changeset', function () {
         expect(putChangesetsResponse).toHaveStatus(StatusCodes.OK);
         expect(putChangesetsResponse.body).toMatchObject([]);
 
-        expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+        expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
+          'body.status',
+          Status.IN_PROGRESS
+        );
 
         // patch the not synced entity should complete the sync
         const patchEntityResponse = await entityRequestSenderWithRetries.patchEntity(
@@ -698,9 +713,15 @@ describe('changeset', function () {
         expect(patchEntityResponse.body).toMatchObject([]);
 
         expect(await changesetRequestSenderWithRetries.patchChangesetEntities(changeset1.changesetId as string)).toHaveStatus(StatusCodes.OK);
-        expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+        expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
+          'body.status',
+          Status.IN_PROGRESS
+        );
         expect(await changesetRequestSenderWithRetries.patchChangesetEntities(changeset2.changesetId as string)).toHaveStatus(StatusCodes.OK);
-        expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+        expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
+          'body.status',
+          Status.IN_PROGRESS
+        );
         putChangesetsResponse = await changesetRequestSenderWithRetries.putChangesets([
           changeset1.changesetId as string,
           changeset2.changesetId as string,
@@ -708,7 +729,7 @@ describe('changeset', function () {
         expect(putChangesetsResponse).toHaveStatus(StatusCodes.OK);
         expect(putChangesetsResponse.body).toMatchObject([sync.id]);
 
-        const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number);
+        const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType);
 
         expect(latestSyncResponse).toHaveStatus(StatusCodes.OK);
         expect(latestSyncResponse).toHaveProperty('body.status', Status.COMPLETED);
@@ -757,7 +778,10 @@ describe('changeset', function () {
         expect(patchSyncedEntityResponse.body).toMatchObject([]);
         expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
-        expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+        expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
+          'body.status',
+          Status.IN_PROGRESS
+        );
 
         // patch the other entity as not synced should complete the whole sync
         const patchNotSyncedEntityResponse = await entityRequestSenderWithRetries.patchEntity(
@@ -770,7 +794,7 @@ describe('changeset', function () {
         expect(patchNotSyncedEntityResponse).toHaveStatus(StatusCodes.OK);
         expect(patchNotSyncedEntityResponse.body).toMatchObject([sync.id]);
 
-        const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number);
+        const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType);
 
         expect(latestSyncResponse).toHaveStatus(StatusCodes.OK);
         expect(latestSyncResponse).toHaveProperty('body.status', Status.COMPLETED);
@@ -813,7 +837,10 @@ describe('changeset', function () {
         expect(patchEntityResponse.body).toMatchObject([]);
         expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
-        expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+        expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
+          'body.status',
+          Status.IN_PROGRESS
+        );
 
         // patch the other entity as synced. this should complete the whole sync
         patchEntityResponse = await entityRequestSenderWithRetries.patchEntity(syncedEntity.fileId as string, syncedEntity.entityId as string, {
@@ -823,7 +850,7 @@ describe('changeset', function () {
         expect(patchEntityResponse.body).toMatchObject([]);
         expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
-        const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number);
+        const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType);
 
         expect(latestSyncResponse).toHaveStatus(StatusCodes.OK);
         expect(latestSyncResponse).toHaveProperty('body.status', Status.COMPLETED);
@@ -874,7 +901,10 @@ describe('changeset', function () {
         expect(patchEntityResponse.body).toMatchObject([]);
         expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
-        expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+        expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
+          'body.status',
+          Status.IN_PROGRESS
+        );
 
         // patch second not synced entity of file1. will close the file but not the sync
         patchEntityResponse = await entityRequestSenderWithRetries.patchEntity(notSyncedEntity.fileId as string, notSyncedEntity.entityId as string, {
@@ -884,7 +914,10 @@ describe('changeset', function () {
         expect(patchEntityResponse.body).toMatchObject([]);
         expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
-        expect(await syncRequestSender.getLatestSync(sync.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+        expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
+          'body.status',
+          Status.IN_PROGRESS
+        );
 
         // patch the last entity, should close the sync
         patchEntityResponse = await entityRequestSenderWithRetries.patchEntity(file2.fileId as string, file2Entity.entityId as string, {
@@ -894,7 +927,7 @@ describe('changeset', function () {
         expect(patchEntityResponse.body).toMatchObject([]);
         expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
-        const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number);
+        const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType);
 
         expect(latestSyncResponse).toHaveProperty('status', StatusCodes.OK);
         expect(latestSyncResponse).toHaveProperty('body.status', Status.COMPLETED);
@@ -948,16 +981,22 @@ describe('changeset', function () {
       // expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
       expect(await changesetRequestSenderWithRetries.patchChangesetEntities(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
 
-      expect(await syncRequestSender.getLatestSync(sync1.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
-      expect(await syncRequestSender.getLatestSync(sync2.layerId as number)).toHaveProperty('body.status', Status.IN_PROGRESS);
+      expect(await syncRequestSender.getLatestSync(sync1.layerId as number, sync1.geometryType as GeometryType)).toHaveProperty(
+        'body.status',
+        Status.IN_PROGRESS
+      );
+      expect(await syncRequestSender.getLatestSync(sync2.layerId as number, sync2.geometryType as GeometryType)).toHaveProperty(
+        'body.status',
+        Status.IN_PROGRESS
+      );
 
       // try closing the changeset which will close the files and the syncs
       const putChangesetsResponse = await changesetRequestSenderWithRetries.putChangesets([changeset.changesetId as string]);
       expect(putChangesetsResponse).toHaveStatus(StatusCodes.OK);
       expect(putChangesetsResponse.body).toEqual(expect.arrayContaining([sync1.id, sync2.id]));
 
-      const latestSyncLayer1Response = await syncRequestSender.getLatestSync(sync1.layerId as number);
-      const latestSyncLayer2Response = await syncRequestSender.getLatestSync(sync2.layerId as number);
+      const latestSyncLayer1Response = await syncRequestSender.getLatestSync(sync1.layerId as number, sync1.geometryType as GeometryType);
+      const latestSyncLayer2Response = await syncRequestSender.getLatestSync(sync2.layerId as number, sync2.geometryType as GeometryType);
 
       expect(latestSyncLayer1Response).toHaveProperty('status', StatusCodes.OK);
       expect(latestSyncLayer1Response).toHaveProperty('body.status', Status.COMPLETED);
