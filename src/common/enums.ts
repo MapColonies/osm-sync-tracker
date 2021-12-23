@@ -18,6 +18,6 @@ export enum EntityStatus {
 
 export enum GeometryType {
   POINT = 'point',
-  LINE = 'line',
+  LINESTRING = 'linestring',
   POLYGON = 'polygon',
 }

@@ -453,7 +453,7 @@ components:
       type: string
       enum:
         - point
-        - line
+        - linestring
         - polygon
     Error:
       type: object

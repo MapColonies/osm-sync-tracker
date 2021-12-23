@@ -88,7 +88,7 @@ describe('sync', function () {
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty(
           'message',
-          'request.body.geometryType should be equal to one of the allowed values: point, line, polygon'
+          'request.body.geometryType should be equal to one of the allowed values: point, linestring, polygon'
         );
       });
 
@@ -138,7 +138,7 @@ describe('sync', function () {
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty(
           'message',
-          'request.body.geometryType should be equal to one of the allowed values: point, line, polygon'
+          'request.body.geometryType should be equal to one of the allowed values: point, linestring, polygon'
         );
       });
 
@@ -165,7 +165,7 @@ describe('sync', function () {
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty(
           'message',
-          'request.query.geometryType should be equal to one of the allowed values: point, line, polygon'
+          'request.query.geometryType should be equal to one of the allowed values: point, linestring, polygon'
         );
       });
 
@@ -180,7 +180,7 @@ describe('sync', function () {
 
         expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
 
-        const response = await syncRequestSender.getLatestSync(sync.layerId as number, GeometryType.POINT);
+        const response = await syncRequestSender.getLatestSync(sync.layerId as number, GeometryType.LINESTRING);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
