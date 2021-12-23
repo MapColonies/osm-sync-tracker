@@ -28,6 +28,7 @@ paths:
                     - layerId
                     - isFull
                     - dumpDate
+                    - geometryType
         required: true
       operationId: postSync
       tags:
@@ -49,6 +50,11 @@ paths:
           name: layerId
           schema:
             $ref: '#/components/schemas/layerId'
+          required: true
+        - in: query
+          name: geometryType
+          schema:
+            $ref: '#/components/schemas/geometryType'
           required: true
       operationId: getLatestSync
       tags:
@@ -444,6 +450,12 @@ components:
       enum:
         - inprogress
         - completed
+    geometryType:
+      type: string
+      enum:
+        - point
+        - linestring
+        - polygon
     Error:
       type: object
       properties:
@@ -478,6 +490,8 @@ components:
           type: boolean
         totalFiles:
           type: integer
+        geometryType:
+          $ref: '#/components/schemas/geometryType'
     sync:
       allOf:
         - type: object

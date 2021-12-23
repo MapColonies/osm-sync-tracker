@@ -15,3 +15,9 @@ export enum EntityStatus {
   NOT_SYNCED = 'not_synced',
   FAILED = 'failed',
 }
+
+export enum GeometryType {
+  POINT = 'point',
+  LINESTRING = 'linestring',
+  POLYGON = 'polygon',
+}

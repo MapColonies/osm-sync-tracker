@@ -1,4 +1,5 @@
 import * as supertest from 'supertest';
+import { GeometryType } from '../../../../src/common/enums';
 import { StringifiedSync } from '../types';
 
 export class SyncRequestSender {
@@ -12,7 +13,7 @@ export class SyncRequestSender {
     return supertest.agent(this.app).patch(`/sync/${syncId}`).set('Content-Type', 'application/json').send(body);
   }
 
-  public async getLatestSync(layerId: number): Promise<supertest.Response> {
-    return supertest.agent(this.app).get(`/sync/latest`).query({ layerId: layerId });
+  public async getLatestSync(layerId: number, geometryType: GeometryType): Promise<supertest.Response> {
+    return supertest.agent(this.app).get(`/sync/latest`).query({ layerId, geometryType });
   }
 }

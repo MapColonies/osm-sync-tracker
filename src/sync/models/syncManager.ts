@@ -1,6 +1,7 @@
 import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
 import { SERVICES } from '../../common/constants';
+import { GeometryType } from '../../common/enums';
 import { ISyncRepository, syncRepositorySymbol } from '../DAL/syncRepository';
 import { SyncAlreadyExistsError, SyncNotFoundError } from './errors';
 import { Sync } from './sync';
@@ -11,10 +12,10 @@ export class SyncManager {
     @inject(syncRepositorySymbol) private readonly syncRepository: ISyncRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger
   ) {}
-  public async getLatestSync(layerId: number): Promise<Sync> {
-    const lastSync = await this.syncRepository.getLatestSync(layerId);
+  public async getLatestSync(layerId: number, geometryType: GeometryType): Promise<Sync> {
+    const lastSync = await this.syncRepository.getLatestSync(layerId, geometryType);
     if (lastSync === undefined) {
-      throw new SyncNotFoundError(`sync with layer id = ${layerId} not found`);
+      throw new SyncNotFoundError(`sync with layer id = ${layerId}, geometry type = ${geometryType} not found`);
     }
     return lastSync;
   }

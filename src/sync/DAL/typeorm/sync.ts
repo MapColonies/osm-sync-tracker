@@ -1,5 +1,5 @@
 import { Column, Entity, OneToMany, PrimaryColumn } from 'typeorm';
-import { Status } from '../../../common/enums';
+import { GeometryType, Status } from '../../../common/enums';
 import { File } from '../../../file/DAL/typeorm/file';
 import { Sync } from '../../models/sync';
 
@@ -32,6 +32,9 @@ export class SyncDb implements Sync {
   @OneToMany(() => File, (file) => file.sync)
   public files!: File[];
 
+  @Column({ name: 'geometry_type', type: 'enum', enum: GeometryType })
+  public geometryType!: GeometryType;
+
   public getGenericSync(): Sync {
     return {
       dumpDate: this.dumpDate,
@@ -42,6 +45,7 @@ export class SyncDb implements Sync {
       startDate: this.startDate,
       status: this.status,
       totalFiles: this.totalFiles,
+      geometryType: this.geometryType,
     };
   }
 }
