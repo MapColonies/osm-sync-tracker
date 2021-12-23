@@ -454,7 +454,7 @@ components:
       enum:
         - point
         - line
-        - poly
+        - polygon
     Error:
       type: object
       properties:

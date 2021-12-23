@@ -20,6 +20,6 @@ export const createStringifiedFakeSync = (params: FakeStringifiedSyncParams = {}
 
     totalFiles: params.totalFiles ?? faker.datatype.number(),
 
-    geometryType: params.geometryType ?? GeometryType.POLY,
+    geometryType: params.geometryType ?? GeometryType.POLYGON,
   };
 };

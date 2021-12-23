@@ -51,7 +51,7 @@ describe('sync', function () {
     describe('GET /sync/latest', function () {
       it('should return 200 status code and the latest sync entity', async function () {
         const earlierDate = faker.date.past().toISOString();
-        const earlierSync = createStringifiedFakeSync({ dumpDate: earlierDate, geometryType: GeometryType.POLY });
+        const earlierSync = createStringifiedFakeSync({ dumpDate: earlierDate, geometryType: GeometryType.POLYGON });
         const { layerId, geometryType } = earlierSync;
 
         const laterSync = createStringifiedFakeSync({ dumpDate: faker.date.between(earlierDate, new Date()).toISOString(), layerId, geometryType });
@@ -86,7 +86,10 @@ describe('sync', function () {
         const response = await syncRequestSender.postSync(body);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
-        expect(response.body).toHaveProperty('message', 'request.body.geometryType should be equal to one of the allowed values: point, line, poly');
+        expect(response.body).toHaveProperty(
+          'message',
+          'request.body.geometryType should be equal to one of the allowed values: point, line, polygon'
+        );
       });
 
       it('should return 400 if a required property is missing', async function () {
@@ -133,7 +136,10 @@ describe('sync', function () {
         const response = await syncRequestSender.patchSync(id as string, body);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
-        expect(response.body).toHaveProperty('message', 'request.body.geometryType should be equal to one of the allowed values: point, line, poly');
+        expect(response.body).toHaveProperty(
+          'message',
+          'request.body.geometryType should be equal to one of the allowed values: point, line, polygon'
+        );
       });
 
       it('should return 404 if no sync with the specified id was found', async function () {
@@ -147,7 +153,7 @@ describe('sync', function () {
 
     describe('GET /sync/latest', function () {
       it('should return 400 if the layerId is not valid', async function () {
-        const response = await syncRequestSender.getLatestSync((faker.random.word() as unknown) as number, GeometryType.POLY);
+        const response = await syncRequestSender.getLatestSync((faker.random.word() as unknown) as number, GeometryType.POLYGON);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', 'request.query.layerId should be integer');
@@ -157,17 +163,20 @@ describe('sync', function () {
         const response = await syncRequestSender.getLatestSync(faker.datatype.number(), (faker.random.word() as unknown) as GeometryType);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
-        expect(response.body).toHaveProperty('message', 'request.query.geometryType should be equal to one of the allowed values: point, line, poly');
+        expect(response.body).toHaveProperty(
+          'message',
+          'request.query.geometryType should be equal to one of the allowed values: point, line, polygon'
+        );
       });
 
       it('should return 404 if no sync with the specified layerId was found', async function () {
-        const response = await syncRequestSender.getLatestSync(faker.datatype.number(), GeometryType.POLY);
+        const response = await syncRequestSender.getLatestSync(faker.datatype.number(), GeometryType.POLYGON);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
 
       it('should return 404 if no sync with the specified geomertyType was found', async function () {
-        const sync = createStringifiedFakeSync({ geometryType: GeometryType.POLY });
+        const sync = createStringifiedFakeSync({ geometryType: GeometryType.POLYGON });
 
         expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
 

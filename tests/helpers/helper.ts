@@ -21,7 +21,7 @@ export const createFakeSync = (): Sync => {
 
     totalFiles: faker.datatype.number(),
 
-    geometryType: GeometryType.POLY,
+    geometryType: GeometryType.POLYGON,
   };
 };
 
