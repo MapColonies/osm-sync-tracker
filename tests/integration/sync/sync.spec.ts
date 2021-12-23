@@ -33,6 +33,18 @@ describe('sync', function () {
         expect(response.status).toBe(httpStatus.CREATED);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
       });
+
+      it('should return 201 status code for non full sync with the same layerId and geometryType as existing non full sync', async function () {
+        const nonFullSync1 = createStringifiedFakeSync({ isFull: false });
+        const { layerId, geometryType } = nonFullSync1;
+
+        const nonFullSync2 = createStringifiedFakeSync({ isFull: false, layerId, geometryType });
+
+        const response = await syncRequestSender.postSync(nonFullSync2);
+
+        expect(response.status).toBe(httpStatus.CREATED);
+        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
+      });
     });
 
     describe('PATCH /sync', function () {
@@ -51,11 +63,21 @@ describe('sync', function () {
     describe('GET /sync/latest', function () {
       it('should return 200 status code and the latest sync entity', async function () {
         const earlierDate = faker.date.past().toISOString();
-        const earlierSync = createStringifiedFakeSync({ dumpDate: earlierDate, geometryType: GeometryType.POLYGON });
+        const earlierSync = createStringifiedFakeSync({ dumpDate: earlierDate, geometryType: GeometryType.POLYGON, isFull: false });
         const { layerId, geometryType } = earlierSync;
 
-        const laterSync = createStringifiedFakeSync({ dumpDate: faker.date.between(earlierDate, new Date()).toISOString(), layerId, geometryType });
-        const differentGeometryTypeSync = createStringifiedFakeSync({ dumpDate: earlierDate, geometryType: GeometryType.POINT });
+        const laterSync = createStringifiedFakeSync({
+          dumpDate: faker.date.between(earlierDate, new Date()).toISOString(),
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+        const differentGeometryTypeSync = createStringifiedFakeSync({
+          dumpDate: earlierDate,
+          layerId,
+          geometryType: GeometryType.POINT,
+          isFull: false,
+        });
 
         expect(await syncRequestSender.postSync(earlierSync)).toHaveStatus(StatusCodes.CREATED);
         expect(await syncRequestSender.postSync(laterSync)).toHaveStatus(StatusCodes.CREATED);
@@ -118,6 +140,17 @@ describe('sync', function () {
 
         expect(response).toHaveProperty('status', httpStatus.CONFLICT);
       });
+
+      it('should return 409 if a full sync already exists with the same layerId and geometryType', async function () {
+        const alreadyExistingFullSync = createStringifiedFakeSync({ isFull: true });
+        const { id, ...rest } = alreadyExistingFullSync;
+        const fullSync = createStringifiedFakeSync(rest);
+        expect(await syncRequestSender.postSync(alreadyExistingFullSync)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await syncRequestSender.postSync(fullSync);
+
+        expect(response).toHaveProperty('status', httpStatus.CONFLICT);
+      });
     });
 
     describe('PATCH /sync', function () {
@@ -157,6 +190,19 @@ describe('sync', function () {
         const response = await syncRequestSender.patchSync(faker.datatype.uuid(), body);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
+      });
+
+      it('should return 409 if a full sync with the specified layerId and geometryType already exists', async function () {
+        const layerId = faker.datatype.number();
+        const fullPointSync = createStringifiedFakeSync({ isFull: true, layerId, geometryType: GeometryType.POINT });
+        const fullLineSync = createStringifiedFakeSync({ isFull: true, layerId, geometryType: GeometryType.LINESTRING });
+        const { id, ...body } = fullLineSync;
+        expect(await syncRequestSender.postSync(fullPointSync)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(fullLineSync)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await syncRequestSender.patchSync(fullLineSync.id as string, { ...body, geometryType: GeometryType.POINT });
+
+        expect(response).toHaveProperty('status', httpStatus.CONFLICT);
       });
     });
 
@@ -201,11 +247,18 @@ describe('sync', function () {
       it('should return 500 if the db throws an error', async function () {
         const createSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
         const findOneSyncMock = jest.fn();
+        const findFullSyncByLayerAndGeometryMock = jest.fn();
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
           token: syncRepositorySymbol,
-          provider: { useValue: { createSync: createSyncMock, findOneSync: findOneSyncMock } },
+          provider: {
+            useValue: {
+              createSync: createSyncMock,
+              findOneSync: findOneSyncMock,
+              findFullSyncByLayerAndGeometry: findFullSyncByLayerAndGeometryMock,
+            },
+          },
         });
         const mockApp = await getApp(mockRegisterOptions);
         mockSyncRequestSender = new SyncRequestSender(mockApp);
@@ -221,11 +274,18 @@ describe('sync', function () {
       it('should return 500 if the db throws an error', async function () {
         const updateSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
         const findOneSyncMock = jest.fn().mockResolvedValue(true);
+        const findFullSyncByLayerAndGeometryMock = jest.fn();
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
           token: syncRepositorySymbol,
-          provider: { useValue: { updateSync: updateSyncMock, findOneSync: findOneSyncMock } },
+          provider: {
+            useValue: {
+              updateSync: updateSyncMock,
+              findOneSync: findOneSyncMock,
+              findFullSyncByLayerAndGeometry: findFullSyncByLayerAndGeometryMock,
+            },
+          },
         });
         const mockApp = await getApp(mockRegisterOptions);
         mockSyncRequestSender = new SyncRequestSender(mockApp);

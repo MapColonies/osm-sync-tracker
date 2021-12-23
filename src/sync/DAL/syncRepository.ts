@@ -11,4 +11,6 @@ export interface ISyncRepository {
   updateSync: (sync: Sync) => Promise<void>;
 
   findOneSync: (syncId: string) => Promise<Sync | undefined>;
+
+  findFullSyncByLayerAndGeometry: (layerId: number, geometryType: GeometryType) => Promise<Sync | undefined>;
 }

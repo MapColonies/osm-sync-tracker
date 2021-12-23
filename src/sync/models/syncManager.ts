@@ -3,7 +3,7 @@ import { inject, injectable } from 'tsyringe';
 import { SERVICES } from '../../common/constants';
 import { GeometryType } from '../../common/enums';
 import { ISyncRepository, syncRepositorySymbol } from '../DAL/syncRepository';
-import { SyncAlreadyExistsError, SyncNotFoundError } from './errors';
+import { FullSyncAlreadyExistsError, SyncAlreadyExistsError, SyncNotFoundError } from './errors';
 import { Sync } from './sync';
 
 @injectable()
@@ -25,16 +25,36 @@ export class SyncManager {
     if (syncEntity) {
       throw new SyncAlreadyExistsError(`sync = ${syncEntity.id} already exists`);
     }
+    if (sync.isFull) {
+      const { layerId, geometryType } = sync;
+      const alreadyExistsFullSync = await this.syncRepository.findFullSyncByLayerAndGeometry(layerId, geometryType);
+      if (alreadyExistsFullSync) {
+        throw new FullSyncAlreadyExistsError(
+          `full sync with layer id = ${layerId} and geometry type = ${geometryType} already exists with id ${alreadyExistsFullSync.id}`
+        );
+      }
+    }
     await this.syncRepository.createSync(sync);
   }
 
-  public async updateSync(syncId: string, sync: Omit<Sync, 'id'>): Promise<void> {
+  public async updateSync(syncId: string, updatedSync: Omit<Sync, 'id'>): Promise<void> {
     const syncEntity = await this.syncRepository.findOneSync(syncId);
-    const syncEntityWithId = { id: syncId, ...sync };
 
     if (!syncEntity) {
       throw new SyncNotFoundError(`sync = ${syncId} not found`);
     }
+
+    const { layerId, geometryType } = updatedSync;
+    if (updatedSync.isFull && (layerId != syncEntity.layerId || geometryType != syncEntity.geometryType)) {
+      const alreadyExistsFullSync = await this.syncRepository.findFullSyncByLayerAndGeometry(layerId, geometryType);
+      if (alreadyExistsFullSync) {
+        throw new FullSyncAlreadyExistsError(
+          `full sync with layer id = ${layerId} and geometry type = ${geometryType} already exists with id ${alreadyExistsFullSync.id}`
+        );
+      }
+    }
+
+    const syncEntityWithId = { id: syncId, ...updatedSync };
     await this.syncRepository.updateSync(syncEntityWithId);
   }
 }

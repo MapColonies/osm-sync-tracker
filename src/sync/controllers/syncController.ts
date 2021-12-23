@@ -7,7 +7,7 @@ import { SERVICES } from '../../common/constants';
 import { Sync } from '../models/sync';
 import { SyncManager } from '../models/syncManager';
 import { HttpError } from '../../common/errors';
-import { SyncAlreadyExistsError, SyncNotFoundError } from '../models/errors';
+import { FullSyncAlreadyExistsError, SyncAlreadyExistsError, SyncNotFoundError } from '../models/errors';
 import { GeometryType } from '../../common/enums';
 
 type PatchReqBody = Omit<Sync, 'id'>;
@@ -40,7 +40,7 @@ export class SyncController {
       await this.manager.createSync(req.body);
       return res.status(httpStatus.CREATED).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
-      if (error instanceof SyncAlreadyExistsError) {
+      if (error instanceof SyncAlreadyExistsError || error instanceof FullSyncAlreadyExistsError) {
         (error as HttpError).status = StatusCodes.CONFLICT;
       }
       return next(error);
@@ -54,6 +54,9 @@ export class SyncController {
     } catch (error) {
       if (error instanceof SyncNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
+      }
+      if (error instanceof FullSyncAlreadyExistsError) {
+        (error as HttpError).status = StatusCodes.CONFLICT;
       }
       return next(error);
     }

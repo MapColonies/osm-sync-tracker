@@ -29,4 +29,12 @@ export class SyncRepository extends Repository<DbSync> implements ISyncRepositor
     }
     return syncEntity;
   }
+
+  public async findFullSyncByLayerAndGeometry(layerId: number, geometryType: GeometryType): Promise<Sync | undefined> {
+    const fullSyncEntity = await this.findOne({ where: { layerId, geometryType, isFull: true } });
+    if (!fullSyncEntity) {
+      return undefined;
+    }
+    return fullSyncEntity;
+  }
 }
