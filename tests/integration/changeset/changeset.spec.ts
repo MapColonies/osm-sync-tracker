@@ -44,6 +44,7 @@ describe('changeset', function () {
     changesetRequestSenderWithRetries = new ChangesetRequestSender(appWithRetries);
     entityRequestSenderWithRetries = new EntityRequestSender(appWithRetries);
   }, BEFORE_ALL_TIMEOUT);
+
   afterAll(async function () {
     const connection = container.resolve(Connection);
     await connection.close();

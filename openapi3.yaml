@@ -28,6 +28,7 @@ paths:
                     - layerId
                     - isFull
                     - dumpDate
+                    - geometryType
         required: true
       operationId: postSync
       tags:

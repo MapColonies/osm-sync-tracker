@@ -101,6 +101,15 @@ describe('sync', function () {
         expect(response.body).toHaveProperty('message', "request.body should have required property 'dumpDate'");
       });
 
+      it('should return 400 if geometryType is missing', async function () {
+        const { geometryType, ...body } = createStringifiedFakeSync();
+
+        const response = await syncRequestSender.postSync(body);
+
+        expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
+        expect(response.body).toHaveProperty('message', "request.body should have required property 'geometryType'");
+      });
+
       it('should return 409 if a sync already exists', async function () {
         const body = createStringifiedFakeSync();
         expect(await syncRequestSender.postSync(body)).toHaveStatus(StatusCodes.CREATED);
