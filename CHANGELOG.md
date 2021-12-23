@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.0.0](https://github.com/MapColonies/osm-sync-tracker/compare/v1.5.1...v2.0.0) (2021-12-23)
+
+
+### Features
+
+* **sync:** sync geometry type ([#32](https://github.com/MapColonies/osm-sync-tracker/issues/32)) ([40276f6](https://github.com/MapColonies/osm-sync-tracker/commit/40276f6322604c24d0208aeeb97c1cfd81608bfc))
+
 ### [1.5.1](https://github.com/MapColonies/osm-sync-tracker/compare/v1.5.0...v1.5.1) (2021-12-21)
 
 ## [1.5.0](https://github.com/MapColonies/osm-sync-tracker/compare/v1.4.0...v1.5.0) (2021-11-07)
