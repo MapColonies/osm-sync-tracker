@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.1.0](https://github.com/MapColonies/osm-sync-tracker/compare/v2.0.0...v2.1.0) (2021-12-30)
+
+
+### Features
+
+* **sync:** prevent multiple full syncs with same layerId and geometry type ([#34](https://github.com/MapColonies/osm-sync-tracker/issues/34)) ([adc1475](https://github.com/MapColonies/osm-sync-tracker/commit/adc1475a0cb55091965f7191d398682273f8528b))
+
 ## [2.0.0](https://github.com/MapColonies/osm-sync-tracker/compare/v1.5.1...v2.0.0) (2021-12-23)
 
 
