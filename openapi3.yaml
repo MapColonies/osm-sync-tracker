@@ -470,9 +470,13 @@ components:
         {[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}}
     layerId:
       type: integer
-    baseSync:
+    sync:
       type: object
       properties:
+        id:
+          $ref: '#/components/schemas/uniqueId'
+        isFull:
+          type: boolean
         startDate:
           type: string
           format: date-time
@@ -490,15 +494,6 @@ components:
           type: integer
         geometryType:
           $ref: '#/components/schemas/geometryType'
-    sync:
-      allOf:
-        - type: object
-          properties:
-            id:
-              $ref: '#/components/schemas/uniqueId'
-            isFull:
-              type: boolean
-        - $ref: '#/components/schemas/baseSync'
     updateSync:
       type: object
       additionalProperties: false
