@@ -19,3 +19,5 @@ export interface Sync {
 
   geometryType: GeometryType;
 }
+
+export type SyncUpdate = Omit<Partial<Sync>, 'id' | 'isFull'>;

@@ -33,13 +33,25 @@ describe('sync', function () {
         expect(response.status).toBe(httpStatus.CREATED);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
       });
+
+      it('should return 201 status code for non full sync with the same layerId and geometryType as existing non full sync', async function () {
+        const nonFullSync1 = createStringifiedFakeSync({ isFull: false });
+        const { layerId, geometryType } = nonFullSync1;
+
+        const nonFullSync2 = createStringifiedFakeSync({ isFull: false, layerId, geometryType });
+
+        const response = await syncRequestSender.postSync(nonFullSync2);
+
+        expect(response.status).toBe(httpStatus.CREATED);
+        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
+      });
     });
 
     describe('PATCH /sync', function () {
       it('should return 200 status code and OK body', async function () {
         const body = createStringifiedFakeSync();
         expect(await syncRequestSender.postSync(body)).toHaveStatus(StatusCodes.CREATED);
-        const { id, ...updateBody } = body;
+        const { id, isFull, ...updateBody } = body;
 
         const response = await syncRequestSender.patchSync(id as string, updateBody);
 
@@ -51,11 +63,21 @@ describe('sync', function () {
     describe('GET /sync/latest', function () {
       it('should return 200 status code and the latest sync entity', async function () {
         const earlierDate = faker.date.past().toISOString();
-        const earlierSync = createStringifiedFakeSync({ dumpDate: earlierDate, geometryType: GeometryType.POLYGON });
+        const earlierSync = createStringifiedFakeSync({ dumpDate: earlierDate, geometryType: GeometryType.POLYGON, isFull: false });
         const { layerId, geometryType } = earlierSync;
 
-        const laterSync = createStringifiedFakeSync({ dumpDate: faker.date.between(earlierDate, new Date()).toISOString(), layerId, geometryType });
-        const differentGeometryTypeSync = createStringifiedFakeSync({ dumpDate: earlierDate, geometryType: GeometryType.POINT });
+        const laterSync = createStringifiedFakeSync({
+          dumpDate: faker.date.between(earlierDate, new Date()).toISOString(),
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+        const differentGeometryTypeSync = createStringifiedFakeSync({
+          dumpDate: earlierDate,
+          layerId,
+          geometryType: GeometryType.POINT,
+          isFull: false,
+        });
 
         expect(await syncRequestSender.postSync(earlierSync)).toHaveStatus(StatusCodes.CREATED);
         expect(await syncRequestSender.postSync(laterSync)).toHaveStatus(StatusCodes.CREATED);
@@ -118,11 +140,22 @@ describe('sync', function () {
 
         expect(response).toHaveProperty('status', httpStatus.CONFLICT);
       });
+
+      it('should return 409 if a full sync already exists with the same layerId and geometryType', async function () {
+        const alreadyExistingFullSync = createStringifiedFakeSync({ isFull: true });
+        const { id, ...rest } = alreadyExistingFullSync;
+        const fullSync = createStringifiedFakeSync(rest);
+        expect(await syncRequestSender.postSync(alreadyExistingFullSync)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await syncRequestSender.postSync(fullSync);
+
+        expect(response).toHaveProperty('status', httpStatus.CONFLICT);
+      });
     });
 
     describe('PATCH /sync', function () {
       it('should return 400 if the id is not valid', async function () {
-        const body = createStringifiedFakeSync({ id: faker.random.word() });
+        const { id, isFull, ...body } = createStringifiedFakeSync();
 
         const response = await syncRequestSender.patchSync(faker.random.word(), body);
 
@@ -131,7 +164,7 @@ describe('sync', function () {
       });
 
       it('should return 400 if a date is not valid', async function () {
-        const { id, ...body } = createStringifiedFakeSync({ dumpDate: faker.random.word() });
+        const { id, isFull, ...body } = createStringifiedFakeSync({ dumpDate: faker.random.word() });
 
         const response = await syncRequestSender.patchSync(id as string, body);
 
@@ -140,7 +173,7 @@ describe('sync', function () {
       });
 
       it('should return 400 if geometryType property is not valid', async function () {
-        const { id, ...body } = createStringifiedFakeSync({ geometryType: 'invalid' as GeometryType });
+        const { id, isFull, ...body } = createStringifiedFakeSync({ geometryType: 'invalid' as GeometryType });
 
         const response = await syncRequestSender.patchSync(id as string, body);
 
@@ -151,8 +184,17 @@ describe('sync', function () {
         );
       });
 
-      it('should return 404 if no sync with the specified id was found', async function () {
+      it('should return 400 if an additional property was added to the payload', async function () {
         const { id, ...body } = createStringifiedFakeSync();
+
+        const response = await syncRequestSender.patchSync(id as string, body);
+
+        expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
+        expect(response.body).toHaveProperty('message', 'request.body should NOT have additional properties');
+      });
+
+      it('should return 404 if no sync with the specified id was found', async function () {
+        const { id, isFull, ...body } = createStringifiedFakeSync();
 
         const response = await syncRequestSender.patchSync(faker.datatype.uuid(), body);
 
@@ -201,11 +243,18 @@ describe('sync', function () {
       it('should return 500 if the db throws an error', async function () {
         const createSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
         const findOneSyncMock = jest.fn();
+        const findSyncsMock = jest.fn().mockResolvedValue([]);
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
           token: syncRepositorySymbol,
-          provider: { useValue: { createSync: createSyncMock, findOneSync: findOneSyncMock } },
+          provider: {
+            useValue: {
+              createSync: createSyncMock,
+              findOneSync: findOneSyncMock,
+              findSyncs: findSyncsMock,
+            },
+          },
         });
         const mockApp = await getApp(mockRegisterOptions);
         mockSyncRequestSender = new SyncRequestSender(mockApp);
@@ -221,17 +270,24 @@ describe('sync', function () {
       it('should return 500 if the db throws an error', async function () {
         const updateSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
         const findOneSyncMock = jest.fn().mockResolvedValue(true);
+        const findSyncsMock = jest.fn().mockResolvedValue([]);
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
           token: syncRepositorySymbol,
-          provider: { useValue: { updateSync: updateSyncMock, findOneSync: findOneSyncMock } },
+          provider: {
+            useValue: {
+              updateSync: updateSyncMock,
+              findOneSync: findOneSyncMock,
+              findSyncs: findSyncsMock,
+            },
+          },
         });
         const mockApp = await getApp(mockRegisterOptions);
         mockSyncRequestSender = new SyncRequestSender(mockApp);
-        const body = createStringifiedFakeSync();
+        const { id, isFull, ...body } = createStringifiedFakeSync();
 
-        const response = await mockSyncRequestSender.patchSync(body.id as string, body);
+        const response = await mockSyncRequestSender.patchSync(id as string, body);
 
         expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
         expect(response.body).toHaveProperty('message', 'failed');

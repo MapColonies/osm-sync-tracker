@@ -82,7 +82,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/syncWithoutId'
+              $ref: '#/components/schemas/updateSync'
         required: true
       operationId: patchSync
       tags:
@@ -470,8 +470,33 @@ components:
         {[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}}
     layerId:
       type: integer
-    syncWithoutId:
+    sync:
       type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/uniqueId'
+        isFull:
+          type: boolean
+        startDate:
+          type: string
+          format: date-time
+        dumpDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/status'
+        layerId:
+          $ref: '#/components/schemas/layerId'
+        totalFiles:
+          type: integer
+        geometryType:
+          $ref: '#/components/schemas/geometryType'
+    updateSync:
+      type: object
+      additionalProperties: false
       properties:
         startDate:
           type: string
@@ -486,19 +511,10 @@ components:
           $ref: '#/components/schemas/status'
         layerId:
           $ref: '#/components/schemas/layerId'
-        isFull:
-          type: boolean
         totalFiles:
           type: integer
         geometryType:
           $ref: '#/components/schemas/geometryType'
-    sync:
-      allOf:
-        - type: object
-          properties:
-            id:
-              $ref: '#/components/schemas/uniqueId'
-        - $ref: '#/components/schemas/syncWithoutId'
     file:
       type: object
       properties:

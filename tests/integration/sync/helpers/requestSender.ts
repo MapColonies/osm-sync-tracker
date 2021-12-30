@@ -9,7 +9,7 @@ export class SyncRequestSender {
     return supertest.agent(this.app).post('/sync').set('Content-Type', 'application/json').send(body);
   }
 
-  public async patchSync(syncId: string, body: Omit<StringifiedSync, 'id'>): Promise<supertest.Response> {
+  public async patchSync(syncId: string, body: Omit<StringifiedSync, 'id' | 'isFull'>): Promise<supertest.Response> {
     return supertest.agent(this.app).patch(`/sync/${syncId}`).set('Content-Type', 'application/json').send(body);
   }
 

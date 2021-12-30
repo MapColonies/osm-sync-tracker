@@ -5,23 +5,25 @@ import { File } from '../../src/file/models/file';
 import { Entity } from '../../src/entity/models/entity';
 import { Changeset } from '../../src/changeset/models/changeset';
 
-export const createFakeSync = (): Sync => {
+export type FakeSyncParams = Partial<Sync>;
+
+export const createFakeSync = (params: FakeSyncParams = {}): Sync => {
   return {
-    id: faker.datatype.uuid(),
+    id: params.id ?? faker.datatype.uuid(),
 
-    dumpDate: faker.datatype.datetime(),
+    dumpDate: params.dumpDate ?? faker.datatype.datetime(),
 
-    startDate: faker.datatype.datetime(),
+    startDate: params.startDate ?? faker.datatype.datetime(),
 
-    status: Status.IN_PROGRESS,
+    status: params.status ?? Status.IN_PROGRESS,
 
-    layerId: faker.datatype.number(),
+    layerId: params.layerId ?? faker.datatype.number(),
 
-    isFull: faker.datatype.boolean(),
+    isFull: params.isFull ?? faker.datatype.boolean(),
 
-    totalFiles: faker.datatype.number(),
+    totalFiles: params.totalFiles ?? faker.datatype.number(),
 
-    geometryType: GeometryType.POLYGON,
+    geometryType: params.geometryType ?? GeometryType.POLYGON,
   };
 };
 

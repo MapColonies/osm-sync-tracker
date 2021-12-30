@@ -4,17 +4,15 @@ import httpStatus, { StatusCodes } from 'http-status-codes';
 import { injectable, inject } from 'tsyringe';
 import mime from 'mime-types';
 import { SERVICES } from '../../common/constants';
-import { Sync } from '../models/sync';
+import { Sync, SyncUpdate } from '../models/sync';
 import { SyncManager } from '../models/syncManager';
 import { HttpError } from '../../common/errors';
-import { SyncAlreadyExistsError, SyncNotFoundError } from '../models/errors';
+import { FullSyncAlreadyExistsError, SyncAlreadyExistsError, SyncNotFoundError } from '../models/errors';
 import { GeometryType } from '../../common/enums';
-
-type PatchReqBody = Omit<Sync, 'id'>;
 
 type GetLatestSyncHandler = RequestHandler<undefined, Sync, undefined, { layerId: number; geometryType: GeometryType }>;
 type PostSyncHandler = RequestHandler<undefined, string, Sync>;
-type PatchSyncHandler = RequestHandler<{ syncId: string }, string, PatchReqBody>;
+type PatchSyncHandler = RequestHandler<{ syncId: string }, string, SyncUpdate>;
 
 const txtplain = mime.contentType('text/plain') as string;
 
@@ -40,7 +38,7 @@ export class SyncController {
       await this.manager.createSync(req.body);
       return res.status(httpStatus.CREATED).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
-      if (error instanceof SyncAlreadyExistsError) {
+      if (error instanceof SyncAlreadyExistsError || error instanceof FullSyncAlreadyExistsError) {
         (error as HttpError).status = StatusCodes.CONFLICT;
       }
       return next(error);
