@@ -82,7 +82,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/syncWithoutId'
+              $ref: '#/components/schemas/updateSync'
         required: true
       operationId: patchSync
       tags:
@@ -94,8 +94,6 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
         5XX:
           $ref: '#/components/responses/UnexpectedError'
   /sync/{syncId}/file:
@@ -472,7 +470,7 @@ components:
         {[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}}
     layerId:
       type: integer
-    syncWithoutId:
+    baseSync:
       type: object
       properties:
         startDate:
@@ -488,8 +486,6 @@ components:
           $ref: '#/components/schemas/status'
         layerId:
           $ref: '#/components/schemas/layerId'
-        isFull:
-          type: boolean
         totalFiles:
           type: integer
         geometryType:
@@ -500,7 +496,30 @@ components:
           properties:
             id:
               $ref: '#/components/schemas/uniqueId'
-        - $ref: '#/components/schemas/syncWithoutId'
+            isFull:
+              type: boolean
+        - $ref: '#/components/schemas/baseSync'
+    updateSync:
+      type: object
+      additionalProperties: false
+      properties:
+        startDate:
+          type: string
+          format: date-time
+        dumpDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/status'
+        layerId:
+          $ref: '#/components/schemas/layerId'
+        totalFiles:
+          type: integer
+        geometryType:
+          $ref: '#/components/schemas/geometryType'
     file:
       type: object
       properties:

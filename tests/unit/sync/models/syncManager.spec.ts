@@ -11,16 +11,16 @@ describe('SyncManager', () => {
   let getLatestSync: jest.Mock;
   let updateSync: jest.Mock;
   let findOneSync: jest.Mock;
-  let findFullSyncByLayerAndGeometry: jest.Mock;
+  let findSyncs: jest.Mock;
 
   beforeEach(() => {
     getLatestSync = jest.fn();
     createSync = jest.fn();
     updateSync = jest.fn();
     findOneSync = jest.fn();
-    findFullSyncByLayerAndGeometry = jest.fn();
+    findSyncs = jest.fn();
 
-    const repository = { getLatestSync, createSync, updateSync, findOneSync, findFullSyncByLayerAndGeometry };
+    const repository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs };
     syncManager = new SyncManager(repository, jsLogger({ enabled: false }));
   });
 
@@ -34,7 +34,7 @@ describe('SyncManager', () => {
 
       findOneSync.mockResolvedValue(undefined);
       createSync.mockResolvedValue(undefined);
-      findFullSyncByLayerAndGeometry.mockResolvedValue(undefined);
+      findSyncs.mockResolvedValue([]);
 
       const createPromise = syncManager.createSync(sync);
 
@@ -46,12 +46,12 @@ describe('SyncManager', () => {
 
       findOneSync.mockResolvedValue(undefined);
       createSync.mockResolvedValue(undefined);
-      findFullSyncByLayerAndGeometry.mockResolvedValue(undefined);
+      findSyncs.mockResolvedValue([]);
 
       const createPromise = syncManager.createSync(fullSync);
 
       await expect(createPromise).resolves.not.toThrow();
-      expect(findFullSyncByLayerAndGeometry).toHaveBeenCalled();
+      expect(findSyncs).toHaveBeenCalled();
     });
 
     it('resolves without errors if sync is not full and does not check for already existing syncs with the same parameters in the db', async () => {
@@ -63,7 +63,7 @@ describe('SyncManager', () => {
       const createPromise = syncManager.createSync(nonFullSync);
 
       await expect(createPromise).resolves.not.toThrow();
-      expect(findFullSyncByLayerAndGeometry).not.toHaveBeenCalled();
+      expect(findSyncs).not.toHaveBeenCalled();
     });
 
     it('rejects if syncId already in use by the db', async () => {
@@ -81,11 +81,11 @@ describe('SyncManager', () => {
       const alreadyExistsFullSync = createFakeSync({ isFull: true, layerId, geometryType });
 
       findOneSync.mockResolvedValue(undefined);
-      findFullSyncByLayerAndGeometry.mockResolvedValue(alreadyExistsFullSync);
+      findSyncs.mockResolvedValue([alreadyExistsFullSync]);
       const createPromise = syncManager.createSync(fullSync);
 
       await expect(createPromise).rejects.toThrow(FullSyncAlreadyExistsError);
-      expect(findFullSyncByLayerAndGeometry).toHaveBeenCalled();
+      expect(findSyncs).toHaveBeenCalled();
     });
   });
 
@@ -110,7 +110,7 @@ describe('SyncManager', () => {
       const updatePromise = syncManager.updateSync(sync.id, sync);
 
       await expect(updatePromise).resolves.not.toThrow();
-      expect(findFullSyncByLayerAndGeometry).not.toHaveBeenCalled();
+      expect(findSyncs).not.toHaveBeenCalled();
     });
 
     it('resolves without errors for a full sync that did not update its layer or geometry', async () => {
@@ -122,7 +122,7 @@ describe('SyncManager', () => {
       const updatePromise = syncManager.updateSync(sync.id, sync);
 
       await expect(updatePromise).resolves.not.toThrow();
-      expect(findFullSyncByLayerAndGeometry).not.toHaveBeenCalled();
+      expect(findSyncs).not.toHaveBeenCalled();
     });
 
     it('resolves without errors for a full sync that updated its layerId if full was not found with updated parameters', async () => {
@@ -131,12 +131,10 @@ describe('SyncManager', () => {
 
       findOneSync.mockResolvedValue(sync);
       updateSync.mockResolvedValue(undefined);
-      findFullSyncByLayerAndGeometry.mockResolvedValue(undefined);
 
       const updatePromise = syncManager.updateSync(sync.id, updatedSync);
 
       await expect(updatePromise).resolves.not.toThrow();
-      expect(findFullSyncByLayerAndGeometry).toHaveBeenCalled();
     });
 
     it('resolves without errors for a full sync that updated its geometryType if full was not found with updated parameters', async () => {
@@ -145,12 +143,10 @@ describe('SyncManager', () => {
 
       findOneSync.mockResolvedValue(sync);
       updateSync.mockResolvedValue(undefined);
-      findFullSyncByLayerAndGeometry.mockResolvedValue(undefined);
 
       const updatePromise = syncManager.updateSync(sync.id, updatedSync);
 
       await expect(updatePromise).resolves.not.toThrow();
-      expect(findFullSyncByLayerAndGeometry).toHaveBeenCalled();
     });
 
     it('rejects if the sync does not exists in the db', async () => {
@@ -160,21 +156,6 @@ describe('SyncManager', () => {
       const updatePromise = syncManager.updateSync(sync.id, sync);
 
       await expect(updatePromise).rejects.toThrow(SyncNotFoundError);
-    });
-
-    it('rejects if the updated sync is full while an already full sync exist with the same parameters in the db', async () => {
-      const sync = createFakeSync({ isFull: true, geometryType: GeometryType.POINT });
-      const updatedSync = createFakeSync({ ...sync, geometryType: GeometryType.POLYGON });
-      const alreadyExistingFull = createFakeSync({ isFull: true, layerId: updatedSync.layerId, geometryType: updatedSync.geometryType });
-
-      findOneSync.mockResolvedValue(sync);
-      updateSync.mockResolvedValue(undefined);
-      findFullSyncByLayerAndGeometry.mockResolvedValue(alreadyExistingFull);
-
-      const updatePromise = syncManager.updateSync(sync.id, updatedSync);
-
-      await expect(updatePromise).rejects.toThrow(FullSyncAlreadyExistsError);
-      expect(findFullSyncByLayerAndGeometry).toHaveBeenCalled();
     });
   });
 

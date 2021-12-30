@@ -18,7 +18,7 @@ describe('FileManager', () => {
   let createSync: jest.Mock;
   let updateSync: jest.Mock;
   let findOneSync: jest.Mock;
-  let findFullSyncByLayerAndGeometry: jest.Mock;
+  let findSyncs: jest.Mock;
 
   beforeEach(() => {
     createFile = jest.fn();
@@ -31,10 +31,10 @@ describe('FileManager', () => {
     findOneSync = jest.fn();
     createSync = jest.fn();
     updateSync = jest.fn();
-    findFullSyncByLayerAndGeometry = jest.fn();
+    findSyncs = jest.fn();
 
     const repository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile };
-    const syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findFullSyncByLayerAndGeometry };
+    const syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs };
 
     fileManager = new FileManager(repository, syncRepository, jsLogger({ enabled: false }));
   });
