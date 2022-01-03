@@ -21,6 +21,8 @@ import { fileRouterSymbol, fileRouterFactory } from './file/routes/fileRouter';
 import { entityRouterFactory, entityRouterSymbol } from './entity/routes/entityRouter';
 import { changesetRouterSymbol, changesetRouterFactory } from './changeset/routes/changesetRouter';
 import { InjectionObject, registerDependencies } from './common/dependencyRegistration';
+import { IRerunRepository, rerunRepositorySymbol } from './sync/DAL/rerunRepository';
+import { RerunRepository } from './sync/DAL/typeorm/rerunRepository';
 
 export interface RegisterOptions {
   override?: InjectionObject<unknown>[];
@@ -80,6 +82,14 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
       provider: {
         useFactory: (container): IEntityRepository => {
           return container.resolve<Connection>(Connection).getCustomRepository(EntityRepository);
+        },
+      },
+    },
+    {
+      token: rerunRepositorySymbol,
+      provider: {
+        useFactory: (container): IRerunRepository => {
+          return container.resolve<Connection>(Connection).getCustomRepository(RerunRepository);
         },
       },
     },

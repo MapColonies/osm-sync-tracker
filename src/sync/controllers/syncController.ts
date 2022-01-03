@@ -7,12 +7,13 @@ import { SERVICES } from '../../common/constants';
 import { Sync, SyncUpdate } from '../models/sync';
 import { SyncManager } from '../models/syncManager';
 import { HttpError } from '../../common/errors';
-import { FullSyncAlreadyExistsError, SyncAlreadyExistsError, SyncNotFoundError } from '../models/errors';
+import { FullSyncAlreadyExistsError, InvalidSyncForRerunError, SyncAlreadyExistsError, SyncNotFoundError } from '../models/errors';
 import { GeometryType } from '../../common/enums';
 
 type GetLatestSyncHandler = RequestHandler<undefined, Sync, undefined, { layerId: number; geometryType: GeometryType }>;
 type PostSyncHandler = RequestHandler<undefined, string, Sync>;
 type PatchSyncHandler = RequestHandler<{ syncId: string }, string, SyncUpdate>;
+type RerunSyncHandler = RequestHandler<{ syncId: string }, Sync>;
 
 const txtplain = mime.contentType('text/plain') as string;
 
@@ -52,6 +53,21 @@ export class SyncController {
     } catch (error) {
       if (error instanceof SyncNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
+      }
+      return next(error);
+    }
+  };
+
+  public rerunSync: RerunSyncHandler = async (req, res, next) => {
+    try {
+      const rerunSync = await this.manager.rerunSync(req.params.syncId);
+      return res.status(httpStatus.CREATED).json(rerunSync);
+    } catch (error) {
+      if (error instanceof SyncNotFoundError) {
+        (error as HttpError).status = StatusCodes.NOT_FOUND;
+      }
+      if (error instanceof InvalidSyncForRerunError) {
+        (error as HttpError).status = StatusCodes.CONFLICT;
       }
       return next(error);
     }

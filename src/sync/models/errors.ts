@@ -18,3 +18,10 @@ export class SyncNotFoundError extends Error {
     Object.setPrototypeOf(this, SyncNotFoundError.prototype);
   }
 }
+
+export class InvalidSyncForRerunError extends Error {
+  public constructor(message: string) {
+    super(message);
+    Object.setPrototypeOf(this, InvalidSyncForRerunError.prototype);
+  }
+}

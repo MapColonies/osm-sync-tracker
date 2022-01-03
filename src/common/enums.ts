@@ -1,6 +1,7 @@
 export enum Status {
   IN_PROGRESS = 'inprogress',
   COMPLETED = 'completed',
+  FAILED = 'failed',
 }
 
 export enum ActionType {

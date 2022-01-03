@@ -1,6 +1,6 @@
 import { EntityRepository, Repository } from 'typeorm';
 import { GeometryType } from '../../../common/enums';
-import { Sync, SyncUpdate } from '../../models/sync';
+import { Sync, SyncUpdate, SyncWithReruns } from '../../models/sync';
 import { ISyncRepository } from '../syncRepository';
 import { SyncDb as DbSync } from './sync';
 
@@ -23,14 +23,17 @@ export class SyncRepository extends Repository<DbSync> implements ISyncRepositor
   }
 
   public async findOneSync(syncId: string): Promise<Sync | undefined> {
-    const syncEntity = await this.findOne(syncId);
-    if (!syncEntity) {
-      return undefined;
-    }
-    return syncEntity;
+    return this.findOne(syncId);
   }
 
   public async findSyncs(filter: Partial<Sync>): Promise<Sync[]> {
     return this.find({ where: filter });
+  }
+
+  public async findOneSyncWithReruns(syncId: string): Promise<SyncWithReruns | undefined> {
+    return this.findOne({
+      relations: ['reruns'],
+      where: { id: syncId },
+    });
   }
 }

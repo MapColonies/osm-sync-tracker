@@ -1,5 +1,5 @@
 import { GeometryType } from '../../common/enums';
-import { Sync, SyncUpdate } from '../models/sync';
+import { Sync, SyncUpdate, SyncWithReruns } from '../models/sync';
 
 export const syncRepositorySymbol = Symbol('SyncRepository');
 
@@ -13,4 +13,6 @@ export interface ISyncRepository {
   findOneSync: (syncId: string) => Promise<Sync | undefined>;
 
   findSyncs: (filter: Partial<Sync>) => Promise<Sync[]>;
+
+  findOneSyncWithReruns: (syncId: string) => Promise<SyncWithReruns | undefined>;
 }

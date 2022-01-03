@@ -61,7 +61,7 @@ paths:
         - sync
       responses:
         '200':
-          description: the latest sync for the requsted layer
+          description: the latest sync for the requsted layer and geometry
           content:
             application/json:
               schema:
@@ -149,6 +149,29 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
+        5XX:
+          $ref: '#/components/responses/UnexpectedError'
+  /sync/{syncId}/rerun:
+    post:
+      summary: rerun a sync
+      parameters:
+        - $ref: '#/components/parameters/syncId'
+      operationId: rerunSync
+      tags:
+        - sync
+      responses:
+        '201':
+          description: the rerun sync of the provided sync id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/sync'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         5XX:
           $ref: '#/components/responses/UnexpectedError'
   /file/{fileId}/entity:
@@ -450,6 +473,7 @@ components:
       enum:
         - inprogress
         - completed
+        - failed
     geometryType:
       type: string
       enum:
@@ -494,6 +518,8 @@ components:
           type: integer
         geometryType:
           $ref: '#/components/schemas/geometryType'
+        isRerun:
+          type: boolean
     updateSync:
       type: object
       additionalProperties: false

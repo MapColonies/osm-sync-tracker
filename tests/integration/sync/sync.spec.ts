@@ -5,17 +5,25 @@ import { Connection, QueryFailedError } from 'typeorm';
 import { getApp } from '../../../src/app';
 import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions } from '../helpers';
 import { syncRepositorySymbol } from '../../../src/sync/DAL/syncRepository';
-import { GeometryType } from '../../../src/common/enums';
+import { GeometryType, Status } from '../../../src/common/enums';
+import { createStringifiedFakeFile } from '../file/helpers/generators';
+import { FileRequestSender } from '../file/helpers/requestSender';
+import { EntityRequestSender } from '../entity/helpers/requestSender';
+import { createStringifiedFakeEntity } from '../entity/helpers/generators';
 import { createStringifiedFakeSync } from './helpers/generators';
 import { SyncRequestSender } from './helpers/requestSender';
 
 describe('sync', function () {
   let syncRequestSender: SyncRequestSender;
+  let fileRequestSender: FileRequestSender;
+  let entityRequestSender: EntityRequestSender;
   let mockSyncRequestSender: SyncRequestSender;
 
   beforeAll(async function () {
     const app = await getApp(getBaseRegisterOptions());
     syncRequestSender = new SyncRequestSender(app);
+    fileRequestSender = new FileRequestSender(app);
+    entityRequestSender = new EntityRequestSender(app);
   }, BEFORE_ALL_TIMEOUT);
 
   afterAll(async function () {
@@ -51,7 +59,7 @@ describe('sync', function () {
       it('should return 200 status code and OK body', async function () {
         const body = createStringifiedFakeSync();
         expect(await syncRequestSender.postSync(body)).toHaveStatus(StatusCodes.CREATED);
-        const { id, isFull, ...updateBody } = body;
+        const { id, isFull, isRerun, ...updateBody } = body;
 
         const response = await syncRequestSender.patchSync(id as string, updateBody);
 
@@ -88,6 +96,34 @@ describe('sync', function () {
         expect(response.status).toBe(httpStatus.OK);
         expect(response.body).toMatchObject(laterSync);
       });
+    });
+  });
+
+  describe('POST /sync/:syncId/rerun', function () {
+    it('rerun', async function () {
+      const originalSync = createStringifiedFakeSync({ isFull: false });
+      expect(await syncRequestSender.postSync(originalSync)).toHaveStatus(StatusCodes.CREATED);
+      const { id: originalSyncId, ...syncBody } = originalSync;
+
+      const file = createStringifiedFakeFile({ totalEntities: 2 });
+      expect(await fileRequestSender.postFile(originalSyncId as string, file)).toHaveStatus(StatusCodes.CREATED);
+
+      const fileEntities = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
+      expect(await entityRequestSender.postEntityBulk(file.fileId as string, fileEntities)).toHaveStatus(StatusCodes.CREATED);
+
+      expect(await syncRequestSender.patchSync(originalSyncId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+      const response = await syncRequestSender.rerunSync(originalSyncId as string);
+
+      expect(response.status).toBe(httpStatus.CREATED);
+      expect(response.body).toMatchObject({ ...syncBody, isRerun: true });
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(await fileRequestSender.postFile(response.body.id as string, file)).toHaveStatus(StatusCodes.CREATED);
+
+      expect(await entityRequestSender.postEntityBulk(file.fileId as string, fileEntities)).toHaveStatus(StatusCodes.CREATED);
+
+      console.log(response.body);
+      console.log(originalSync);
     });
   });
 
@@ -155,7 +191,7 @@ describe('sync', function () {
 
     describe('PATCH /sync', function () {
       it('should return 400 if the id is not valid', async function () {
-        const { id, isFull, ...body } = createStringifiedFakeSync();
+        const { id, isFull, isRerun, ...body } = createStringifiedFakeSync();
 
         const response = await syncRequestSender.patchSync(faker.random.word(), body);
 
@@ -164,7 +200,7 @@ describe('sync', function () {
       });
 
       it('should return 400 if a date is not valid', async function () {
-        const { id, isFull, ...body } = createStringifiedFakeSync({ dumpDate: faker.random.word() });
+        const { id, isFull, isRerun, ...body } = createStringifiedFakeSync({ dumpDate: faker.random.word() });
 
         const response = await syncRequestSender.patchSync(id as string, body);
 
@@ -173,7 +209,7 @@ describe('sync', function () {
       });
 
       it('should return 400 if geometryType property is not valid', async function () {
-        const { id, isFull, ...body } = createStringifiedFakeSync({ geometryType: 'invalid' as GeometryType });
+        const { id, isFull, isRerun, ...body } = createStringifiedFakeSync({ geometryType: 'invalid' as GeometryType });
 
         const response = await syncRequestSender.patchSync(id as string, body);
 
@@ -185,7 +221,7 @@ describe('sync', function () {
       });
 
       it('should return 400 if an additional property was added to the payload', async function () {
-        const { id, ...body } = createStringifiedFakeSync();
+        const { id, isRerun, ...body } = createStringifiedFakeSync();
 
         const response = await syncRequestSender.patchSync(id as string, body);
 
@@ -194,7 +230,7 @@ describe('sync', function () {
       });
 
       it('should return 404 if no sync with the specified id was found', async function () {
-        const { id, isFull, ...body } = createStringifiedFakeSync();
+        const { id, isFull, isRerun, ...body } = createStringifiedFakeSync();
 
         const response = await syncRequestSender.patchSync(faker.datatype.uuid(), body);
 
@@ -285,7 +321,7 @@ describe('sync', function () {
         });
         const mockApp = await getApp(mockRegisterOptions);
         mockSyncRequestSender = new SyncRequestSender(mockApp);
-        const { id, isFull, ...body } = createStringifiedFakeSync();
+        const { id, isFull, isRerun, ...body } = createStringifiedFakeSync();
 
         const response = await mockSyncRequestSender.patchSync(id as string, body);
 

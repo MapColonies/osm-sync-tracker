@@ -66,7 +66,8 @@
     "reflect-metadata": "^0.1.13",
     "swagger-ui-express": "^4.1.6",
     "tsyringe": "^4.5.0",
-    "typeorm": "^0.2.32"
+    "typeorm": "^0.2.32",
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
     "@commitlint/cli": "^9.1.1",
@@ -89,6 +90,7 @@
     "@types/pg-pool": "^2.0.2",
     "@types/supertest": "^2.0.10",
     "@types/swagger-ui-express": "^4.1.2",
+    "@types/uuid": "^8.3.3",
     "@types/yamljs": "^0.2.31",
     "commitlint": "^9.1.2",
     "copyfiles": "^2.3.0",

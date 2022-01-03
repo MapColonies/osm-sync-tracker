@@ -1,10 +1,11 @@
 import { Column, Entity, OneToMany, PrimaryColumn } from 'typeorm';
 import { GeometryType, Status } from '../../../common/enums';
 import { File } from '../../../file/DAL/typeorm/file';
-import { Sync } from '../../models/sync';
+import { Sync as ISync } from '../../models/sync';
+import { Rerun } from './rerun';
 
 @Entity({ name: 'sync' })
-export class SyncDb implements Sync {
+export class SyncDb implements ISync {
   @PrimaryColumn({ type: 'uuid' })
   public id!: string;
 
@@ -35,7 +36,13 @@ export class SyncDb implements Sync {
   @Column({ name: 'geometry_type', type: 'enum', enum: GeometryType })
   public geometryType!: GeometryType;
 
-  public getGenericSync(): Sync {
+  @Column({ name: 'is_rerun' })
+  public isRerun!: boolean;
+
+  @OneToMany(() => Rerun, (rerun) => rerun.referenceSync)
+  public reruns!: Rerun[];
+
+  public getGenericSync(): ISync {
     return {
       dumpDate: this.dumpDate,
       endDate: this.endDate,
@@ -46,6 +53,7 @@ export class SyncDb implements Sync {
       status: this.status,
       totalFiles: this.totalFiles,
       geometryType: this.geometryType,
+      isRerun: this.isRerun,
     };
   }
 }

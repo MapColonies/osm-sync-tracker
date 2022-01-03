@@ -16,4 +16,8 @@ export class SyncRequestSender {
   public async getLatestSync(layerId: number, geometryType: GeometryType): Promise<supertest.Response> {
     return supertest.agent(this.app).get(`/sync/latest`).query({ layerId, geometryType });
   }
+
+  public async rerunSync(syncId: string): Promise<supertest.Response> {
+    return supertest.agent(this.app).post(`/sync/${syncId}/rerun`);
+  }
 }

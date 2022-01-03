@@ -12,6 +12,8 @@ describe('SyncManager', () => {
   let updateSync: jest.Mock;
   let findOneSync: jest.Mock;
   let findSyncs: jest.Mock;
+  let findOneSyncWithReruns: jest.Mock;
+  let createRerun: jest.Mock;
 
   beforeEach(() => {
     getLatestSync = jest.fn();
@@ -19,9 +21,12 @@ describe('SyncManager', () => {
     updateSync = jest.fn();
     findOneSync = jest.fn();
     findSyncs = jest.fn();
+    findOneSyncWithReruns = jest.fn();
+    createRerun = jest.fn();
 
-    const repository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs };
-    syncManager = new SyncManager(repository, jsLogger({ enabled: false }));
+    const syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithReruns };
+    const rerunRepository = { createRerun };
+    syncManager = new SyncManager(syncRepository, rerunRepository, jsLogger({ enabled: false }));
   });
 
   afterEach(() => {
