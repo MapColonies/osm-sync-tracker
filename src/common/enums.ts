@@ -15,6 +15,7 @@ export enum EntityStatus {
   COMPLETED = 'completed',
   NOT_SYNCED = 'not_synced',
   FAILED = 'failed',
+  IN_RERUN = 'inrerun',
 }
 
 export enum GeometryType {

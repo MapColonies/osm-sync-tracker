@@ -8,6 +8,7 @@ import { Entity } from '../../entity/DAL/typeorm/entity';
 import { Changeset } from '../../changeset/DAL/typeorm/changeset';
 import { File } from '../../file/DAL/typeorm/file';
 import { Rerun } from '../../sync/DAL/typeorm/rerun';
+import { EntityRerun } from '../../entity/DAL/typeorm/entityRerun';
 
 let connectionSingleton: Connection | undefined;
 
@@ -30,7 +31,7 @@ export const isTransactionFailure = (error: unknown): boolean => {
   return false;
 };
 
-export const DB_ENTITIES = [Changeset, Entity, File, SyncDb, Rerun];
+export const DB_ENTITIES = [Changeset, Entity, File, SyncDb, Rerun, EntityRerun];
 
 export const createConnectionOptions = (dbConfig: DbConfig): ConnectionOptions => {
   const { enableSslAuth, sslPaths, ...connectionOptions } = dbConfig;

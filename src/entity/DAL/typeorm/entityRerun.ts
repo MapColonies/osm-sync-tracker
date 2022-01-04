@@ -2,10 +2,10 @@ import { Column, Entity as EntityDecorator, JoinColumn, ManyToOne, PrimaryColumn
 import { Changeset } from '../../../changeset/DAL/typeorm/changeset';
 import { ActionType, EntityStatus } from '../../../common/enums';
 import { File } from '../../../file/DAL/typeorm/file';
-import { Entity as IEntity } from '../../models/entity';
+import { EntityRerun as IEntityRerun } from '../../models/entityRerun';
 
 @EntityDecorator()
-export class Entity implements IEntity {
+export class EntityRerun implements IEntityRerun {
   @PrimaryColumn({ name: 'entity_id' })
   public entityId!: string;
 
@@ -16,6 +16,9 @@ export class Entity implements IEntity {
   @PrimaryColumn({ name: 'file_id', type: 'uuid' })
   public fileId!: string;
 
+  @PrimaryColumn({ name: 'sync_id', type: 'uuid' })
+  public syncId!: string;
+
   @ManyToOne(() => Changeset, (changeset) => changeset.entities, { nullable: true })
   @JoinColumn({ name: 'changeset_id' })
   public changeset!: Changeset | null;
@@ -23,7 +26,7 @@ export class Entity implements IEntity {
   @Column({ name: 'changeset_id', type: 'uuid', nullable: true })
   public changesetId!: string | null;
 
-  @Column({ type: 'enum', enum: EntityStatus, default: EntityStatus.IN_PROGRESS })
+  @Column({ type: 'enum', enum: EntityStatus })
   public status!: EntityStatus;
 
   @Column({ type: 'enum', enum: ActionType })
