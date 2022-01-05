@@ -7,7 +7,7 @@ import { SERVICES } from '../../common/constants';
 import { File } from '../models/file';
 import { FileManager } from '../models/fileManager';
 import { HttpError } from '../../common/errors';
-import { DuplicateFilesError, FileAlreadyExistsError } from '../models/errors';
+import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError } from '../models/errors';
 import { SyncNotFoundError } from '../../sync/models/errors';
 
 type PostFileHandler = RequestHandler<{ syncId: string }, string, File>;
@@ -24,7 +24,7 @@ export class FileController {
       await this.manager.createFile(req.params.syncId, req.body);
       return res.status(httpStatus.CREATED).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
-      if (error instanceof FileAlreadyExistsError) {
+      if (error instanceof FileAlreadyExistsError || error instanceof ConflictingRerunFileError) {
         (error as HttpError).status = StatusCodes.CONFLICT;
       } else if (error instanceof SyncNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;

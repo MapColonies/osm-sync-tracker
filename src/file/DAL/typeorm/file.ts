@@ -2,9 +2,10 @@ import { Column, Entity as EntityDecorator, JoinColumn, ManyToOne, OneToMany, Pr
 import { Status } from '../../../common/enums';
 import { Entity } from '../../../entity/DAL/typeorm/entity';
 import { SyncDb } from '../../../sync/DAL/typeorm/sync';
+import { File as IFile } from '../../models/file';
 
 @EntityDecorator()
-export class File {
+export class File implements IFile {
   @PrimaryColumn({ name: 'file_id', type: 'uuid' })
   public fileId!: string;
 

@@ -5,7 +5,7 @@ import { Entity } from '../../../../src/entity/models/entity';
 
 export type FakeStringifiedFileParams = Partial<Entity>;
 
-export type StringifiedEntity = Partial<Omit<Entity, 'changeset'>> & { changesetId?: string | null };
+export type StringifiedEntity = Partial<Entity>;
 
 export const createStringifiedFakeEntity = (params: FakeStringifiedFileParams = {}): StringifiedEntity => {
   return {

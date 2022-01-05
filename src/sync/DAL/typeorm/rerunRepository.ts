@@ -1,4 +1,4 @@
-import { EntityManager, EntityRepository, In, Repository } from 'typeorm';
+import { EntityManager, EntityRepository, Repository, In } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import lodash from 'lodash';
 import { Status, EntityStatus } from '../../../common/enums';
@@ -7,58 +7,62 @@ import { IRerunRepository } from '../rerunRepository';
 import { Entity } from '../../../entity/DAL/typeorm/entity';
 import { EntityRerun } from '../../../entity/DAL/typeorm/entityRerun';
 import { Rerun } from './rerun';
-import { SyncDb as SyncEntity } from './sync';
+import { SyncDb } from './sync';
 
 @EntityRepository(Rerun)
 export class RerunRepository extends Repository<Rerun> implements IRerunRepository {
-  public async createRerun(referenceSync: Sync, rerunNumber: number): Promise<Sync> {
+  public async findOneRerun(rerunSyncId: string): Promise<Rerun | undefined> {
+    return this.findOne(rerunSyncId);
+  }
+
+  public async findReruns(filter: Partial<Rerun>): Promise<Rerun[]> {
+    return this.find({ where: filter });
+  }
+
+  public async createRerun(referenceSync: Sync, rerunNumber: number): Promise<SyncDb> {
     const rerunSyncId = uuidv4();
     // TODO: overide startDate
     const { id: referenceSyncId } = referenceSync;
     const sync: Sync = { ...referenceSync, id: rerunSyncId, isRerun: true, status: Status.IN_PROGRESS, endDate: null };
     const rerun = { rerunId: rerunSyncId, referenceId: referenceSyncId, number: rerunNumber };
-    await this.manager.connection.transaction(async (transactionalEntityManager: EntityManager) => {
-      /* migrate the entities by:
-          1. get the files of the original sync
-          2. get the entities in those file ids
-          3. 
-      */
-
-      const inRerunStatus = EntityStatus.IN_RERUN;
-
+    return this.manager.connection.transaction(async (transactionalEntityManager: EntityManager) => {
       const entities = await transactionalEntityManager
         .createQueryBuilder(Entity, 'entity')
         .leftJoin('entity.file', 'file')
         .where('file.sync_id = :referenceSyncId', { referenceSyncId })
-        .andWhere('entity.status != :inRerunStatus', { inRerunStatus })
+        .andWhere('entity.status != :inRerunStatus', { inRerunStatus: EntityStatus.IN_RERUN })
         .getMany();
 
-      const previousRerunsIds = ((await transactionalEntityManager
-        .createQueryBuilder(Rerun, 'rerun')
-        .select('rerun.rerunId')
-        .where('rerun.reference_id = :referenceSyncId', { referenceSyncId })
-        .orderBy('rerun.number', 'DESC')
-        .getMany()) as unknown) as string[];
+      const previousRerunIds = (await transactionalEntityManager.find(Rerun, {
+        where: { referenceId: referenceSyncId },
+        order: { number: 'DESC' },
+        select: ['rerunId'],
+      })) as { rerunId: string }[];
 
-      console.log(previousRerunsIds);
-
-      const completedEntitiesIds = entities.filter((entity) => entity.status === EntityStatus.COMPLETED).map((entity) => entity.entityId);
-
-      const previouslyCompletedEntityIds = ((await transactionalEntityManager.find(EntityRerun, {
-        where: { syncId: In(previousRerunsIds), entityId: In(completedEntitiesIds), status: EntityStatus.COMPLETED },
+      const completedEntityIds = entities.filter((entity) => entity.status === EntityStatus.COMPLETED).map((entity) => entity.entityId);
+      const previouslyCompletedIds = (await transactionalEntityManager.find(EntityRerun, {
+        where: {
+          syncId: In([referenceSyncId, ...previousRerunIds.map((rerun) => rerun.rerunId)]),
+          entityId: In(completedEntityIds),
+          status: EntityStatus.COMPLETED,
+        },
         select: ['entityId'],
-      })) as unknown) as string[];
+      })) as { entityId: string }[];
 
-      const currentRerunCompletedEntityIds = lodash.difference(completedEntitiesIds, previouslyCompletedEntityIds);
+      // filter only the entity ids which were not already completed previously, those entities should be migrated to entity_rerun table
+      const notPreviouslyCompletedIds = lodash.difference(
+        entities.map((entity) => entity.entityId),
+        previouslyCompletedIds.map((entity) => entity.entityId)
+      );
 
-      console.log(previouslyCompletedEntityIds);
-
-      const entitiesAsEntitiesReruns: EntityRerun[] = entities.map((entity) => ({
-        ...entity,
-        syncId: previousRerunsIds.length > 0 ? previousRerunsIds[0] : referenceSyncId,
-      }));
-
-      console.log(entitiesAsEntitiesReruns);
+      // add sync id for the entities which were not already completed
+      const syncId = previousRerunIds.length > 0 ? previousRerunIds[0].rerunId : referenceSyncId;
+      const entitiesAsEntitiesReruns = entities
+        .filter((entity) => notPreviouslyCompletedIds.includes(entity.entityId))
+        .map((entity) => ({
+          ...entity,
+          syncId,
+        }));
 
       // migrate the relevant entities into the entityRerun table
       await transactionalEntityManager.insert(EntityRerun, entitiesAsEntitiesReruns);
@@ -77,11 +81,9 @@ export class RerunRepository extends Repository<Rerun> implements IRerunReposito
       // create a rerun-entity
       await transactionalEntityManager.insert(Rerun, rerun);
 
-      // create the rerun sync-entity
-      await transactionalEntityManager.insert(SyncEntity, sync);
+      // create the rerun sync-entity and return it
+      const insertResult = await transactionalEntityManager.insert(SyncDb, sync);
+      return (transactionalEntityManager.findOne(SyncDb, insertResult.identifiers[0]) as unknown) as SyncDb;
     });
-
-    // TODO: retrieve the inserted sync record
-    return sync;
   }
 }

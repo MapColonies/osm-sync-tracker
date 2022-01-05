@@ -3,7 +3,7 @@ import { container } from 'tsyringe';
 import faker from 'faker';
 import { Connection, QueryFailedError } from 'typeorm';
 import { getApp } from '../../../src/app';
-import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions } from '../helpers';
+import { BEFORE_ALL_TIMEOUT, FLOW_TEST_TIMEOUT, getBaseRegisterOptions } from '../helpers';
 import { syncRepositorySymbol } from '../../../src/sync/DAL/syncRepository';
 import { EntityStatus, GeometryType, Status } from '../../../src/common/enums';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
@@ -100,31 +100,36 @@ describe('sync', function () {
   });
 
   describe('POST /sync/:syncId/rerun', function () {
-    it('rerun', async function () {
-      const originalSync = createStringifiedFakeSync({ isFull: false });
-      expect(await syncRequestSender.postSync(originalSync)).toHaveStatus(StatusCodes.CREATED);
-      const { id: originalSyncId, ...syncBody } = originalSync;
+    it(
+      'rerun',
+      async function () {
+        const originalSync = createStringifiedFakeSync({ isFull: false });
+        expect(await syncRequestSender.postSync(originalSync)).toHaveStatus(StatusCodes.CREATED);
+        const { id: originalSyncId, ...syncBody } = originalSync;
 
-      const file = createStringifiedFakeFile({ totalEntities: 2 });
-      expect(await fileRequestSender.postFile(originalSyncId as string, file)).toHaveStatus(StatusCodes.CREATED);
+        const file1 = createStringifiedFakeFile({ totalEntities: 2 });
+        expect(await fileRequestSender.postFile(originalSyncId as string, file1)).toHaveStatus(StatusCodes.CREATED);
 
-      const fileEntities = [createStringifiedFakeEntity({ status: EntityStatus.COMPLETED }), createStringifiedFakeEntity()];
-      expect(await entityRequestSender.postEntityBulk(file.fileId as string, fileEntities)).toHaveStatus(StatusCodes.CREATED);
+        const fileEntities = [createStringifiedFakeEntity({ status: EntityStatus.COMPLETED }), createStringifiedFakeEntity()];
+        expect(await entityRequestSender.postEntityBulk(file1.fileId as string, fileEntities)).toHaveStatus(StatusCodes.CREATED);
 
-      expect(await syncRequestSender.patchSync(originalSyncId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
-      const response = await syncRequestSender.rerunSync(originalSyncId as string);
+        expect(await syncRequestSender.patchSync(originalSyncId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+        const response = await syncRequestSender.rerunSync(originalSyncId as string);
 
-      // expect(response.status).toBe(httpStatus.CREATED);
-      // expect(response.body).toMatchObject({ ...syncBody, isRerun: true });
+        expect(response.status).toBe(httpStatus.CREATED);
+        expect(response.body).toMatchObject({ ...syncBody, isRerun: true, status: Status.IN_PROGRESS });
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      // expect(await fileRequestSender.postFile(response.body.id as string, file)).toHaveStatus(StatusCodes.CREATED);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const rerun1Id = response.body.id as string;
+        expect(await fileRequestSender.postFile(rerun1Id, file1)).toHaveStatus(StatusCodes.CREATED);
 
-      // expect(await entityRequestSender.postEntityBulk(file.fileId as string, fileEntities)).toHaveStatus(StatusCodes.CREATED);
+        const file2 = createStringifiedFakeFile({ totalEntities: 1 });
+        expect(await fileRequestSender.postFile(rerun1Id, file2)).toHaveStatus(StatusCodes.CREATED);
 
-      console.log(response.body);
-      console.log(originalSync);
-    });
+        expect(await entityRequestSender.postEntityBulk(file1.fileId as string, fileEntities)).toHaveStatus(StatusCodes.CREATED);
+      },
+      FLOW_TEST_TIMEOUT
+    );
   });
 
   describe('Bad Path', function () {

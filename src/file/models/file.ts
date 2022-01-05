@@ -5,11 +5,11 @@ export interface File {
 
   syncId: string;
 
-  totalEntities?: number;
+  totalEntities?: number | null;
 
   startDate: Date;
 
-  endDate?: Date;
+  endDate?: Date | null;
 
   status: Status;
 }

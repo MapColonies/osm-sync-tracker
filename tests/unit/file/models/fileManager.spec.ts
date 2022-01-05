@@ -8,41 +8,31 @@ import { SyncNotFoundError } from '../../../../src/sync/models/errors';
 let fileManager: FileManager;
 
 describe('FileManager', () => {
-  let createFile: jest.Mock;
-  let createFiles: jest.Mock;
-  let findOneFile: jest.Mock;
-  let findManyFiles: jest.Mock;
-  let tryClosingFile: jest.Mock;
+  const createFile = jest.fn();
+  const createFiles = jest.fn();
+  const findOneFile = jest.fn();
+  const findManyFiles = jest.fn();
+  const tryClosingFile = jest.fn();
 
-  let getLatestSync: jest.Mock;
-  let createSync: jest.Mock;
-  let updateSync: jest.Mock;
-  let findOneSync: jest.Mock;
-  let findSyncs: jest.Mock;
-  let findOneSyncWithReruns: jest.Mock;
+  const getLatestSync = jest.fn();
+  const findOneSync = jest.fn();
+  const createSync = jest.fn();
+  const updateSync = jest.fn();
+  const findSyncs = jest.fn();
+  const findOneSyncWithReruns = jest.fn();
+
+  const createRerun = jest.fn();
+  const findOneRerun = jest.fn();
+  const findReruns = jest.fn();
 
   beforeEach(() => {
-    createFile = jest.fn();
-    createFiles = jest.fn();
-    findOneFile = jest.fn();
-    findManyFiles = jest.fn();
-    tryClosingFile = jest.fn();
+    jest.resetAllMocks();
 
-    getLatestSync = jest.fn();
-    findOneSync = jest.fn();
-    createSync = jest.fn();
-    updateSync = jest.fn();
-    findSyncs = jest.fn();
-    findOneSyncWithReruns = jest.fn();
-
-    const repository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile };
+    const fileRepository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile };
     const syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithReruns };
+    const rerunRepository = { createRerun, findOneRerun, findReruns };
 
-    fileManager = new FileManager(repository, syncRepository, jsLogger({ enabled: false }));
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
+    fileManager = new FileManager(fileRepository, syncRepository, rerunRepository, jsLogger({ enabled: false }));
   });
 
   describe('#createFile', () => {

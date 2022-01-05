@@ -31,11 +31,7 @@ export class FileRepository extends Repository<FileDb> implements IFileRepositor
   }
 
   public async findOneFile(fileId: string): Promise<FileDb | undefined> {
-    const fileEntity = await this.findOne(fileId);
-    if (fileEntity == undefined) {
-      return undefined;
-    }
-    return fileEntity;
+    return this.findOne(fileId);
   }
 
   public async findManyFiles(files: File[]): Promise<FileDb[] | undefined> {

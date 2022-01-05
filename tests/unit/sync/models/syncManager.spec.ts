@@ -7,30 +7,22 @@ import { GeometryType } from '../../../../src/common/enums';
 let syncManager: SyncManager;
 
 describe('SyncManager', () => {
-  let createSync: jest.Mock;
-  let getLatestSync: jest.Mock;
-  let updateSync: jest.Mock;
-  let findOneSync: jest.Mock;
-  let findSyncs: jest.Mock;
-  let findOneSyncWithReruns: jest.Mock;
-  let createRerun: jest.Mock;
+  const createSync = jest.fn();
+  const getLatestSync = jest.fn();
+  const updateSync = jest.fn();
+  const findOneSync = jest.fn();
+  const findSyncs = jest.fn();
+  const findOneSyncWithReruns = jest.fn();
+
+  const createRerun = jest.fn();
+  const findOneRerun = jest.fn();
 
   beforeEach(() => {
-    getLatestSync = jest.fn();
-    createSync = jest.fn();
-    updateSync = jest.fn();
-    findOneSync = jest.fn();
-    findSyncs = jest.fn();
-    findOneSyncWithReruns = jest.fn();
-    createRerun = jest.fn();
+    jest.resetAllMocks();
 
     const syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithReruns };
-    const rerunRepository = { createRerun };
+    const rerunRepository = { createRerun, findOneRerun };
     syncManager = new SyncManager(syncRepository, rerunRepository, jsLogger({ enabled: false }));
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
   });
 
   describe('#createSync', () => {

@@ -8,6 +8,7 @@ import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/inte
 import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
 import { IFileRepository, fileRepositorySymbol } from '../../file/DAL/fileRepository';
 import { FileNotFoundError } from '../../file/models/errors';
+import { IRerunRepository, rerunRepositorySymbol } from '../../sync/DAL/rerunRepository';
 import { IEntityRepository, entityRepositorySymbol } from '../DAL/entityRepository';
 import { Entity, UpdateEntities, UpdateEntity } from './entity';
 import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } from './errors';
@@ -20,6 +21,7 @@ export class EntityManager {
   public constructor(
     @inject(entityRepositorySymbol) private readonly entityRepository: IEntityRepository,
     @inject(fileRepositorySymbol) private readonly fileRepository: IFileRepository,
+    @inject(rerunRepositorySymbol) private readonly rerunRepository: IRerunRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
     @inject(SERVICES.CONFIG) private readonly config: IConfig,
     @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication
@@ -44,25 +46,51 @@ export class EntityManager {
     await this.entityRepository.createEntity(entityWithFileId);
   }
 
-  public async createEntities(fileId: string, entities: Entity[]): Promise<void> {
-    const entitiesWithFileId = entities.map((entity) => ({ ...entity, fileId }));
+  public async createEntities(fileId: string, entitiesForCreation: Entity[]): Promise<void> {
+    const entitiesWithFileId = entitiesForCreation.map((entity) => ({ ...entity, fileId }));
     const fileEntity = await this.fileRepository.findOneFile(fileId);
-    const dup = lodash.uniqBy(entities, 'entityId');
 
     if (!fileEntity) {
       throw new FileNotFoundError(`file = ${fileId} not found`);
     }
 
-    if (dup.length !== entities.length) {
-      throw new DuplicateEntityError(`entites = [${dup.map((entity) => entity.entityId).toString()}] are duplicate`);
+    const entityIdsForCreation = entitiesWithFileId.map((entity) => entity.entityId);
+    const duplicateEntities = lodash.filter(entityIdsForCreation, (entityId, i, iteratee) => lodash.includes(iteratee, entityId, i + 1));
+    if (duplicateEntities.length > 0) {
+      throw new DuplicateEntityError(`entites = [${duplicateEntities.toString()}] are duplicate`);
     }
 
-    const entityEntities = await this.entityRepository.findManyEntites(entitiesWithFileId);
-    if (entityEntities) {
-      throw new EntityAlreadyExistsError(`entities = [${entities.map((entity) => entity.entityId).toString()}] already exists`);
-    }
+    const existingEntities = await this.entityRepository.findManyEntites(entitiesWithFileId);
 
-    await this.entityRepository.createEntities(entitiesWithFileId);
+    const reruns = await this.rerunRepository.findReruns({ referenceId: fileEntity.syncId });
+
+    if (reruns.length === 0) {
+      if (existingEntities) {
+        throw new EntityAlreadyExistsError(`entities = [${existingEntities.map((entity) => entity.entityId).toString()}] already exists`);
+      }
+
+      await this.entityRepository.createEntities(entitiesWithFileId);
+    } else {
+      let entitiesForUpsert = entitiesWithFileId;
+      if (existingEntities) {
+        // non existing are the difference between the entities for creation and the existing entities
+        const nonExistingEntityIds = lodash.difference(
+          entityIdsForCreation,
+          existingEntities.map((existingEntity) => existingEntity.entityId)
+        );
+
+        // entities for update are the existing entities with inrerun status
+        const existingEntityIdsForRerun = existingEntities
+          .filter((entity) => entity.status === EntityStatus.IN_RERUN)
+          .map((entity) => entity.entityId);
+
+        // both arrays are for upsert, filter the relevant entities
+        entitiesForUpsert = entitiesWithFileId.filter((entityForCreation) =>
+          [...nonExistingEntityIds, ...existingEntityIdsForRerun].includes(entityForCreation.entityId)
+        );
+      }
+      await this.entityRepository.updateEntities(entitiesForUpsert);
+    }
   }
 
   public async updateEntity(fileId: string, entityId: string, entity: UpdateEntity): Promise<string[]> {

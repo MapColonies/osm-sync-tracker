@@ -5,7 +5,8 @@ import { SERVICES } from '../../common/constants';
 import { ISyncRepository, syncRepositorySymbol } from '../../sync/DAL/syncRepository';
 import { SyncNotFoundError } from '../../sync/models/errors';
 import { IFileRepository, fileRepositorySymbol } from '../DAL/fileRepository';
-import { DuplicateFilesError, FileAlreadyExistsError } from './errors';
+import { IRerunRepository, rerunRepositorySymbol } from '../../sync/DAL/rerunRepository';
+import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError } from './errors';
 import { File } from './file';
 
 @injectable()
@@ -13,15 +14,19 @@ export class FileManager {
   public constructor(
     @inject(fileRepositorySymbol) private readonly fileRepository: IFileRepository,
     @inject(syncRepositorySymbol) private readonly syncRepository: ISyncRepository,
+    @inject(rerunRepositorySymbol) private readonly rerunRepository: IRerunRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger
   ) {}
 
   public async createFile(syncId: string, file: File): Promise<void> {
     const syncEntity = await this.syncRepository.findOneSync(syncId);
-    file.syncId = syncId;
 
     if (!syncEntity) {
       throw new SyncNotFoundError(`sync = ${syncId} not found`);
+    }
+
+    if (syncEntity.isRerun) {
+      return this.createRerunFile(syncId, file);
     }
 
     const fileEntity = await this.fileRepository.findOneFile(file.fileId);
@@ -30,7 +35,7 @@ export class FileManager {
       throw new FileAlreadyExistsError(`file = ${file.fileId} already exists`);
     }
 
-    await this.fileRepository.createFile(file);
+    await this.fileRepository.createFile({ ...file, syncId });
   }
 
   public async createFiles(syncId: string, files: File[]): Promise<void> {
@@ -53,5 +58,22 @@ export class FileManager {
     }
 
     await this.fileRepository.createFiles(filesWithSyncId);
+  }
+
+  private async createRerunFile(rerunSyncId: string, rerunFile: File): Promise<void> {
+    const rerun = await this.rerunRepository.findOneRerun(rerunSyncId);
+
+    if (!rerun) {
+      throw new SyncNotFoundError(`rerun sync = ${rerunSyncId} not found`);
+    }
+    const fileEntity = await this.fileRepository.findOneFile(rerunFile.fileId);
+
+    if (!fileEntity) {
+      return this.fileRepository.createFile({ ...rerunFile, syncId: rerun.referenceId });
+    }
+
+    if (rerun.referenceId != fileEntity.syncId || rerunFile.totalEntities != fileEntity.totalEntities) {
+      throw new ConflictingRerunFileError(`rerun file = ${rerunFile.fileId} conflicting sync id or number of entities`);
+    }
   }
 }

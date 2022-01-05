@@ -261,10 +261,14 @@ describe('entity', function () {
 
       it('should return 409 if one of the entity is duplicate', async function () {
         const entity = createStringifiedFakeEntity();
+        const anotherEntity = createStringifiedFakeEntity();
 
-        const response = await entityRequestSender.postEntityBulk(file.fileId as string, [entity, entity]);
+        const response = await entityRequestSender.postEntityBulk(file.fileId as string, [entity, entity, anotherEntity]);
 
         expect(response).toHaveProperty('status', httpStatus.CONFLICT);
+
+        const message = (response.body as { message: string }).message;
+        expect(message).toContain(`entites = [${entity.entityId as string}] are duplicate`);
       });
 
       it('should return 409 if one of the entity already exsits in the db', async function () {
