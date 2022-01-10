@@ -9,7 +9,9 @@ import { EntityStatus, GeometryType, Status } from '../../../src/common/enums';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { FileRequestSender } from '../file/helpers/requestSender';
 import { EntityRequestSender } from '../entity/helpers/requestSender';
+import { ChangesetRequestSender } from '../changeset/helpers/requestSender';
 import { createStringifiedFakeEntity } from '../entity/helpers/generators';
+import { createStringifiedFakeChangeset } from '../changeset/helpers/generators';
 import { createStringifiedFakeSync } from './helpers/generators';
 import { SyncRequestSender } from './helpers/requestSender';
 
@@ -17,6 +19,7 @@ describe('sync', function () {
   let syncRequestSender: SyncRequestSender;
   let fileRequestSender: FileRequestSender;
   let entityRequestSender: EntityRequestSender;
+  let changesetRequestSender: ChangesetRequestSender;
   let mockSyncRequestSender: SyncRequestSender;
 
   beforeAll(async function () {
@@ -24,6 +27,7 @@ describe('sync', function () {
     syncRequestSender = new SyncRequestSender(app);
     fileRequestSender = new FileRequestSender(app);
     entityRequestSender = new EntityRequestSender(app);
+    changesetRequestSender = new ChangesetRequestSender(app);
   }, BEFORE_ALL_TIMEOUT);
 
   afterAll(async function () {
@@ -96,37 +100,236 @@ describe('sync', function () {
         expect(response.status).toBe(httpStatus.OK);
         expect(response.body).toMatchObject(laterSync);
       });
+
+      it('should return 200 status code and the latest sync even if it has a rerun', async function () {
+        const sync = createStringifiedFakeSync({
+          isFull: false,
+        });
+        const { id, ...syncBody } = sync;
+
+        expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.patchSync(id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+
+        const rerunSyncresponse = await syncRequestSender.rerunSync(id as string);
+        expect(rerunSyncresponse.status).toBe(httpStatus.CREATED);
+        expect(rerunSyncresponse.body).toMatchObject({ ...syncBody, isRerun: true, status: Status.IN_PROGRESS });
+
+        const response = await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.body).toMatchObject({ ...sync, status: Status.FAILED });
+      });
     });
   });
 
   describe('POST /sync/:syncId/rerun', function () {
     it(
-      'rerun',
+      'should complete a sync on the first rerun',
       async function () {
-        const originalSync = createStringifiedFakeSync({ isFull: false });
+        // create the original sync
+        const originalSync = createStringifiedFakeSync({ isFull: false, totalFiles: 2 });
         expect(await syncRequestSender.postSync(originalSync)).toHaveStatus(StatusCodes.CREATED);
         const { id: originalSyncId, ...syncBody } = originalSync;
 
+        // create file and changeset
         const file1 = createStringifiedFakeFile({ totalEntities: 2 });
         expect(await fileRequestSender.postFile(originalSyncId as string, file1)).toHaveStatus(StatusCodes.CREATED);
+        const changeset1 = createStringifiedFakeChangeset();
+        expect(await changesetRequestSender.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
 
-        const fileEntities = [createStringifiedFakeEntity({ status: EntityStatus.COMPLETED }), createStringifiedFakeEntity()];
-        expect(await entityRequestSender.postEntityBulk(file1.fileId as string, fileEntities)).toHaveStatus(StatusCodes.CREATED);
+        // post entities of the file and changeset, one entitiy failed
+        const file1Entities = [
+          createStringifiedFakeEntity({ status: EntityStatus.COMPLETED, changesetId: changeset1.changesetId }),
+          createStringifiedFakeEntity({ status: EntityStatus.FAILED }),
+        ];
+        expect(await entityRequestSender.postEntityBulk(file1.fileId as string, file1Entities)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.patchChangesetEntities(changeset1.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSender.putChangesets([changeset1.changesetId as string])).toHaveStatus(StatusCodes.OK);
 
+        // validate original sync is still in progress
+        expect(await syncRequestSender.getLatestSync(originalSync.layerId as number, originalSync.geometryType as GeometryType)).toHaveProperty(
+          'body.status',
+          Status.IN_PROGRESS
+        );
+
+        // mark the original sync as failure and rerun
         expect(await syncRequestSender.patchSync(originalSyncId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
         const response = await syncRequestSender.rerunSync(originalSyncId as string);
-
         expect(response.status).toBe(httpStatus.CREATED);
         expect(response.body).toMatchObject({ ...syncBody, isRerun: true, status: Status.IN_PROGRESS });
 
+        // create another changeset
+        const changeset2 = createStringifiedFakeChangeset();
+        expect(await changesetRequestSender.postChangeset(changeset2)).toHaveStatus(StatusCodes.CREATED);
+
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        const rerun1Id = response.body.id as string;
-        expect(await fileRequestSender.postFile(rerun1Id, file1)).toHaveStatus(StatusCodes.CREATED);
+        const rerunId = response.body.id as string;
 
+        // post file1 again for the rerun
+        expect(await fileRequestSender.postFile(rerunId, file1)).toHaveStatus(StatusCodes.CREATED);
+
+        // set all file1 entities as completed and on the new changeset
+        const file1EntitiesChangeset2 = file1Entities.map((entity) => {
+          return {
+            ...entity,
+            status: EntityStatus.COMPLETED,
+            changesetId: changeset2.changesetId,
+          };
+        });
+        expect(await entityRequestSender.postEntityBulk(file1.fileId as string, file1EntitiesChangeset2)).toHaveStatus(StatusCodes.CREATED);
+
+        // post file2 and its entities
         const file2 = createStringifiedFakeFile({ totalEntities: 1 });
-        expect(await fileRequestSender.postFile(rerun1Id, file2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await fileRequestSender.postFile(rerunId, file2)).toHaveStatus(StatusCodes.CREATED);
+        const file2Entities = [createStringifiedFakeEntity({ status: EntityStatus.COMPLETED, changesetId: changeset2.changesetId })];
+        expect(await entityRequestSender.postEntityBulk(file2.fileId as string, file2Entities)).toHaveStatus(StatusCodes.CREATED);
 
-        expect(await entityRequestSender.postEntityBulk(file1.fileId as string, fileEntities)).toHaveStatus(StatusCodes.CREATED);
+        // close the changeset
+        expect(await changesetRequestSender.patchChangesetEntities(changeset1.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        const putChangesetsResponse = await changesetRequestSender.putChangesets([changeset2.changesetId as string]);
+        expect(putChangesetsResponse).toHaveStatus(StatusCodes.OK);
+        expect(putChangesetsResponse.body).toMatchObject([originalSyncId]);
+
+        const latestSyncResponse = await syncRequestSender.getLatestSync(originalSync.layerId as number, originalSync.geometryType as GeometryType);
+        expect(latestSyncResponse.status).toBe(httpStatus.OK);
+        expect(latestSyncResponse.body).toMatchObject({ ...originalSync, status: Status.COMPLETED });
+      },
+      FLOW_TEST_TIMEOUT
+    );
+
+    it(
+      'should complete a sync on the second rerun',
+      async function () {
+        // create the original sync
+        const originalSync = createStringifiedFakeSync({ isFull: false, totalFiles: 4 });
+        expect(await syncRequestSender.postSync(originalSync)).toHaveStatus(StatusCodes.CREATED);
+        const { id: originalSyncId, ...syncBody } = originalSync;
+
+        // create files and changeset
+        const file1 = createStringifiedFakeFile({ totalEntities: 3 });
+        expect(await fileRequestSender.postFile(originalSyncId as string, file1)).toHaveStatus(StatusCodes.CREATED);
+        const file2 = createStringifiedFakeFile({ totalEntities: 2 });
+        expect(await fileRequestSender.postFile(originalSyncId as string, file2)).toHaveStatus(StatusCodes.CREATED);
+        const changeset1 = createStringifiedFakeChangeset();
+        expect(await changesetRequestSender.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
+
+        const entity1 = createStringifiedFakeEntity({ status: EntityStatus.COMPLETED, changesetId: changeset1.changesetId });
+        const entity2 = createStringifiedFakeEntity({ status: EntityStatus.IN_PROGRESS });
+        const entity3 = createStringifiedFakeEntity({ status: EntityStatus.IN_PROGRESS });
+        expect(await entityRequestSender.postEntityBulk(file1.fileId as string, [entity1, entity2, entity3])).toHaveStatus(StatusCodes.CREATED);
+        expect(
+          await entityRequestSender.patchEntity(file1.fileId as string, entity2.entityId as string, {
+            ...entity2,
+            status: EntityStatus.FAILED,
+            failReason: 'some reason',
+          })
+        ).toHaveStatus(StatusCodes.OK);
+
+        const entity4 = createStringifiedFakeEntity({ status: EntityStatus.NOT_SYNCED });
+        expect(await entityRequestSender.postEntityBulk(file2.fileId as string, [entity4])).toHaveStatus(StatusCodes.CREATED);
+
+        expect(await changesetRequestSender.patchChangesetEntities(changeset1.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSender.putChangesets([changeset1.changesetId as string])).toHaveStatus(StatusCodes.OK);
+
+        // validate original sync is still in progress
+        expect(await syncRequestSender.getLatestSync(originalSync.layerId as number, originalSync.geometryType as GeometryType)).toHaveProperty(
+          'body.status',
+          Status.IN_PROGRESS
+        );
+
+        // rerunning the sync while its is still in progress results in a conflict
+        expect(await syncRequestSender.rerunSync(originalSyncId as string)).toHaveStatus(StatusCodes.CONFLICT);
+
+        // mark the original sync as failure and rerun
+        expect(await syncRequestSender.patchSync(originalSyncId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+        let rerunSyncResponse = await syncRequestSender.rerunSync(originalSyncId as string);
+        expect(rerunSyncResponse.status).toBe(httpStatus.CREATED);
+        expect(rerunSyncResponse.body).toMatchObject({ ...syncBody, isRerun: true, status: Status.IN_PROGRESS });
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const firstRerunId = rerunSyncResponse.body.id as string;
+
+        // create another changeset and a files
+        const changeset2 = createStringifiedFakeChangeset();
+        expect(await changesetRequestSender.postChangeset(changeset2)).toHaveStatus(StatusCodes.CREATED);
+        const file3 = createStringifiedFakeFile({ totalEntities: 1 });
+        expect(await fileRequestSender.postFile(firstRerunId, file3)).toHaveStatus(StatusCodes.CREATED);
+        const file4 = createStringifiedFakeFile({ totalEntities: 1 });
+        expect(await fileRequestSender.postFile(firstRerunId, file4)).toHaveStatus(StatusCodes.CREATED);
+
+        // post file1 again for the rerun
+        expect(await fileRequestSender.postFile(firstRerunId, file1)).toHaveStatus(StatusCodes.CREATED);
+
+        // entity1 already completed so it should not affect
+        entity1.status = EntityStatus.COMPLETED;
+        entity1.changesetId = changeset2.changesetId;
+        entity2.status = EntityStatus.COMPLETED;
+        entity2.changesetId = changeset2.changesetId;
+        entity2.failReason = undefined;
+        entity3.status = EntityStatus.FAILED;
+        expect(await entityRequestSender.postEntityBulk(file1.fileId as string, [entity1, entity2, entity3])).toHaveStatus(StatusCodes.CREATED);
+
+        // file2 should already exist without posting it again
+        entity4.status = EntityStatus.COMPLETED;
+        entity4.changesetId = changeset2.changesetId;
+        expect(await entityRequestSender.postEntityBulk(file2.fileId as string, [entity4])).toHaveStatus(StatusCodes.CREATED);
+
+        const entity5 = createStringifiedFakeEntity({ status: EntityStatus.COMPLETED, changesetId: changeset2.changesetId });
+        expect(await entityRequestSender.postEntityBulk(file4.fileId as string, [entity5])).toHaveStatus(StatusCodes.CREATED);
+
+        // close the changeset
+        expect(await changesetRequestSender.patchChangesetEntities(changeset2.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSender.putChangesets([changeset2.changesetId as string])).toHaveStatus(StatusCodes.OK);
+
+        // validate original sync is still failed
+        expect(await syncRequestSender.getLatestSync(originalSync.layerId as number, originalSync.geometryType as GeometryType)).toHaveProperty(
+          'body.status',
+          Status.FAILED
+        );
+
+        // rerunning the sync while rerun is still in progress results in a conflict
+        expect(await syncRequestSender.rerunSync(originalSyncId as string)).toHaveStatus(StatusCodes.CONFLICT);
+
+        // mark the first rerun sync as failure and rerun again
+        expect(await syncRequestSender.patchSync(firstRerunId, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+        rerunSyncResponse = await syncRequestSender.rerunSync(originalSyncId as string);
+        expect(rerunSyncResponse.status).toBe(httpStatus.CREATED);
+        expect(rerunSyncResponse.body).toMatchObject({ ...syncBody, isRerun: true, status: Status.IN_PROGRESS });
+
+        // create another changeset
+        const changeset3 = createStringifiedFakeChangeset();
+        expect(await changesetRequestSender.postChangeset(changeset3)).toHaveStatus(StatusCodes.CREATED);
+
+        // entitiy1 already completed so it should not affect
+        entity1.status = EntityStatus.IN_PROGRESS;
+        entity1.changesetId = undefined;
+        const entity6 = createStringifiedFakeEntity({ status: EntityStatus.COMPLETED, changesetId: changeset3.changesetId });
+        const entity7 = createStringifiedFakeEntity({ status: EntityStatus.IN_PROGRESS });
+
+        expect(await entityRequestSender.postEntityBulk(file1.fileId as string, [entity1, entity3])).toHaveStatus(StatusCodes.CREATED);
+        expect(
+          await entityRequestSender.patchEntity(file1.fileId as string, entity3.entityId as string, { ...entity3, status: EntityStatus.NOT_SYNCED })
+        ).toHaveStatus(StatusCodes.OK);
+        expect(await entityRequestSender.postEntityBulk(file2.fileId as string, [entity6])).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntityBulk(file3.fileId as string, [entity7])).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.patchChangesetEntities(changeset3.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSender.putChangesets([changeset3.changesetId as string])).toHaveStatus(StatusCodes.OK);
+
+        const patchEntityResponse = await entityRequestSender.patchEntity(file3.fileId as string, entity7.entityId as string, {
+          ...entity3,
+          status: EntityStatus.NOT_SYNCED,
+        });
+
+        expect(patchEntityResponse).toHaveStatus(StatusCodes.OK);
+        expect(patchEntityResponse.body).toMatchObject([originalSyncId]);
+
+        // validate latest sync is the original as completed
+        const latestSyncResponse = await syncRequestSender.getLatestSync(originalSync.layerId as number, originalSync.geometryType as GeometryType);
+        expect(latestSyncResponse.status).toBe(httpStatus.OK);
+        expect(latestSyncResponse.body).toMatchObject({ ...originalSync, status: Status.COMPLETED });
+
+        // rerunning the sync when its completed will result in a conflict
+        expect(await syncRequestSender.rerunSync(originalSyncId as string)).toHaveStatus(StatusCodes.CONFLICT);
       },
       FLOW_TEST_TIMEOUT
     );

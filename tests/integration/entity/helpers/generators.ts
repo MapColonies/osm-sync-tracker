@@ -11,6 +11,7 @@ export const createStringifiedFakeEntity = (params: FakeStringifiedFileParams = 
   return {
     entityId: params.entityId ?? `{${faker.datatype.uuid()}}`,
     fileId: params.fileId ?? undefined,
+    changesetId: params.changesetId ?? undefined,
     action: params.action ?? ActionType.CREATE,
     status: params.status ?? EntityStatus.IN_PROGRESS,
   };

@@ -7,6 +7,8 @@ import { isTransactionFailure, UpdateResult } from '../../../common/db';
 import { IApplication } from '../../../common/interfaces';
 import { File } from '../../models/file';
 import { IFileRepository } from '../fileRepository';
+import { SyncDb } from '../../../sync/DAL/typeorm/sync';
+import { Status } from '../../../common/enums';
 import { File as FileDb } from './file';
 
 interface UpdatedId {
@@ -51,6 +53,7 @@ export class FileRepository extends Repository<FileDb> implements IFileRepositor
         if (completedFilesResult[1] !== 0) {
           const completedSyncsResult = await this.updateSyncAsCompleted(fileId, schema, transactionalEntityManager);
           completedSyncIds = completedSyncsResult[0].map((sync) => sync.id);
+          await Promise.all(completedSyncIds.map(async (syncId) => this.updateLastRerunAsCompleted(syncId, transactionalEntityManager)));
         }
         return completedSyncIds;
       });
@@ -84,5 +87,14 @@ export class FileRepository extends Repository<FileDb> implements IFileRepositor
     RETURNING sync_to_update.id`,
       [fileId]
     )) as UpdateResult<UpdatedId>;
+  }
+
+  private async updateLastRerunAsCompleted(syncId: string, transactionalEntityManager: EntityManager): Promise<void> {
+    const completedSync = await transactionalEntityManager.findOne(SyncDb, { relations: ['reruns'], where: { id: syncId } });
+
+    if (completedSync && completedSync.reruns.length > 0) {
+      const lastRerun = completedSync.reruns.sort((rerunA, rerunB) => rerunA.number - rerunB.number)[completedSync.reruns.length - 1];
+      await transactionalEntityManager.update(SyncDb, { id: lastRerun.rerunId }, { status: Status.COMPLETED, endDate: completedSync.endDate });
+    }
   }
 }

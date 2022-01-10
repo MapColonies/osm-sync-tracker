@@ -94,7 +94,7 @@ describe('EntityManager', () => {
 
   describe('#createEntities', () => {
     it("resolves without errors if all of the entitysId's are not already in use by the db", async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       const file = createFakeFile();
 
       findOneFile.mockResolvedValue(file);
@@ -108,7 +108,7 @@ describe('EntityManager', () => {
     });
 
     it("rejects if one of the entitysId's already exists in the db", async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       const file = createFakeFile();
 
       findOneFile.mockResolvedValue(file);
@@ -121,7 +121,7 @@ describe('EntityManager', () => {
     });
 
     it("rejects if one of the entitysId's is duplicate", async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       entities.push(entities[0]);
       const file = createFakeFile();
 
@@ -134,7 +134,7 @@ describe('EntityManager', () => {
     });
 
     it('rejects if fileId is not exists in the db', async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
 
       findOneFile.mockResolvedValue(undefined);
 
@@ -301,7 +301,7 @@ describe('EntityManager', () => {
 
   describe('#updateEntities', () => {
     it("resolves without errors if all of the entitysId's are not already in use by the db", async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
 
       countEntitiesByIds.mockResolvedValue(entities.length);
       updateEntities.mockResolvedValue(undefined);
@@ -312,7 +312,7 @@ describe('EntityManager', () => {
     });
 
     it('resolves without errors if one of the entities status is not_synced', async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       entities[0].status = EntityStatus.NOT_SYNCED;
 
       countEntitiesByIds.mockResolvedValue(entities.length);
@@ -324,7 +324,7 @@ describe('EntityManager', () => {
     });
 
     it('resolves without errors if one of the entities status is not_synced when retries is configured and failed once', async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       entities[0].status = EntityStatus.NOT_SYNCED;
 
       countEntitiesByIds.mockResolvedValue(entities.length);
@@ -350,7 +350,7 @@ describe('EntityManager', () => {
     });
 
     it("rejects if one of the entitysId's is duplicate", async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       entities.push(entities[0]);
 
       countEntitiesByIds.mockResolvedValue(entities.length);
@@ -362,7 +362,7 @@ describe('EntityManager', () => {
     });
 
     it('rejects if entity id does not exists in the db', async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
 
       countEntitiesByIds.mockResolvedValue(entities.length - 1);
       updateEntities.mockResolvedValue(undefined);
@@ -373,7 +373,7 @@ describe('EntityManager', () => {
     });
 
     it('rejects with transaction failure error if closing the files has failed', async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       entities[0].status = EntityStatus.NOT_SYNCED;
 
       countEntitiesByIds.mockResolvedValue(entities.length);
@@ -399,7 +399,7 @@ describe('EntityManager', () => {
     });
 
     it('rejects with exceeded number of retries error if closing files has failed when retries is configured', async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       entities[0].status = EntityStatus.NOT_SYNCED;
 
       countEntitiesByIds.mockResolvedValue(entities.length);
@@ -426,7 +426,7 @@ describe('EntityManager', () => {
     });
 
     it('rejects without transaction failure error when retries is configured due to another error raising', async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       entities[0].status = EntityStatus.NOT_SYNCED;
 
       countEntitiesByIds.mockResolvedValue(entities.length);

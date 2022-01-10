@@ -16,12 +16,13 @@ describe('SyncManager', () => {
 
   const createRerun = jest.fn();
   const findOneRerun = jest.fn();
+  const findReruns = jest.fn();
 
   beforeEach(() => {
     jest.resetAllMocks();
 
     const syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithReruns };
-    const rerunRepository = { createRerun, findOneRerun };
+    const rerunRepository = { createRerun, findOneRerun, findReruns };
     syncManager = new SyncManager(syncRepository, rerunRepository, jsLogger({ enabled: false }));
   });
 

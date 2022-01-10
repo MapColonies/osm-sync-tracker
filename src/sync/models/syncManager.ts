@@ -58,13 +58,14 @@ export class SyncManager {
       throw new SyncNotFoundError(`sync = ${syncId} not found`);
     }
 
-    if (referenceSync.isFull || referenceSync.isRerun) {
-      throw new InvalidSyncForRerunError(`could not rerun sync = ${syncId} due to it not being a diff original run sync`);
+    if (referenceSync.isFull || referenceSync.isRerun || referenceSync.status != Status.FAILED) {
+      throw new InvalidSyncForRerunError(`could not rerun sync = ${syncId} due to it not being a failed diff original run sync`);
     }
 
     let rerunNumber = 1;
-    if (referenceSync.reruns.length > 0) {
-      const lastRerun = referenceSync.reruns.sort((rerunA, rerunB) => rerunA.number - rerunB.number)[0];
+    const numberOfReruns = referenceSync.reruns.length;
+    if (numberOfReruns > 0) {
+      const lastRerun = referenceSync.reruns.sort((rerunA, rerunB) => rerunA.number - rerunB.number)[numberOfReruns - 1];
       const lastRerunSync = await this.syncRepository.findOneSync(lastRerun.rerunId);
       if (lastRerunSync && lastRerunSync.status != Status.FAILED) {
         throw new InvalidSyncForRerunError(

@@ -75,7 +75,7 @@ describe('FileManager', () => {
 
   describe('#createFiles', () => {
     it("resolves without errors if all of the filesId's are not already in use by the db", async () => {
-      const files = createFakeFiles(faker.datatype.number());
+      const files = createFakeFiles();
       const sync = createFakeSync();
 
       findOneSync.mockResolvedValue(sync);
@@ -88,7 +88,7 @@ describe('FileManager', () => {
     });
 
     it("rejects if one of the filesId's already exists in the db", async () => {
-      const files = createFakeFiles(faker.datatype.number());
+      const files = createFakeFiles();
       const sync = createFakeSync();
 
       findOneSync.mockResolvedValue(sync);
@@ -100,7 +100,7 @@ describe('FileManager', () => {
     });
 
     it("rejects if one of the filesId's is duplicate", async () => {
-      const files = createFakeFiles(faker.datatype.number());
+      const files = createFakeFiles();
       files.push(files[0]);
       const sync = createFakeSync();
 
@@ -113,7 +113,7 @@ describe('FileManager', () => {
     });
 
     it('rejects if syncId is not exists in the db', async () => {
-      const files = createFakeFiles(faker.datatype.number());
+      const files = createFakeFiles();
 
       findOneSync.mockResolvedValue(undefined);
 

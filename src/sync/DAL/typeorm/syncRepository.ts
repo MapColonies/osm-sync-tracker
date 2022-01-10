@@ -7,7 +7,7 @@ import { SyncDb as DbSync } from './sync';
 @EntityRepository(DbSync)
 export class SyncRepository extends Repository<DbSync> implements ISyncRepository {
   public async getLatestSync(layerId: number, geometryType: GeometryType): Promise<Sync | undefined> {
-    const latestSync = await this.find({ where: { layerId, geometryType }, order: { dumpDate: 'DESC' }, take: 1 });
+    const latestSync = await this.find({ where: { layerId, geometryType, isRerun: false }, order: { dumpDate: 'DESC' }, take: 1 });
     if (latestSync.length !== 1) {
       return undefined;
     }
