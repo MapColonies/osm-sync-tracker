@@ -26,8 +26,8 @@ export class Entity implements IEntity {
   @Column({ type: 'enum', enum: EntityStatus, default: EntityStatus.IN_PROGRESS })
   public status!: EntityStatus;
 
-  @Column({ type: 'enum', enum: ActionType })
-  public action!: ActionType;
+  @Column({ type: 'enum', enum: ActionType, nullable: true })
+  public action!: ActionType | null;
 
   @Column({ name: 'fail_reason', type: 'text', nullable: true })
   public failReason!: string | null;

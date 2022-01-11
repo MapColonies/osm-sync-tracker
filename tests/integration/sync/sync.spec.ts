@@ -3,7 +3,7 @@ import { container } from 'tsyringe';
 import faker from 'faker';
 import { Connection, QueryFailedError } from 'typeorm';
 import { getApp } from '../../../src/app';
-import { BEFORE_ALL_TIMEOUT, FLOW_TEST_TIMEOUT, getBaseRegisterOptions } from '../helpers';
+import { BEFORE_ALL_TIMEOUT, RERUN_TEST_TIMEOUT, getBaseRegisterOptions } from '../helpers';
 import { syncRepositorySymbol } from '../../../src/sync/DAL/syncRepository';
 import { EntityStatus, GeometryType, Status } from '../../../src/common/enums';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
@@ -194,7 +194,7 @@ describe('sync', function () {
         expect(latestSyncResponse.status).toBe(httpStatus.OK);
         expect(latestSyncResponse.body).toMatchObject({ ...originalSync, status: Status.COMPLETED });
       },
-      FLOW_TEST_TIMEOUT
+      RERUN_TEST_TIMEOUT
     );
 
     it(
@@ -331,7 +331,7 @@ describe('sync', function () {
         // rerunning the sync when its completed will result in a conflict
         expect(await syncRequestSender.rerunSync(originalSyncId as string)).toHaveStatus(StatusCodes.CONFLICT);
       },
-      FLOW_TEST_TIMEOUT
+      RERUN_TEST_TIMEOUT
     );
   });
 

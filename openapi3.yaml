@@ -156,16 +156,21 @@ paths:
       summary: rerun a sync
       parameters:
         - $ref: '#/components/parameters/syncId'
+      requestBody:
+        description: the rerun id to be created
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rerunId:
+                  $ref: '#/components/schemas/uniqueId'
       operationId: rerunSync
       tags:
         - sync
       responses:
         '201':
-          description: the rerun sync of the provided sync id
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/sync'
+          description: created
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':

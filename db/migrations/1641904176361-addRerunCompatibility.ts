@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class addRerunCompatibility1641298196346 implements MigrationInterface {
-  name = 'addRerunCompatibility1641298196346';
+export class addRerunCompatibility1641904176361 implements MigrationInterface {
+  name = 'addRerunCompatibility1641904176361';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -12,7 +12,7 @@ export class addRerunCompatibility1641298196346 implements MigrationInterface {
     );
     await queryRunner.query(`CREATE TYPE "osm_sync_tracker"."entity_rerun_action_enum" AS ENUM('create', 'modify', 'delete')`);
     await queryRunner.query(
-      `CREATE TABLE "osm_sync_tracker"."entity_rerun" ("entity_id" character varying NOT NULL, "file_id" uuid NOT NULL, "sync_id" uuid NOT NULL, "changeset_id" uuid, "status" "osm_sync_tracker"."entity_rerun_status_enum" NOT NULL, "action" "osm_sync_tracker"."entity_rerun_action_enum" NOT NULL, "fail_reason" text, CONSTRAINT "PK_b6deb3c1e2ca280a4e40c102f77" PRIMARY KEY ("entity_id", "file_id", "sync_id"))`
+      `CREATE TABLE "osm_sync_tracker"."entity_rerun" ("entity_id" character varying NOT NULL, "file_id" uuid NOT NULL, "sync_id" uuid NOT NULL, "changeset_id" uuid, "status" "osm_sync_tracker"."entity_rerun_status_enum" NOT NULL, "action" "osm_sync_tracker"."entity_rerun_action_enum", "fail_reason" text, CONSTRAINT "PK_b6deb3c1e2ca280a4e40c102f77" PRIMARY KEY ("entity_id", "file_id", "sync_id"))`
     );
     await queryRunner.query(`ALTER TABLE "osm_sync_tracker"."sync" ADD "is_rerun" boolean NOT NULL`);
     await queryRunner.query(`ALTER TYPE "osm_sync_tracker"."entity_status_enum" RENAME TO "entity_status_enum_old"`);

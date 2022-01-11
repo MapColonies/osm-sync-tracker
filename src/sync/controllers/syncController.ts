@@ -13,7 +13,7 @@ import { GeometryType } from '../../common/enums';
 type GetLatestSyncHandler = RequestHandler<undefined, Sync, undefined, { layerId: number; geometryType: GeometryType }>;
 type PostSyncHandler = RequestHandler<undefined, string, Sync>;
 type PatchSyncHandler = RequestHandler<{ syncId: string }, string, SyncUpdate>;
-type RerunSyncHandler = RequestHandler<{ syncId: string }, Sync>;
+type RerunSyncHandler = RequestHandler<{ syncId: string }, string, { rerunId: string }>;
 
 const txtplain = mime.contentType('text/plain') as string;
 
@@ -60,8 +60,8 @@ export class SyncController {
 
   public rerunSync: RerunSyncHandler = async (req, res, next) => {
     try {
-      const rerunSync = await this.manager.rerunSync(req.params.syncId);
-      return res.status(httpStatus.CREATED).json(rerunSync);
+      await this.manager.rerunSync(req.params.syncId, req.body.rerunId);
+      return res.status(httpStatus.CREATED).type(txtplain).send(httpStatus.getStatusText(httpStatus.OK));
     } catch (error) {
       if (error instanceof SyncNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;

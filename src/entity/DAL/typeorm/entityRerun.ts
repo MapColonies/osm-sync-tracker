@@ -29,8 +29,8 @@ export class EntityRerun implements IEntityRerun {
   @Column({ type: 'enum', enum: EntityStatus })
   public status!: EntityStatus;
 
-  @Column({ type: 'enum', enum: ActionType })
-  public action!: ActionType;
+  @Column({ type: 'enum', enum: ActionType, nullable: true })
+  public action!: ActionType | null;
 
   @Column({ name: 'fail_reason', type: 'text', nullable: true })
   public failReason!: string | null;

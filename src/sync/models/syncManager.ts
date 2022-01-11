@@ -52,7 +52,7 @@ export class SyncManager {
     await this.syncRepository.updateSync(syncId, updatedEntity);
   }
 
-  public async rerunSync(syncId: string): Promise<Sync> {
+  public async rerunSync(syncId: string, rerunId: string): Promise<void> {
     const referenceSync = await this.syncRepository.findOneSyncWithReruns(syncId);
     if (!referenceSync) {
       throw new SyncNotFoundError(`sync = ${syncId} not found`);
@@ -74,6 +74,6 @@ export class SyncManager {
       }
       rerunNumber = lastRerun.number + 1;
     }
-    return this.rerunRepository.createRerun(referenceSync, rerunNumber);
+    return this.rerunRepository.createRerun(referenceSync, rerunId, rerunNumber);
   }
 }

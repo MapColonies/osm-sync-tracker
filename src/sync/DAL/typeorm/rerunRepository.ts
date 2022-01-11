@@ -1,5 +1,4 @@
 import { EntityManager, EntityRepository, Repository, In } from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
 import lodash from 'lodash';
 import { Status, EntityStatus } from '../../../common/enums';
 import { Sync } from '../../models/sync';
@@ -19,8 +18,8 @@ export class RerunRepository extends Repository<Rerun> implements IRerunReposito
     return this.find({ where: filter });
   }
 
-  public async createRerun(referenceSync: Sync, rerunNumber: number): Promise<SyncDb> {
-    const rerunSyncId = uuidv4();
+  // TODO: refactor
+  public async createRerun(referenceSync: Sync, rerunSyncId: string, rerunNumber: number): Promise<void> {
     // TODO: overide startDate
     const { id: referenceSyncId } = referenceSync;
     const sync: Sync = { ...referenceSync, id: rerunSyncId, isRerun: true, status: Status.IN_PROGRESS, endDate: null };
@@ -81,9 +80,8 @@ export class RerunRepository extends Repository<Rerun> implements IRerunReposito
       // create a rerun-entity
       await transactionalEntityManager.insert(Rerun, rerun);
 
-      // create the rerun sync-entity and return it
-      const insertResult = await transactionalEntityManager.insert(SyncDb, sync);
-      return (transactionalEntityManager.findOne(SyncDb, insertResult.identifiers[0]) as unknown) as SyncDb;
+      // create the rerun sync-entity
+      await transactionalEntityManager.insert(SyncDb, sync);
     });
   }
 }

@@ -13,7 +13,7 @@ export interface Entity {
 
   status: EntityStatus;
 
-  action: ActionType;
+  action: ActionType | null;
 
   failReason?: string | null;
 }

@@ -4,7 +4,7 @@ import { Rerun } from '../models/rerun';
 export const rerunRepositorySymbol = Symbol('RerunRepository');
 
 export interface IRerunRepository {
-  createRerun: (referenceSync: Sync, rerunNumber: number) => Promise<Sync>;
+  createRerun: (referenceSync: Sync, rerunId: string, rerunNumber: number) => Promise<void>;
 
   findOneRerun: (rerunId: string) => Promise<Rerun | undefined>;
 
