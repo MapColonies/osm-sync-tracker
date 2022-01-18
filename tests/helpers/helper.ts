@@ -4,6 +4,7 @@ import { Sync } from '../../src/sync/models/sync';
 import { File } from '../../src/file/models/file';
 import { Entity } from '../../src/entity/models/entity';
 import { Changeset } from '../../src/changeset/models/changeset';
+import { Rerun } from '../../src/sync/models/rerun';
 
 const MAX_QUANTITY = 1000;
 const MIN_QUANTITY = 1;
@@ -38,6 +39,16 @@ export const createMultipleSyncData = (amount: number): Sync[] => {
     data.push(createFakeSync());
   }
   return data;
+};
+
+export const createFakeRerun = (): Rerun => {
+  return {
+    referenceId: faker.datatype.uuid(),
+
+    rerunId: faker.datatype.uuid(),
+
+    number: faker.datatype.number(),
+  };
 };
 
 export const createFakeFile = (): File => {

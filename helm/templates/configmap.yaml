@@ -30,6 +30,7 @@ data:
   {{- with .Values.dbConfig }}
   DB_HOST: {{ .host }}
   DB_NAME: {{ .database }}
+  DB_PORT: {{ .port | default 5432 | quote }}
   {{- end -}}
   {{- if .Values.dbConfig.sslAuth.enabled }}
   DB_ENABLE_SSL_AUTH: "true"

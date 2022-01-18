@@ -7,13 +7,19 @@ import { SERVICES } from '../../common/constants';
 import { Sync, SyncUpdate } from '../models/sync';
 import { SyncManager } from '../models/syncManager';
 import { HttpError } from '../../common/errors';
-import { FullSyncAlreadyExistsError, InvalidSyncForRerunError, SyncAlreadyExistsError, SyncNotFoundError } from '../models/errors';
+import {
+  FullSyncAlreadyExistsError,
+  InvalidSyncForRerunError,
+  RerunAlreadyExistsError,
+  SyncAlreadyExistsError,
+  SyncNotFoundError,
+} from '../models/errors';
 import { GeometryType } from '../../common/enums';
 
 type GetLatestSyncHandler = RequestHandler<undefined, Sync, undefined, { layerId: number; geometryType: GeometryType }>;
 type PostSyncHandler = RequestHandler<undefined, string, Sync>;
 type PatchSyncHandler = RequestHandler<{ syncId: string }, string, SyncUpdate>;
-type RerunSyncHandler = RequestHandler<{ syncId: string }, string, { rerunId: string }>;
+type RerunSyncHandler = RequestHandler<{ syncId: string }, string, { rerunId: string; startDate: Date }>;
 
 const txtplain = mime.contentType('text/plain') as string;
 
@@ -60,13 +66,13 @@ export class SyncController {
 
   public rerunSync: RerunSyncHandler = async (req, res, next) => {
     try {
-      await this.manager.rerunSync(req.params.syncId, req.body.rerunId);
-      return res.status(httpStatus.CREATED).type(txtplain).send(httpStatus.getStatusText(httpStatus.OK));
+      await this.manager.rerunSync(req.params.syncId, req.body.rerunId, req.body.startDate);
+      return res.status(httpStatus.CREATED).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
       if (error instanceof SyncNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
-      if (error instanceof InvalidSyncForRerunError) {
+      if (error instanceof RerunAlreadyExistsError || error instanceof InvalidSyncForRerunError) {
         (error as HttpError).status = StatusCodes.CONFLICT;
       }
       return next(error);

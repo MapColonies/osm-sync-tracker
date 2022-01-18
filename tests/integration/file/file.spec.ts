@@ -3,11 +3,12 @@ import { container } from 'tsyringe';
 import faker from 'faker';
 import { Connection, QueryFailedError } from 'typeorm';
 import { getApp } from '../../../src/app';
-import { createStringifiedFakeSync } from '../sync/helpers/generators';
+import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from '../sync/helpers/generators';
 import { StringifiedSync } from '../sync/types';
 import { FileRequestSender } from '../file/helpers/requestSender';
 import { SyncRequestSender } from '../sync/helpers/requestSender';
-import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions } from '../helpers';
+import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions, RERUN_TEST_TIMEOUT } from '../helpers';
+import { Status } from '../../../src/common/enums';
 import { fileRepositorySymbol } from '../../../src/file/DAL/fileRepository';
 import { createStringifiedFakeFile } from './helpers/generators';
 
@@ -42,7 +43,47 @@ describe('file', function () {
         expect(response.status).toBe(httpStatus.CREATED);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
       });
+
+      it(
+        'should return 201 status code for creating a file on a rerun while existing on its original',
+        async function () {
+          const syncForRerun = createStringifiedFakeSync({ isFull: false });
+          const file = createStringifiedFakeFile();
+          const rerunCreateBody = createStringifiedFakeRerunCreateBody();
+
+          expect(await syncRequestSender.postSync(syncForRerun)).toHaveStatus(StatusCodes.CREATED);
+          expect(await fileRequestSender.postFile(syncForRerun.id as string, file)).toHaveStatus(StatusCodes.CREATED);
+          expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+          expect(await syncRequestSender.rerunSync(syncForRerun.id as string, rerunCreateBody)).toHaveStatus(StatusCodes.CREATED);
+
+          const response = await fileRequestSender.postFile(rerunCreateBody.rerunId as string, file);
+
+          expect(response).toHaveProperty('status', StatusCodes.CREATED);
+          expect(response.text).toBe(httpStatus.getStatusText(StatusCodes.CREATED));
+        },
+        RERUN_TEST_TIMEOUT
+      );
+
+      it(
+        'should return 201 status code for creating a file on a rerun while not existing on its original',
+        async function () {
+          const syncForRerun = createStringifiedFakeSync({ isFull: false });
+          const file = createStringifiedFakeFile();
+          const rerunCreateBody = createStringifiedFakeRerunCreateBody();
+
+          expect(await syncRequestSender.postSync(syncForRerun)).toHaveStatus(StatusCodes.CREATED);
+          expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+          expect(await syncRequestSender.rerunSync(syncForRerun.id as string, rerunCreateBody)).toHaveStatus(StatusCodes.CREATED);
+
+          const response = await fileRequestSender.postFile(rerunCreateBody.rerunId as string, file);
+
+          expect(response).toHaveProperty('status', StatusCodes.CREATED);
+          expect(response.text).toBe(httpStatus.getStatusText(StatusCodes.CREATED));
+        },
+        RERUN_TEST_TIMEOUT
+      );
     });
+
     describe('POST /sync/:syncId/file/_bulk', function () {
       it('should return 200 status code and OK body', async function () {
         const response = await fileRequestSender.postFileBulk(sync.id as string, [createStringifiedFakeFile(), createStringifiedFakeFile()]);
@@ -89,6 +130,48 @@ describe('file', function () {
 
         expect(response).toHaveProperty('status', httpStatus.CONFLICT);
       });
+
+      it(
+        'should return 409 if on a rerun a file has conflicting sync id with already existing file',
+        async function () {
+          const sync = createStringifiedFakeSync();
+          const syncForRerun = createStringifiedFakeSync({ isFull: false });
+          const file = createStringifiedFakeFile();
+          const rerunCreateBody = createStringifiedFakeRerunCreateBody();
+
+          expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
+          expect(await fileRequestSender.postFile(sync.id as string, file)).toHaveStatus(StatusCodes.CREATED);
+          expect(await syncRequestSender.postSync(syncForRerun)).toHaveStatus(StatusCodes.CREATED);
+          expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+          expect(await syncRequestSender.rerunSync(syncForRerun.id as string, rerunCreateBody)).toHaveStatus(StatusCodes.CREATED);
+
+          const response = await fileRequestSender.postFile(rerunCreateBody.rerunId as string, file);
+
+          expect(response).toHaveProperty('status', StatusCodes.CONFLICT);
+          expect(response.body).toHaveProperty('message', `rerun file = ${file.fileId as string} conflicting sync id`);
+        },
+        RERUN_TEST_TIMEOUT
+      );
+
+      it(
+        'should return 409 if on a rerun a file has conflicting total entities value with already existing file',
+        async function () {
+          const syncForRerun = createStringifiedFakeSync({ isFull: false });
+          const file = createStringifiedFakeFile();
+          const rerunCreateBody = createStringifiedFakeRerunCreateBody();
+
+          expect(await syncRequestSender.postSync(syncForRerun)).toHaveStatus(StatusCodes.CREATED);
+          expect(await fileRequestSender.postFile(syncForRerun.id as string, file)).toHaveStatus(StatusCodes.CREATED);
+          expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+          expect(await syncRequestSender.rerunSync(syncForRerun.id as string, rerunCreateBody)).toHaveStatus(StatusCodes.CREATED);
+
+          const response = await fileRequestSender.postFile(rerunCreateBody.rerunId as string, { ...file, totalEntities: faker.datatype.number() });
+
+          expect(response).toHaveProperty('status', StatusCodes.CONFLICT);
+          expect(response.body).toHaveProperty('message', `rerun file = ${file.fileId as string} conflicting total entities`);
+        },
+        RERUN_TEST_TIMEOUT
+      );
     });
 
     describe('POST /sync/:syncId/file/_bulk', function () {

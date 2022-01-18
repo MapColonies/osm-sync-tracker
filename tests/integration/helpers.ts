@@ -8,7 +8,7 @@ export const BEFORE_ALL_TIMEOUT = 15000;
 
 export const FLOW_TEST_TIMEOUT = 20000;
 
-export const RERUN_TEST_TIMEOUT = 30000;
+export const RERUN_TEST_TIMEOUT = 60000;
 
 export const DEFAULT_ISOLATION_LEVEL: IsolationLevel = 'SERIALIZABLE';
 

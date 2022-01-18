@@ -1,10 +1,10 @@
-import { Sync } from '../models/sync';
 import { Rerun } from '../models/rerun';
+import { Sync } from '../models/sync';
 
 export const rerunRepositorySymbol = Symbol('RerunRepository');
 
 export interface IRerunRepository {
-  createRerun: (referenceSync: Sync, rerunId: string, rerunNumber: number) => Promise<void>;
+  createRerun: (rerun: Rerun, sync: Sync) => Promise<void>;
 
   findOneRerun: (rerunId: string) => Promise<Rerun | undefined>;
 

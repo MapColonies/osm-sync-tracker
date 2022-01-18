@@ -1,6 +1,6 @@
 import * as supertest from 'supertest';
 import { GeometryType } from '../../../../src/common/enums';
-import { StringifiedSync } from '../types';
+import { StringifiedRerun, StringifiedSync } from '../types';
 
 export class SyncRequestSender {
   public constructor(private readonly app: Express.Application) {}
@@ -17,7 +17,7 @@ export class SyncRequestSender {
     return supertest.agent(this.app).get(`/sync/latest`).query({ layerId, geometryType });
   }
 
-  public async rerunSync(syncId: string): Promise<supertest.Response> {
-    return supertest.agent(this.app).post(`/sync/${syncId}/rerun`);
+  public async rerunSync(syncId: string, body: StringifiedRerun): Promise<supertest.Response> {
+    return supertest.agent(this.app).post(`/sync/${syncId}/rerun`).set('Content-Type', 'application/json').send(body);
   }
 }

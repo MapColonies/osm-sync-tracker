@@ -2,7 +2,7 @@ import jsLogger from '@map-colonies/js-logger';
 import faker from 'faker';
 import { QueryFailedError } from 'typeorm';
 import { EntityManager } from '../../../../src/entity/models/entityManager';
-import { createFakeEntities, createFakeEntity, createFakeFile } from '../../../helpers/helper';
+import { createFakeEntities, createFakeEntity, createFakeFile, createFakeRerun } from '../../../helpers/helper';
 import { DuplicateEntityError, EntityAlreadyExistsError } from '../../../../src/entity/models/errors';
 import { EntityNotFoundError } from '../../../../src/entity/models/errors';
 import { FileNotFoundError } from '../../../../src/file/models/errors';
@@ -93,7 +93,7 @@ describe('EntityManager', () => {
   });
 
   describe('#createEntities', () => {
-    it("resolves without errors if all of the entitysId's are not already in use by the db", async () => {
+    it('resolves without errors if all of the entitysIds are not already in use by the db', async () => {
       const entities = createFakeEntities();
       const file = createFakeFile();
 
@@ -105,6 +105,75 @@ describe('EntityManager', () => {
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
 
       await expect(createBulkPromise).resolves.not.toThrow();
+      expect(updateEntities).not.toHaveBeenCalled();
+      expect(createEntities).toHaveBeenCalledWith(entities.map((entity) => ({ ...entity, fileId: file.fileId })));
+    });
+
+    it('resolves without errors if all of the entitysIds are not already in use by the db while having a rerun', async () => {
+      const entities = createFakeEntities();
+      const file = createFakeFile();
+      const rerun = createFakeRerun();
+
+      findOneFile.mockResolvedValue(file);
+      findManyEntites.mockResolvedValue(undefined);
+      findReruns.mockResolvedValue([rerun]);
+
+      const createBulkPromise = entityManager.createEntities(file.fileId, entities);
+
+      await expect(createBulkPromise).resolves.not.toThrow();
+      expect(createEntities).not.toHaveBeenCalled();
+      expect(updateEntities).toHaveBeenCalledWith(entities.map((entity) => ({ ...entity, fileId: file.fileId })));
+    });
+
+    it('resolves without errors if all of the entitysIds are already in use by the db while having a rerun', async () => {
+      const entities = createFakeEntities();
+      const file = createFakeFile();
+      const rerun = createFakeRerun();
+
+      findOneFile.mockResolvedValue(file);
+      findManyEntites.mockResolvedValue(entities);
+      findReruns.mockResolvedValue([rerun]);
+
+      const createBulkPromise = entityManager.createEntities(file.fileId, entities);
+
+      await expect(createBulkPromise).resolves.not.toThrow();
+      expect(createEntities).not.toHaveBeenCalled();
+      expect(updateEntities).toHaveBeenCalledWith([]);
+    });
+
+    it('resolves without errors if some of the entitysIds are already in use by the db while having a rerun', async () => {
+      const entities = createFakeEntities();
+      const entity = createFakeEntity();
+      const file = createFakeFile();
+      const rerun = createFakeRerun();
+
+      findOneFile.mockResolvedValue(file);
+      findManyEntites.mockResolvedValue([entity]);
+      findReruns.mockResolvedValue([rerun]);
+
+      const createBulkPromise = entityManager.createEntities(file.fileId, [...entities, entity]);
+
+      await expect(createBulkPromise).resolves.not.toThrow();
+      expect(createEntities).not.toHaveBeenCalled();
+      expect(updateEntities).toHaveBeenCalledWith(entities.map((entity) => ({ ...entity, fileId: file.fileId })));
+    });
+
+    it('resolves without errors if an already existing entity with inrerun status is created on rerun', async () => {
+      const entity1 = createFakeEntity();
+      const entity2 = createFakeEntity();
+      const entities = [entity1, entity2];
+      const file = createFakeFile();
+      const rerun = createFakeRerun();
+
+      findOneFile.mockResolvedValue(file);
+      findManyEntites.mockResolvedValue([{ entity2, status: EntityStatus.IN_RERUN }]);
+      findReruns.mockResolvedValue([rerun]);
+
+      const createBulkPromise = entityManager.createEntities(file.fileId, entities);
+
+      await expect(createBulkPromise).resolves.not.toThrow();
+      expect(createEntities).not.toHaveBeenCalled();
+      expect(updateEntities).toHaveBeenCalledWith(entities.map((entity) => ({ ...entity, fileId: file.fileId })));
     });
 
     it("rejects if one of the entitysId's already exists in the db", async () => {

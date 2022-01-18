@@ -13,6 +13,11 @@ import { IEntityRepository, entityRepositorySymbol } from '../DAL/entityReposito
 import { Entity, UpdateEntities, UpdateEntity } from './entity';
 import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } from './errors';
 
+export interface EntityBulkCreationResult {
+  created: string[];
+  previouslyCompleted: string[];
+}
+
 @injectable()
 export class EntityManager {
   private readonly dbSchema: string;
@@ -46,7 +51,7 @@ export class EntityManager {
     await this.entityRepository.createEntity(entityWithFileId);
   }
 
-  public async createEntities(fileId: string, entitiesForCreation: Entity[]): Promise<void> {
+  public async createEntities(fileId: string, entitiesForCreation: Entity[]): Promise<EntityBulkCreationResult> {
     const entitiesWithFileId = entitiesForCreation.map((entity) => ({ ...entity, fileId }));
     const fileEntity = await this.fileRepository.findOneFile(fileId);
 
@@ -60,6 +65,7 @@ export class EntityManager {
       throw new DuplicateEntityError(`entites = [${duplicateEntities.toString()}] are duplicate`);
     }
 
+    let result: EntityBulkCreationResult = { created: entityIdsForCreation, previouslyCompleted: [] };
     const existingEntities = await this.entityRepository.findManyEntites(entitiesWithFileId);
 
     const reruns = await this.rerunRepository.findReruns({ referenceId: fileEntity.syncId });
@@ -70,27 +76,32 @@ export class EntityManager {
       }
 
       await this.entityRepository.createEntities(entitiesWithFileId);
-    } else {
-      let entitiesForUpsert = entitiesWithFileId;
-      if (existingEntities) {
-        // non existing are the difference between the entities for creation and the existing entities
-        const nonExistingEntityIds = lodash.difference(
-          entityIdsForCreation,
-          existingEntities.map((existingEntity) => existingEntity.entityId)
-        );
-
-        // entities for update are the existing entities with inrerun status
-        const existingEntityIdsForRerun = existingEntities
-          .filter((entity) => entity.status === EntityStatus.IN_RERUN)
-          .map((entity) => entity.entityId);
-
-        // both arrays are for upsert, filter the relevant entities
-        entitiesForUpsert = entitiesWithFileId.filter((entityForCreation) =>
-          [...nonExistingEntityIds, ...existingEntityIdsForRerun].includes(entityForCreation.entityId)
-        );
-      }
-      await this.entityRepository.updateEntities(entitiesForUpsert);
+      return result;
     }
+
+    let entitiesForUpsert = entitiesWithFileId;
+    if (existingEntities) {
+      // non existing are the difference between the entities for creation and the existing entities
+      const nonExistingEntityIds = lodash.difference(
+        entityIdsForCreation,
+        existingEntities.map((existingEntity) => existingEntity.entityId)
+      );
+
+      // entities for update are the existing entities with inrerun status
+      const existingEntityIdsForRerun = existingEntities.filter((entity) => entity.status === EntityStatus.IN_RERUN).map((entity) => entity.entityId);
+
+      // both arrays are for upsert, filter the relevant entities
+      entitiesForUpsert = entitiesWithFileId.filter((entityForCreation) =>
+        [...nonExistingEntityIds, ...existingEntityIdsForRerun].includes(entityForCreation.entityId)
+      );
+
+      // previously completed are the difference between the payload and the ones for upsert
+      const entitiesForUpsertIds = entitiesForUpsert.map((entityForUpsert) => entityForUpsert.entityId);
+      const previouslyCompletedEntities = lodash.difference(entityIdsForCreation, entitiesForUpsertIds);
+      result = { created: entitiesForUpsertIds, previouslyCompleted: previouslyCompletedEntities };
+    }
+    await this.entityRepository.updateEntities(entitiesForUpsert);
+    return result;
   }
 
   public async updateEntity(fileId: string, entityId: string, entity: UpdateEntity): Promise<string[]> {

@@ -2,21 +2,22 @@ import faker from 'faker';
 import { container } from 'tsyringe';
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { Connection, QueryFailedError } from 'typeorm';
-import { createStringifiedFakeSync } from '../sync/helpers/generators';
+import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from '../sync/helpers/generators';
 import { StringifiedSync } from '../sync/types';
 import { SyncRequestSender } from '../sync/helpers/requestSender';
 import { FileRequestSender } from '../file/helpers/requestSender';
 import { EntityRequestSender } from '../entity/helpers/requestSender';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { StringifiedFile } from '../file/types';
-import { ActionType, EntityStatus } from '../../../src/common/enums';
+import { ActionType, EntityStatus, Status } from '../../../src/common/enums';
 import { getApp } from '../../../src/app';
 import { Entity } from '../../../src/entity/models/entity';
-import { BEFORE_ALL_TIMEOUT, DEFAULT_ISOLATION_LEVEL, getBaseRegisterOptions } from '../helpers';
+import { BEFORE_ALL_TIMEOUT, DEFAULT_ISOLATION_LEVEL, getBaseRegisterOptions, RERUN_TEST_TIMEOUT } from '../helpers';
 import { entityRepositorySymbol } from '../../../src/entity/DAL/entityRepository';
 import { TransactionFailureError } from '../../../src/changeset/models/errors';
 import { createFakeEntity, createFakeFile } from '../../helpers/helper';
 import { fileRepositorySymbol } from '../../../src/file/DAL/fileRepository';
+import { EntityBulkCreationResult } from '../../../src/entity/models/entityManager';
 import { IApplication } from '../../../src/common/interfaces';
 import { SERVICES } from '../../../src/common/constants';
 import { createStringifiedFakeEntity } from './helpers/generators';
@@ -57,17 +58,56 @@ describe('entity', function () {
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
       });
     });
-    describe('POST /file/:fileId/entity/_bulk', function () {
-      it('should return 201 status code and OK body', async function () {
-        const response = await entityRequestSender.postEntityBulk(file.fileId as string, [
-          createStringifiedFakeEntity(),
-          createStringifiedFakeEntity(),
-        ]);
 
-        expect(response.status).toBe(httpStatus.CREATED);
-        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
+    describe('POST /file/:fileId/entity/_bulk', function () {
+      it('should return 201 status code and body containing all entities as created and no previously completed', async function () {
+        const entities = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
+        const expectedBody: EntityBulkCreationResult = { created: entities.map((entity) => entity.entityId as string), previouslyCompleted: [] };
+
+        const response = await entityRequestSender.postEntityBulk(file.fileId as string, entities);
+
+        expect(response.status).toBe(StatusCodes.CREATED);
+        expect(response.body).toHaveProperty('created', expect.arrayContaining(expectedBody.created));
+        expect(response.body).toHaveProperty('previouslyCompleted', expectedBody.previouslyCompleted);
       });
+
+      it(
+        'should return 201 status code and body containing some entities as created and some as previously completed on a rerun',
+        async function () {
+          const syncForRerun = createStringifiedFakeSync({ isFull: false });
+          const file = createStringifiedFakeFile();
+          const rerunCreateBody = createStringifiedFakeRerunCreateBody();
+          const entity1 = createStringifiedFakeEntity({ status: EntityStatus.COMPLETED });
+          const entity2 = createStringifiedFakeEntity();
+
+          expect(await syncRequestSender.postSync(syncForRerun)).toHaveStatus(StatusCodes.CREATED);
+          expect(await fileRequestSender.postFile(syncForRerun.id as string, file)).toHaveStatus(StatusCodes.CREATED);
+          expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+          expect(await syncRequestSender.rerunSync(syncForRerun.id as string, rerunCreateBody)).toHaveStatus(StatusCodes.CREATED);
+
+          const firstExpectedBody: EntityBulkCreationResult = { created: [entity1.entityId as string], previouslyCompleted: [] };
+
+          const firstPostEntityBulkResponse = await entityRequestSender.postEntityBulk(file.fileId as string, [entity1]);
+
+          expect(firstPostEntityBulkResponse.status).toBe(StatusCodes.CREATED);
+          expect(firstPostEntityBulkResponse.body).toHaveProperty('created', expect.arrayContaining(firstExpectedBody.created));
+          expect(firstPostEntityBulkResponse.body).toHaveProperty('previouslyCompleted', firstExpectedBody.previouslyCompleted);
+
+          const secondExpectedBody: EntityBulkCreationResult = {
+            created: [entity2.entityId as string],
+            previouslyCompleted: [entity1.entityId as string],
+          };
+
+          const secondPostEntityBulkResponse = await entityRequestSender.postEntityBulk(file.fileId as string, [entity1, entity2]);
+
+          expect(secondPostEntityBulkResponse.status).toBe(StatusCodes.CREATED);
+          expect(secondPostEntityBulkResponse.body).toHaveProperty('created', expect.arrayContaining(secondExpectedBody.created));
+          expect(secondPostEntityBulkResponse.body).toHaveProperty('previouslyCompleted', secondExpectedBody.previouslyCompleted);
+        },
+        RERUN_TEST_TIMEOUT
+      );
     });
+
     describe('PATCH /file/:fileId/entity/:entityId', function () {
       it('should return 200 status code and empty array body', async function () {
         const body = createStringifiedFakeEntity();

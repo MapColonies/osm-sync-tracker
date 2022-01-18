@@ -4,7 +4,8 @@ import { SERVICES } from '../../common/constants';
 import { GeometryType, Status } from '../../common/enums';
 import { IRerunRepository, rerunRepositorySymbol } from '../DAL/rerunRepository';
 import { ISyncRepository, syncRepositorySymbol } from '../DAL/syncRepository';
-import { FullSyncAlreadyExistsError, InvalidSyncForRerunError, SyncAlreadyExistsError, SyncNotFoundError } from './errors';
+import { FullSyncAlreadyExistsError, InvalidSyncForRerunError, RerunAlreadyExistsError, SyncAlreadyExistsError, SyncNotFoundError } from './errors';
+import { Rerun } from './rerun';
 import { Sync, SyncUpdate } from './sync';
 
 @injectable()
@@ -52,7 +53,12 @@ export class SyncManager {
     await this.syncRepository.updateSync(syncId, updatedEntity);
   }
 
-  public async rerunSync(syncId: string, rerunId: string): Promise<void> {
+  public async rerunSync(syncId: string, rerunId: string, startDate: Date): Promise<void> {
+    const rerunEntity = await this.rerunRepository.findOneRerun(rerunId);
+    if (rerunEntity) {
+      throw new RerunAlreadyExistsError(`rerun = ${rerunId} already exists`);
+    }
+
     const referenceSync = await this.syncRepository.findOneSyncWithReruns(syncId);
     if (!referenceSync) {
       throw new SyncNotFoundError(`sync = ${syncId} not found`);
@@ -63,9 +69,10 @@ export class SyncManager {
     }
 
     let rerunNumber = 1;
-    const numberOfReruns = referenceSync.reruns.length;
+    const { reruns, ...referenceSyncBody } = referenceSync;
+    const numberOfReruns = reruns.length;
     if (numberOfReruns > 0) {
-      const lastRerun = referenceSync.reruns.sort((rerunA, rerunB) => rerunA.number - rerunB.number)[numberOfReruns - 1];
+      const lastRerun = reruns.sort((rerunA, rerunB) => rerunA.number - rerunB.number)[numberOfReruns - 1];
       const lastRerunSync = await this.syncRepository.findOneSync(lastRerun.rerunId);
       if (lastRerunSync && lastRerunSync.status != Status.FAILED) {
         throw new InvalidSyncForRerunError(
@@ -74,6 +81,9 @@ export class SyncManager {
       }
       rerunNumber = lastRerun.number + 1;
     }
-    return this.rerunRepository.createRerun(referenceSync, rerunId, rerunNumber);
+
+    const rerun: Rerun = { rerunId, referenceId: syncId, number: rerunNumber };
+    const rerunAsSync: Sync = { ...referenceSyncBody, id: rerun.rerunId, isRerun: true, status: Status.IN_PROGRESS, startDate, endDate: null };
+    await this.rerunRepository.createRerun(rerun, rerunAsSync);
   }
 }

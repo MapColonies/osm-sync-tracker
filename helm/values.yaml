@@ -59,6 +59,7 @@ dbConfig:
   username: postgres
   password: postgres
   database: osm-sync-tracker
+  # port: 5432
   sslAuth:
     enabled: false
     secretName: secret-name

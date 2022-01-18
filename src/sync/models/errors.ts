@@ -12,6 +12,13 @@ export class FullSyncAlreadyExistsError extends Error {
   }
 }
 
+export class RerunAlreadyExistsError extends Error {
+  public constructor(message: string) {
+    super(message);
+    Object.setPrototypeOf(this, RerunAlreadyExistsError.prototype);
+  }
+}
+
 export class SyncNotFoundError extends Error {
   public constructor(message: string) {
     super(message);
