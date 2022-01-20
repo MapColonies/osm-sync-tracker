@@ -1,5 +1,5 @@
 import { Entity } from './entity';
 
-export interface EntityRerun extends Entity {
+export interface EntityHistory extends Entity {
   syncId: string;
 }

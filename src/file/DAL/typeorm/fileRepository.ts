@@ -90,11 +90,14 @@ export class FileRepository extends Repository<FileDb> implements IFileRepositor
   }
 
   private async updateLastRerunAsCompleted(syncId: string, transactionalEntityManager: EntityManager): Promise<void> {
-    const completedSync = await transactionalEntityManager.findOne(SyncDb, { relations: ['reruns'], where: { id: syncId } });
-
+    const completedSync = await transactionalEntityManager.findOne(SyncDb, {
+      relations: ['reruns'],
+      where: { id: syncId },
+      order: { runNumber: 'DESC' },
+    });
     if (completedSync && completedSync.reruns.length > 0) {
-      const lastRerun = completedSync.reruns.sort((rerunA, rerunB) => rerunA.number - rerunB.number)[completedSync.reruns.length - 1];
-      await transactionalEntityManager.update(SyncDb, { id: lastRerun.rerunId }, { status: Status.COMPLETED, endDate: completedSync.endDate });
+      const lastRerun = completedSync.reruns[completedSync.reruns.length - 1];
+      await transactionalEntityManager.update(SyncDb, { id: lastRerun.id }, { status: Status.COMPLETED, endDate: completedSync.endDate });
     }
   }
 }

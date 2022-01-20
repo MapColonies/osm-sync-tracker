@@ -2,7 +2,7 @@ import jsLogger from '@map-colonies/js-logger';
 import faker from 'faker';
 import { QueryFailedError } from 'typeorm';
 import { EntityManager } from '../../../../src/entity/models/entityManager';
-import { createFakeEntities, createFakeEntity, createFakeFile, createFakeRerun } from '../../../helpers/helper';
+import { createFakeEntities, createFakeEntity, createFakeFile, createFakeRerunSync } from '../../../helpers/helper';
 import { DuplicateEntityError, EntityAlreadyExistsError } from '../../../../src/entity/models/errors';
 import { EntityNotFoundError } from '../../../../src/entity/models/errors';
 import { FileNotFoundError } from '../../../../src/file/models/errors';
@@ -12,13 +12,13 @@ import { ExceededNumberOfRetriesError, TransactionFailureError } from '../../../
 import { IEntityRepository } from '../../../../src/entity/DAL/entityRepository';
 import { IFileRepository } from '../../../../src/file/DAL/fileRepository';
 import { DEFAULT_ISOLATION_LEVEL } from '../../../integration/helpers';
-import { IRerunRepository } from '../../../../src/sync/DAL/rerunRepository';
+import { ISyncRepository } from '../../../../src/sync/DAL/syncRepository';
 
 let entityManager: EntityManager;
 let entityManagerWithRetries: EntityManager;
 let entityRepository: IEntityRepository;
 let fileRepository: IFileRepository;
-let rerunRepository: IRerunRepository;
+let syncRepository: ISyncRepository;
 
 describe('EntityManager', () => {
   const createEntity = jest.fn();
@@ -35,21 +35,25 @@ describe('EntityManager', () => {
   const countEntitiesByIds = jest.fn();
   const tryClosingFile = jest.fn();
 
+  const createSync = jest.fn();
+  const getLatestSync = jest.fn();
+  const updateSync = jest.fn();
+  const findOneSync = jest.fn();
+  const findSyncs = jest.fn();
+  const findOneSyncWithReruns = jest.fn();
   const createRerun = jest.fn();
-  const findOneRerun = jest.fn();
-  const findReruns = jest.fn();
 
   beforeEach(() => {
     jest.resetAllMocks();
 
     entityRepository = { createEntity, createEntities, updateEntity, findOneEntity, findManyEntites, updateEntities, countEntitiesByIds };
     fileRepository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile };
-    rerunRepository = { createRerun, findOneRerun, findReruns };
+    syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithReruns, createRerun };
 
     entityManager = new EntityManager(
       entityRepository,
       fileRepository,
-      rerunRepository,
+      syncRepository,
       jsLogger({ enabled: false }),
       { get: jest.fn(), has: jest.fn() },
       { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
@@ -100,7 +104,7 @@ describe('EntityManager', () => {
       findOneFile.mockResolvedValue(file);
       findManyEntites.mockResolvedValue(undefined);
       createEntities.mockResolvedValue(undefined);
-      findReruns.mockResolvedValue([]);
+      findSyncs.mockResolvedValue([]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
 
@@ -112,11 +116,11 @@ describe('EntityManager', () => {
     it('resolves without errors if all of the entitysIds are not already in use by the db while having a rerun', async () => {
       const entities = createFakeEntities();
       const file = createFakeFile();
-      const rerun = createFakeRerun();
+      const rerun = createFakeRerunSync();
 
       findOneFile.mockResolvedValue(file);
       findManyEntites.mockResolvedValue(undefined);
-      findReruns.mockResolvedValue([rerun]);
+      findSyncs.mockResolvedValue([rerun]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
 
@@ -128,11 +132,11 @@ describe('EntityManager', () => {
     it('resolves without errors if all of the entitysIds are already in use by the db while having a rerun', async () => {
       const entities = createFakeEntities();
       const file = createFakeFile();
-      const rerun = createFakeRerun();
+      const rerun = createFakeRerunSync();
 
       findOneFile.mockResolvedValue(file);
       findManyEntites.mockResolvedValue(entities);
-      findReruns.mockResolvedValue([rerun]);
+      findSyncs.mockResolvedValue([rerun]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
 
@@ -145,11 +149,11 @@ describe('EntityManager', () => {
       const entities = createFakeEntities();
       const entity = createFakeEntity();
       const file = createFakeFile();
-      const rerun = createFakeRerun();
+      const rerun = createFakeRerunSync();
 
       findOneFile.mockResolvedValue(file);
       findManyEntites.mockResolvedValue([entity]);
-      findReruns.mockResolvedValue([rerun]);
+      findSyncs.mockResolvedValue([rerun]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, [...entities, entity]);
 
@@ -163,11 +167,11 @@ describe('EntityManager', () => {
       const entity2 = createFakeEntity();
       const entities = [entity1, entity2];
       const file = createFakeFile();
-      const rerun = createFakeRerun();
+      const rerun = createFakeRerunSync();
 
       findOneFile.mockResolvedValue(file);
       findManyEntites.mockResolvedValue([{ entity2, status: EntityStatus.IN_RERUN }]);
-      findReruns.mockResolvedValue([rerun]);
+      findSyncs.mockResolvedValue([rerun]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
 
@@ -182,7 +186,7 @@ describe('EntityManager', () => {
 
       findOneFile.mockResolvedValue(file);
       findManyEntites.mockResolvedValue(entities);
-      findReruns.mockResolvedValue([]);
+      findSyncs.mockResolvedValue([]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
 
@@ -255,7 +259,7 @@ describe('EntityManager', () => {
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
-        rerunRepository,
+        syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
@@ -303,7 +307,7 @@ describe('EntityManager', () => {
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
-        rerunRepository,
+        syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
@@ -329,7 +333,7 @@ describe('EntityManager', () => {
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
-        rerunRepository,
+        syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
@@ -355,7 +359,7 @@ describe('EntityManager', () => {
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
-        rerunRepository,
+        syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
@@ -406,7 +410,7 @@ describe('EntityManager', () => {
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
-        rerunRepository,
+        syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
@@ -455,7 +459,7 @@ describe('EntityManager', () => {
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
-        rerunRepository,
+        syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
@@ -482,7 +486,7 @@ describe('EntityManager', () => {
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
-        rerunRepository,
+        syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
@@ -509,7 +513,7 @@ describe('EntityManager', () => {
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
-        rerunRepository,
+        syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL }

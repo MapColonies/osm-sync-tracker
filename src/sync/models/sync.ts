@@ -1,5 +1,4 @@
 import { Status, GeometryType } from '../../common/enums';
-import { Rerun } from '../DAL/typeorm/rerun';
 
 export interface Sync {
   id: string;
@@ -20,9 +19,13 @@ export interface Sync {
 
   geometryType: GeometryType;
 
-  isRerun: boolean;
+  baseSyncId: string | null;
+
+  runNumber: number;
 }
+
+export type BaseSync = Omit<Sync, 'baseSyncId' | 'runNumber'>;
 
 export type SyncUpdate = Omit<Partial<Sync>, 'id' | 'isFull'>;
 
-export type SyncWithReruns = Sync & { reruns: Rerun[] };
+export type SyncWithReruns = Sync & { reruns: Sync[] };

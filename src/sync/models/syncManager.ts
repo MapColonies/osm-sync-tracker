@@ -2,25 +2,28 @@ import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
 import { SERVICES } from '../../common/constants';
 import { GeometryType, Status } from '../../common/enums';
-import { IRerunRepository, rerunRepositorySymbol } from '../DAL/rerunRepository';
+import { IConfig } from '../../common/interfaces';
 import { ISyncRepository, syncRepositorySymbol } from '../DAL/syncRepository';
 import { FullSyncAlreadyExistsError, InvalidSyncForRerunError, RerunAlreadyExistsError, SyncAlreadyExistsError, SyncNotFoundError } from './errors';
-import { Rerun } from './rerun';
-import { Sync, SyncUpdate } from './sync';
+import { BaseSync, Sync, SyncUpdate } from './sync';
 
 @injectable()
 export class SyncManager {
+  private readonly dbSchema: string;
+
   public constructor(
     @inject(syncRepositorySymbol) private readonly syncRepository: ISyncRepository,
-    @inject(rerunRepositorySymbol) private readonly rerunRepository: IRerunRepository,
-    @inject(SERVICES.LOGGER) private readonly logger: Logger
-  ) {}
-  public async getLatestSync(layerId: number, geometryType: GeometryType): Promise<Sync> {
-    const lastSync = await this.syncRepository.getLatestSync(layerId, geometryType);
-    if (lastSync === undefined) {
+    @inject(SERVICES.LOGGER) private readonly logger: Logger,
+    @inject(SERVICES.CONFIG) private readonly config: IConfig
+  ) {
+    this.dbSchema = this.config.get('db.schema');
+  }
+  public async getLatestSync(layerId: number, geometryType: GeometryType): Promise<BaseSync> {
+    const latestSync = await this.syncRepository.getLatestSync(layerId, geometryType);
+    if (latestSync === undefined) {
       throw new SyncNotFoundError(`sync with layer id = ${layerId}, geometry type = ${geometryType} not found`);
     }
-    return lastSync;
+    return latestSync;
   }
 
   public async createSync(sync: Sync): Promise<void> {
@@ -54,36 +57,41 @@ export class SyncManager {
   }
 
   public async rerunSync(syncId: string, rerunId: string, startDate: Date): Promise<void> {
-    const rerunEntity = await this.rerunRepository.findOneRerun(rerunId);
+    const rerunEntity = await this.syncRepository.findOneSync(rerunId);
     if (rerunEntity) {
       throw new RerunAlreadyExistsError(`rerun = ${rerunId} already exists`);
     }
 
-    const referenceSync = await this.syncRepository.findOneSyncWithReruns(syncId);
-    if (!referenceSync) {
+    const baseSync = await this.syncRepository.findOneSyncWithReruns(syncId);
+    if (!baseSync) {
       throw new SyncNotFoundError(`sync = ${syncId} not found`);
     }
 
-    if (referenceSync.isFull || referenceSync.isRerun || referenceSync.status != Status.FAILED) {
-      throw new InvalidSyncForRerunError(`could not rerun sync = ${syncId} due to it not being a failed diff original run sync`);
+    if (baseSync.isFull || baseSync.runNumber != 0 || baseSync.status != Status.FAILED) {
+      throw new InvalidSyncForRerunError(`could not rerun sync = ${syncId} due to it not being a failed diff base sync`);
     }
 
-    let rerunNumber = 1;
-    const { reruns, ...referenceSyncBody } = referenceSync;
-    const numberOfReruns = reruns.length;
-    if (numberOfReruns > 0) {
-      const lastRerun = reruns.sort((rerunA, rerunB) => rerunA.number - rerunB.number)[numberOfReruns - 1];
-      const lastRerunSync = await this.syncRepository.findOneSync(lastRerun.rerunId);
-      if (lastRerunSync && lastRerunSync.status != Status.FAILED) {
+    let runNumber = 1;
+    const { reruns, ...baseSyncBody } = baseSync;
+    if (reruns.length > 0) {
+      const latestRerun = reruns[reruns.length - 1];
+      if (latestRerun.status != Status.FAILED) {
         throw new InvalidSyncForRerunError(
-          `could not rerun sync = ${syncId} due to an already existing ${lastRerunSync.status} rerun = ${lastRerun.rerunId}`
+          `could not rerun sync = ${syncId} due to an already existing ${latestRerun.status} rerun = ${latestRerun.id}`
         );
       }
-      rerunNumber = lastRerun.number + 1;
+      runNumber = latestRerun.runNumber + 1;
     }
 
-    const rerun: Rerun = { rerunId, referenceId: syncId, number: rerunNumber };
-    const rerunAsSync: Sync = { ...referenceSyncBody, id: rerun.rerunId, isRerun: true, status: Status.IN_PROGRESS, startDate, endDate: null };
-    await this.rerunRepository.createRerun(rerun, rerunAsSync);
+    const rerunSyncForCreation: Sync = {
+      ...baseSyncBody,
+      id: rerunId,
+      baseSyncId: baseSync.id,
+      runNumber,
+      status: Status.IN_PROGRESS,
+      startDate,
+      endDate: null,
+    };
+    await this.syncRepository.createRerun(rerunSyncForCreation, this.dbSchema);
   }
 }

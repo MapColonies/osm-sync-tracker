@@ -73,3 +73,12 @@ To only run integration tests:
 ```bash
 npm run test:integration
 ```
+
+Note that the db migrations differ from the auto generated migrations from typeorm thus on `jest.globalSetup` call
+```
+connection.runMigrations({ transaction: 'all'});
+```
+instead of
+```
+connection.synchronize();
+```

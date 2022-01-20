@@ -45,7 +45,7 @@ describe('file', function () {
       });
 
       it(
-        'should return 201 status code for creating a file on a rerun while existing on its original',
+        'should return 201 status code for creating a file on a rerun while existing on its base',
         async function () {
           const syncForRerun = createStringifiedFakeSync({ isFull: false });
           const file = createStringifiedFakeFile();
@@ -65,7 +65,7 @@ describe('file', function () {
       );
 
       it(
-        'should return 201 status code for creating a file on a rerun while not existing on its original',
+        'should return 201 status code for creating a file on a rerun while not existing on its base',
         async function () {
           const syncForRerun = createStringifiedFakeSync({ isFull: false });
           const file = createStringifiedFakeFile();

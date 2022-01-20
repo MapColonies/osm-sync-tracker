@@ -8,7 +8,7 @@ import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/inte
 import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
 import { IFileRepository, fileRepositorySymbol } from '../../file/DAL/fileRepository';
 import { FileNotFoundError } from '../../file/models/errors';
-import { IRerunRepository, rerunRepositorySymbol } from '../../sync/DAL/rerunRepository';
+import { ISyncRepository, syncRepositorySymbol } from '../../sync/DAL/syncRepository';
 import { IEntityRepository, entityRepositorySymbol } from '../DAL/entityRepository';
 import { Entity, UpdateEntities, UpdateEntity } from './entity';
 import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } from './errors';
@@ -26,7 +26,7 @@ export class EntityManager {
   public constructor(
     @inject(entityRepositorySymbol) private readonly entityRepository: IEntityRepository,
     @inject(fileRepositorySymbol) private readonly fileRepository: IFileRepository,
-    @inject(rerunRepositorySymbol) private readonly rerunRepository: IRerunRepository,
+    @inject(syncRepositorySymbol) private readonly syncRepository: ISyncRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
     @inject(SERVICES.CONFIG) private readonly config: IConfig,
     @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication
@@ -68,7 +68,7 @@ export class EntityManager {
     let result: EntityBulkCreationResult = { created: entityIdsForCreation, previouslyCompleted: [] };
     const existingEntities = await this.entityRepository.findManyEntites(entitiesWithFileId);
 
-    const reruns = await this.rerunRepository.findReruns({ referenceId: fileEntity.syncId });
+    const reruns = await this.syncRepository.findSyncs({ baseSyncId: fileEntity.syncId });
 
     if (reruns.length === 0) {
       if (existingEntities) {

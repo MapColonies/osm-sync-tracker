@@ -4,7 +4,6 @@ import { Sync } from '../../src/sync/models/sync';
 import { File } from '../../src/file/models/file';
 import { Entity } from '../../src/entity/models/entity';
 import { Changeset } from '../../src/changeset/models/changeset';
-import { Rerun } from '../../src/sync/models/rerun';
 
 const MAX_QUANTITY = 1000;
 const MIN_QUANTITY = 1;
@@ -29,7 +28,9 @@ export const createFakeSync = (params: FakeSyncParams = {}): Sync => {
 
     geometryType: params.geometryType ?? GeometryType.POLYGON,
 
-    isRerun: params.isRerun ?? false,
+    runNumber: params.runNumber ?? 0,
+
+    baseSyncId: params.baseSyncId ?? null,
   };
 };
 
@@ -41,13 +42,27 @@ export const createMultipleSyncData = (amount: number): Sync[] => {
   return data;
 };
 
-export const createFakeRerun = (): Rerun => {
+export const createFakeRerunSync = (params: FakeSyncParams = {}): Sync => {
   return {
-    referenceId: faker.datatype.uuid(),
+    id: params.id ?? faker.datatype.uuid(),
 
-    rerunId: faker.datatype.uuid(),
+    dumpDate: params.dumpDate ?? faker.datatype.datetime(),
 
-    number: faker.datatype.number(),
+    startDate: params.startDate ?? faker.datatype.datetime(),
+
+    status: params.status ?? Status.IN_PROGRESS,
+
+    layerId: params.layerId ?? faker.datatype.number(),
+
+    isFull: false,
+
+    totalFiles: params.totalFiles ?? faker.datatype.number(),
+
+    geometryType: params.geometryType ?? GeometryType.POLYGON,
+
+    runNumber: params.runNumber ?? faker.datatype.number({ min: 1 }),
+
+    baseSyncId: params.baseSyncId ?? faker.datatype.uuid(),
   };
 };
 

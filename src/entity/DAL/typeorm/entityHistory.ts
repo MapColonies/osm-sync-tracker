@@ -2,10 +2,10 @@ import { Column, Entity as EntityDecorator, JoinColumn, ManyToOne, PrimaryColumn
 import { Changeset } from '../../../changeset/DAL/typeorm/changeset';
 import { ActionType, EntityStatus } from '../../../common/enums';
 import { File } from '../../../file/DAL/typeorm/file';
-import { EntityRerun as IEntityRerun } from '../../models/entityRerun';
+import { EntityHistory as IEntityHistory } from '../../models/entityHistory';
 
 @EntityDecorator()
-export class EntityRerun implements IEntityRerun {
+export class EntityHistory implements IEntityHistory {
   @PrimaryColumn({ name: 'entity_id' })
   public entityId!: string;
 

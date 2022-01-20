@@ -1,7 +1,7 @@
 import jsLogger from '@map-colonies/js-logger';
 import faker from 'faker';
 import { FileManager } from '../../../../src/file/models/fileManager';
-import { createFakeFile, createFakeSync, createFakeFiles, createFakeRerun } from '../../../helpers/helper';
+import { createFakeFile, createFakeSync, createFakeFiles, createFakeRerunSync } from '../../../helpers/helper';
 import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError } from '../../../../src/file/models/errors';
 import { SyncNotFoundError } from '../../../../src/sync/models/errors';
 
@@ -20,19 +20,15 @@ describe('FileManager', () => {
   const updateSync = jest.fn();
   const findSyncs = jest.fn();
   const findOneSyncWithReruns = jest.fn();
-
   const createRerun = jest.fn();
-  const findOneRerun = jest.fn();
-  const findReruns = jest.fn();
 
   beforeEach(() => {
     jest.resetAllMocks();
 
     const fileRepository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile };
-    const syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithReruns };
-    const rerunRepository = { createRerun, findOneRerun, findReruns };
+    const syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithReruns, createRerun };
 
-    fileManager = new FileManager(fileRepository, syncRepository, rerunRepository, jsLogger({ enabled: false }));
+    fileManager = new FileManager(fileRepository, syncRepository, jsLogger({ enabled: false }));
   });
 
   describe('#createFile', () => {
@@ -51,31 +47,27 @@ describe('FileManager', () => {
     });
 
     it('resolves without errors if fileId is not already in use by the db for rerun sync', async () => {
-      const sync = createFakeSync({ isRerun: true });
-      const rerun = createFakeRerun();
+      const rerun = createFakeRerunSync();
       const file = createFakeFile();
 
-      findOneSync.mockResolvedValue(sync);
-      findOneRerun.mockResolvedValue(rerun);
+      findOneSync.mockResolvedValue(rerun);
       findOneFile.mockResolvedValue(undefined);
       createFile.mockResolvedValue(undefined);
 
-      const createPromise = fileManager.createFile(sync.id, file);
+      const createPromise = fileManager.createFile(rerun.id, file);
 
       await expect(createPromise).resolves.not.toThrow();
       expect(createFile).toHaveBeenCalled();
     });
 
     it('resolves without errors if fileId is already in use by the db for rerun sync', async () => {
-      const sync = createFakeSync({ isRerun: true });
-      const rerun = createFakeRerun();
+      const rerun = createFakeRerunSync();
       const file = createFakeFile();
 
-      findOneSync.mockResolvedValue(sync);
-      findOneRerun.mockResolvedValue(rerun);
-      findOneFile.mockResolvedValue({ ...file, syncId: rerun.referenceId });
+      findOneSync.mockResolvedValue(rerun);
+      findOneFile.mockResolvedValue({ ...file, syncId: rerun.baseSyncId });
 
-      const createPromise = fileManager.createFile(sync.id, file);
+      const createPromise = fileManager.createFile(rerun.id, file);
 
       await expect(createPromise).resolves.not.toThrow();
       expect(createFile).not.toHaveBeenCalled();
@@ -104,73 +96,53 @@ describe('FileManager', () => {
       await expect(createPromise).rejects.toThrow(SyncNotFoundError);
     });
 
-    it('rejects if on a rerun sync rerun not exists in the db', async () => {
-      const sync = createFakeSync({ isRerun: true });
-      const file = createFakeFile();
-
-      findOneSync.mockResolvedValue(sync);
-      findOneRerun.mockResolvedValue(undefined);
-
-      const createPromise = fileManager.createFile(sync.id, file);
-
-      await expect(createPromise).rejects.toThrow(SyncNotFoundError);
-    });
-
     it('rejects if on a rerun there is a conflict between existing file syncId and rerun referenceId', async () => {
-      const sync = createFakeSync({ isRerun: true });
-      const rerun = createFakeRerun();
+      const rerun = createFakeRerunSync();
       const file = createFakeFile();
 
-      findOneSync.mockResolvedValue(sync);
-      findOneRerun.mockResolvedValue(rerun);
+      findOneSync.mockResolvedValue(rerun);
       findOneFile.mockResolvedValue({ ...file, syncId: 'someId' });
 
-      const createPromise = fileManager.createFile(sync.id, file);
+      const createPromise = fileManager.createFile(rerun.id, file);
 
       expect(createFile).not.toHaveBeenCalled();
       await expect(createPromise).rejects.toThrow(ConflictingRerunFileError);
     });
 
     it('rejects if on a rerun there is a conflicting value of total entities', async () => {
-      const sync = createFakeSync({ isRerun: true });
-      const rerun = createFakeRerun();
+      const rerun = createFakeRerunSync();
       const file = createFakeFile();
 
-      findOneSync.mockResolvedValue(sync);
-      findOneRerun.mockResolvedValue(rerun);
+      findOneSync.mockResolvedValue(rerun);
       findOneFile.mockResolvedValue({ ...file, totalEntities: (file.totalEntities as number) - 1 });
 
-      const createPromise = fileManager.createFile(sync.id, file);
+      const createPromise = fileManager.createFile(rerun.id, file);
 
       expect(createFile).not.toHaveBeenCalled();
       await expect(createPromise).rejects.toThrow(ConflictingRerunFileError);
     });
 
     it('rejects if on a rerun there is a conflicting value of total entities and existing file total entities is null', async () => {
-      const sync = createFakeSync({ isRerun: true });
-      const rerun = createFakeRerun();
+      const rerun = createFakeRerunSync();
       const file = createFakeFile();
 
-      findOneSync.mockResolvedValue(sync);
-      findOneRerun.mockResolvedValue(rerun);
-      findOneFile.mockResolvedValue({ ...file, syncId: rerun.referenceId, totalEntities: null });
+      findOneSync.mockResolvedValue(rerun);
+      findOneFile.mockResolvedValue({ ...file, syncId: rerun.baseSyncId, totalEntities: null });
 
-      const createPromise = fileManager.createFile(sync.id, file);
+      const createPromise = fileManager.createFile(rerun.id, file);
 
       expect(createFile).not.toHaveBeenCalled();
       await expect(createPromise).rejects.toThrow(ConflictingRerunFileError);
     });
 
     it('rejects if on a rerun there is a conflicting value of total entities and incoming file total entities is null', async () => {
-      const sync = createFakeSync({ isRerun: true });
-      const rerun = createFakeRerun();
+      const rerun = createFakeRerunSync();
       const file = createFakeFile();
 
-      findOneSync.mockResolvedValue(sync);
-      findOneRerun.mockResolvedValue(rerun);
-      findOneFile.mockResolvedValue({ ...file, syncId: rerun.referenceId });
+      findOneSync.mockResolvedValue(rerun);
+      findOneFile.mockResolvedValue({ ...file, syncId: rerun.baseSyncId });
 
-      const createPromise = fileManager.createFile(sync.id, { ...file, totalEntities: null });
+      const createPromise = fileManager.createFile(rerun.id, { ...file, totalEntities: null });
 
       expect(createFile).not.toHaveBeenCalled();
       await expect(createPromise).rejects.toThrow(ConflictingRerunFileError);

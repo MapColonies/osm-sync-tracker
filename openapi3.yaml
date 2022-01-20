@@ -157,7 +157,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/syncId'
       requestBody:
-        description: the rerun id to be created
+        description: the rerun id to be created and its start date
         content:
           application/json:
             schema:
@@ -542,8 +542,6 @@ components:
           type: integer
         geometryType:
           $ref: '#/components/schemas/geometryType'
-        isRerun:
-          type: boolean
     updateSync:
       type: object
       additionalProperties: false
