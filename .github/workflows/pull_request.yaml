@@ -72,6 +72,11 @@ jobs:
         - name: Install Node.js dependencies
           run: npm ci
 
+        - name: Create schema
+          run: psql -U postgres 'CREATE SCHEMA osm_sync_tracker;'
+          env:
+            PGPASSWORD: 1234
+
         - name: Run tests
           run: npm run test
 
