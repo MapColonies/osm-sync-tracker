@@ -62,19 +62,19 @@ export class SyncManager {
       throw new RerunAlreadyExistsError(`rerun = ${rerunId} already exists`);
     }
 
-    const baseSync = await this.syncRepository.findOneSyncWithReruns(syncId);
-    if (!baseSync) {
+    const baseSyncWithLastRerun = await this.syncRepository.findOneSyncWithLastRerun(syncId);
+    if (!baseSyncWithLastRerun) {
       throw new SyncNotFoundError(`sync = ${syncId} not found`);
     }
 
-    if (baseSync.isFull || baseSync.runNumber != 0 || baseSync.status != Status.FAILED) {
+    if (baseSyncWithLastRerun.isFull || baseSyncWithLastRerun.runNumber != 0 || baseSyncWithLastRerun.status != Status.FAILED) {
       throw new InvalidSyncForRerunError(`could not rerun sync = ${syncId} due to it not being a failed diff base sync`);
     }
 
     let runNumber = 1;
-    const { reruns, ...baseSyncBody } = baseSync;
+    const { reruns, ...baseSyncBody } = baseSyncWithLastRerun;
     if (reruns.length > 0) {
-      const latestRerun = reruns[reruns.length - 1];
+      const latestRerun = reruns[0];
       if (latestRerun.status != Status.FAILED) {
         throw new InvalidSyncForRerunError(
           `could not rerun sync = ${syncId} due to an already existing ${latestRerun.status} rerun = ${latestRerun.id}`
@@ -86,7 +86,7 @@ export class SyncManager {
     const rerunSyncForCreation: Sync = {
       ...baseSyncBody,
       id: rerunId,
-      baseSyncId: baseSync.id,
+      baseSyncId: baseSyncWithLastRerun.id,
       runNumber,
       status: Status.IN_PROGRESS,
       startDate,

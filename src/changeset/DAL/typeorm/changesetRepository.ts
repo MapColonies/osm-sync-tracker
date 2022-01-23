@@ -155,14 +155,21 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
   }
 
   private async updateLastRerunAsCompleted(syncId: string, transactionalEntityManager: EntityManager): Promise<void> {
-    const completedSync = await transactionalEntityManager.findOne(SyncDb, {
-      relations: ['reruns'],
-      where: { id: syncId },
-      order: { runNumber: 'DESC' },
-    });
-    if (completedSync && completedSync.reruns.length > 0) {
-      const lastRerun = completedSync.reruns[completedSync.reruns.length - 1];
-      await transactionalEntityManager.update(SyncDb, { id: lastRerun.id }, { status: Status.COMPLETED, endDate: completedSync.endDate });
+    const completedSyncWithLastRerun = await transactionalEntityManager
+      .createQueryBuilder(SyncDb, 'sync')
+      .leftJoinAndSelect('sync.reruns', 'rerun')
+      .where('sync.id = :syncId', { syncId })
+      .orderBy('rerun.run_number', 'DESC')
+      .limit(1)
+      .getOne();
+
+    if (completedSyncWithLastRerun && completedSyncWithLastRerun.reruns.length > 0) {
+      const lastRerun = completedSyncWithLastRerun.reruns[0];
+      await transactionalEntityManager.update(
+        SyncDb,
+        { id: lastRerun.id },
+        { status: Status.COMPLETED, endDate: completedSyncWithLastRerun.endDate }
+      );
     }
   }
 }

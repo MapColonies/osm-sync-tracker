@@ -43,12 +43,13 @@ export class SyncRepository extends Repository<DbSync> implements ISyncRepositor
     return this.find({ where: filter });
   }
 
-  public async findOneSyncWithReruns(syncId: string): Promise<SyncWithReruns | undefined> {
-    return this.findOne({
-      relations: ['reruns'],
-      where: { id: syncId },
-      order: { runNumber: 'DESC' },
-    });
+  public async findOneSyncWithLastRerun(syncId: string): Promise<SyncWithReruns | undefined> {
+    return this.createQueryBuilder('sync')
+      .leftJoinAndSelect('sync.reruns', 'rerun')
+      .where('sync.id = :syncId', { syncId })
+      .orderBy('rerun.run_number', 'DESC')
+      .limit(1)
+      .getOne();
   }
 
   public async createRerun(rerunSync: Sync, schema: string): Promise<void> {

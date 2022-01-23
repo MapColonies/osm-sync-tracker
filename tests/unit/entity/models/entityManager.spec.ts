@@ -40,7 +40,7 @@ describe('EntityManager', () => {
   const updateSync = jest.fn();
   const findOneSync = jest.fn();
   const findSyncs = jest.fn();
-  const findOneSyncWithReruns = jest.fn();
+  const findOneSyncWithLastRerun = jest.fn();
   const createRerun = jest.fn();
 
   beforeEach(() => {
@@ -48,7 +48,7 @@ describe('EntityManager', () => {
 
     entityRepository = { createEntity, createEntities, updateEntity, findOneEntity, findManyEntites, updateEntities, countEntitiesByIds };
     fileRepository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile };
-    syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithReruns, createRerun };
+    syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithLastRerun, createRerun };
 
     entityManager = new EntityManager(
       entityRepository,

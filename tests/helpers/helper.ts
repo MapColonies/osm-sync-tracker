@@ -5,8 +5,8 @@ import { File } from '../../src/file/models/file';
 import { Entity } from '../../src/entity/models/entity';
 import { Changeset } from '../../src/changeset/models/changeset';
 
-const MAX_QUANTITY = 1000;
-const MIN_QUANTITY = 1;
+const MAX_GENERATED_FAKES = 1000;
+const MIN_GENERATED_FAKES = 1;
 
 export type FakeSyncParams = Partial<Sync>;
 
@@ -82,7 +82,7 @@ export const createFakeFile = (): File => {
   };
 };
 
-export const createFakeFiles = (quantity: number = faker.datatype.number({ max: MAX_QUANTITY, min: MIN_QUANTITY })): File[] => {
+export const createFakeFiles = (quantity: number = faker.datatype.number({ max: MAX_GENERATED_FAKES, min: MIN_GENERATED_FAKES })): File[] => {
   const files: File[] = [];
   for (let i = 0; i < quantity; i++) {
     files.push(createFakeFile());
@@ -104,7 +104,7 @@ export const createFakeEntity: () => Entity = () => {
   };
 };
 
-export const createFakeEntities = (quantity: number = faker.datatype.number({ max: MAX_QUANTITY, min: MIN_QUANTITY })): Entity[] => {
+export const createFakeEntities = (quantity: number = faker.datatype.number({ max: MAX_GENERATED_FAKES, min: MIN_GENERATED_FAKES })): Entity[] => {
   const entities: Entity[] = [];
   for (let i = 0; i < quantity; i++) {
     entities.push(createFakeEntity());

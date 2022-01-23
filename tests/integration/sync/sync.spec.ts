@@ -863,7 +863,7 @@ describe('sync', function () {
         const sync = createStringifiedFakeSync({ isFull: false, status: Status.FAILED });
 
         const findOneSyncMock = jest.fn();
-        const findOneSyncWithRerunsMock = jest.fn().mockResolvedValue({ ...sync, runNumber: 0, reruns: [] });
+        const findOneSyncWithLastRerunMock = jest.fn().mockResolvedValue({ ...sync, runNumber: 0, reruns: [] });
         const createRerunMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
 
         const mockRegisterOptions = getBaseRegisterOptions();
@@ -872,7 +872,7 @@ describe('sync', function () {
           provider: {
             useValue: {
               findOneSync: findOneSyncMock,
-              findOneSyncWithReruns: findOneSyncWithRerunsMock,
+              findOneSyncWithLastRerun: findOneSyncWithLastRerunMock,
               createRerun: createRerunMock,
             },
           },

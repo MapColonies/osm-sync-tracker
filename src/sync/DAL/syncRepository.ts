@@ -14,7 +14,7 @@ export interface ISyncRepository {
 
   findSyncs: (filter: Partial<Sync>) => Promise<Sync[]>;
 
-  findOneSyncWithReruns: (syncId: string) => Promise<SyncWithReruns | undefined>;
+  findOneSyncWithLastRerun: (syncId: string) => Promise<SyncWithReruns | undefined>;
 
   createRerun: (sync: Sync, schema: string) => Promise<void>;
 }

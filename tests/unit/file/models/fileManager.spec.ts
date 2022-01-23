@@ -19,14 +19,14 @@ describe('FileManager', () => {
   const createSync = jest.fn();
   const updateSync = jest.fn();
   const findSyncs = jest.fn();
-  const findOneSyncWithReruns = jest.fn();
+  const findOneSyncWithLastRerun = jest.fn();
   const createRerun = jest.fn();
 
   beforeEach(() => {
     jest.resetAllMocks();
 
     const fileRepository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile };
-    const syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithReruns, createRerun };
+    const syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithLastRerun, createRerun };
 
     fileManager = new FileManager(fileRepository, syncRepository, jsLogger({ enabled: false }));
   });
