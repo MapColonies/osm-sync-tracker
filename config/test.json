@@ -1,7 +1,7 @@
 {
   "db": {
     "host": "postgres",
-    "schema": "public",
+    "schema": "osm_sync_tracker",
     "username": "postgres",
     "password": "1234",
     "database": "postgres",
