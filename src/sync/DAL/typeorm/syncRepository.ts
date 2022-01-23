@@ -130,12 +130,12 @@ export class SyncRepository extends Repository<DbSync> implements ISyncRepositor
       `
     UPDATE ${schema}.entity AS entity_for_rerun
     SET status = 'inrerun', changeset_id = NULL, fail_reason = NULL
-    WHERE entity_for_rerun.entity_id IN (
-	  SELECT entity_id
-		  FROM ${schema}.entity AS e
-		  JOIN ${schema}.file f ON e.file_id = f.file_id
-		  WHERE f.sync_id = $1
-		  AND e.status IN ('inprogress', 'not_synced', 'failed'))
+    FROM ${schema}.entity AS e
+      JOIN ${schema}.file f ON e.file_id = f.file_id
+      WHERE f.sync_id = $1
+      AND e.file_id = entity_for_rerun.file_id
+      AND e.entity_id = entity_for_rerun.entity_id
+      AND e.status IN ('inprogress', 'not_synced', 'failed')
     `,
       [baseSyncId]
     );
