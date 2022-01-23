@@ -72,6 +72,11 @@ jobs:
         - name: Install Node.js dependencies
           run: npm ci
 
+        - name: Install pg client
+          run: |
+            apt-get update
+            apt-get install --yes postgresql-client
+
         - name: Create schema
           run: psql -U postgres 'CREATE SCHEMA osm_sync_tracker;'
           env:
