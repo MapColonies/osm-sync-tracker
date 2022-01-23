@@ -49,6 +49,8 @@ jobs:
             POSTGRES_PASSWORD: 1234
             POSTGRES_USER: postgres
             POSTGRES_DB: postgres
+          ports:
+            - 5432:5432
           # Set health checks to wait until postgres has started
           options: >-
             --health-cmd pg_isready
@@ -78,7 +80,7 @@ jobs:
             apt-get install --yes postgresql-client
 
         - name: Create schema
-          run: psql -U postgres 'CREATE SCHEMA osm_sync_tracker;'
+          run: psql -h postgres -d postgres -U postgres -c 'CREATE SCHEMA osm_sync_tracker;'
           env:
             PGPASSWORD: 1234
 
