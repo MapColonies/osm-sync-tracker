@@ -84,6 +84,9 @@ jobs:
           env:
             PGPASSWORD: 1234
 
+        - name: Run migrations
+          run: npm run migration:run
+
         - name: Run tests
           run: npm run test
 

@@ -6,8 +6,5 @@
     "password": "1234",
     "database": "postgres",
     "enableSslAuth": false
-  },
-  "typeorm": {
-    "migrationStrategy": "run"
   }
 }

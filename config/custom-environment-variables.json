@@ -71,8 +71,5 @@
       "cert": "DB_CERT_PATH"
     },
     "database": "DB_NAME"
-  },
-  "typeorm": {
-    "migrationStrategy": "TYPEORM_MIGRATION_STRETEGY"
   }
 }
