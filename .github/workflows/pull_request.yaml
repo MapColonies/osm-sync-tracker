@@ -86,6 +86,11 @@ jobs:
 
         - name: Run migrations
           run: npm run migration:run
+          env:
+            DB_HOST: postgres
+            DB_PORT: 5432
+            DB_USERNAME: postgres
+            DB_PASSWORD: 1234
 
         - name: Run tests
           run: npm run test
