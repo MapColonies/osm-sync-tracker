@@ -76,8 +76,10 @@ jobs:
 
         - name: Install pg client
           run: |
+            sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+            wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
             apt-get update
-            apt-get install --yes postgresql-client
+            apt-get install -y postgresql-client
 
         - name: Create schema
           run: psql -h postgres -d postgres -U postgres -c 'CREATE SCHEMA osm_sync_tracker;'
