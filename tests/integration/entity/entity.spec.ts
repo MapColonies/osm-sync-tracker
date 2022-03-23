@@ -74,7 +74,7 @@ describe('entity', function () {
       it(
         'should return 201 status code and body containing some entities as created and some as previously completed on a rerun',
         async function () {
-          const syncForRerun = createStringifiedFakeSync({ isFull: false });
+          const syncForRerun = createStringifiedFakeSync();
           const file = createStringifiedFakeFile();
           const rerunCreateBody = createStringifiedFakeRerunCreateBody();
           const entity1 = createStringifiedFakeEntity({ status: EntityStatus.COMPLETED });

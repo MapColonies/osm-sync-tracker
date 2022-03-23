@@ -47,7 +47,7 @@ describe('file', function () {
       it(
         'should return 201 status code for creating a file on a rerun while existing on its base',
         async function () {
-          const syncForRerun = createStringifiedFakeSync({ isFull: false });
+          const syncForRerun = createStringifiedFakeSync();
           const file = createStringifiedFakeFile();
           const rerunCreateBody = createStringifiedFakeRerunCreateBody();
 
@@ -67,7 +67,7 @@ describe('file', function () {
       it(
         'should return 201 status code for creating a file on a rerun while not existing on its base',
         async function () {
-          const syncForRerun = createStringifiedFakeSync({ isFull: false });
+          const syncForRerun = createStringifiedFakeSync();
           const file = createStringifiedFakeFile();
           const rerunCreateBody = createStringifiedFakeRerunCreateBody();
 
@@ -135,7 +135,7 @@ describe('file', function () {
         'should return 409 if on a rerun a file has conflicting sync id with already existing file',
         async function () {
           const sync = createStringifiedFakeSync();
-          const syncForRerun = createStringifiedFakeSync({ isFull: false });
+          const syncForRerun = createStringifiedFakeSync();
           const file = createStringifiedFakeFile();
           const rerunCreateBody = createStringifiedFakeRerunCreateBody();
 
@@ -156,7 +156,7 @@ describe('file', function () {
       it(
         'should return 409 if on a rerun a file has conflicting total entities value with already existing file',
         async function () {
-          const syncForRerun = createStringifiedFakeSync({ isFull: false });
+          const syncForRerun = createStringifiedFakeSync();
           const file = createStringifiedFakeFile();
           const rerunCreateBody = createStringifiedFakeRerunCreateBody();
 

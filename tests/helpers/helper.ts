@@ -54,7 +54,7 @@ export const createFakeRerunSync = (params: FakeSyncParams = {}): Sync => {
 
     layerId: params.layerId ?? faker.datatype.number(),
 
-    isFull: false,
+    isFull: params.isFull ?? faker.datatype.boolean(),
 
     totalFiles: params.totalFiles ?? faker.datatype.number(),
 

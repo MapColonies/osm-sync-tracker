@@ -104,9 +104,7 @@ describe('sync', function () {
       it(
         'should return 200 status code and the latest sync even if it has a rerun',
         async function () {
-          const sync = createStringifiedFakeSync({
-            isFull: false,
-          });
+          const sync = createStringifiedFakeSync();
           const { id } = sync;
           const rerunCreateBody = createStringifiedFakeRerunCreateBody();
 
@@ -148,7 +146,7 @@ describe('sync', function () {
       'should complete a sync on the first rerun',
       async function () {
         // create the base sync
-        const baseSync = createStringifiedFakeSync({ isFull: false, totalFiles: 2 });
+        const baseSync = createStringifiedFakeSync({ totalFiles: 2 });
         expect(await syncRequestSender.postSync(baseSync)).toHaveStatus(StatusCodes.CREATED);
         const { id: baseSyncId } = baseSync;
 
@@ -219,7 +217,7 @@ describe('sync', function () {
       'should complete a sync on the second rerun',
       async function () {
         // create the base sync
-        const baseSync = createStringifiedFakeSync({ isFull: false, totalFiles: 4 });
+        const baseSync = createStringifiedFakeSync({ totalFiles: 4 });
         expect(await syncRequestSender.postSync(baseSync)).toHaveStatus(StatusCodes.CREATED);
         const { id: baseSyncId } = baseSync;
 
@@ -347,7 +345,7 @@ describe('sync', function () {
       'should complete a sync on the third rerun',
       async function () {
         // create the base sync
-        const baseSync = createStringifiedFakeSync({ isFull: false, totalFiles: 1 });
+        const baseSync = createStringifiedFakeSync({ totalFiles: 1 });
         expect(await syncRequestSender.postSync(baseSync)).toHaveStatus(StatusCodes.CREATED);
         const { id: baseSyncId } = baseSync;
 
@@ -392,7 +390,7 @@ describe('sync', function () {
       'should on a rerun mark a file as in progress if it was completed while having not-synced entities',
       async function () {
         // create the base sync
-        const baseSync = createStringifiedFakeSync({ isFull: false, totalFiles: 2 });
+        const baseSync = createStringifiedFakeSync({ totalFiles: 2 });
         expect(await syncRequestSender.postSync(baseSync)).toHaveStatus(StatusCodes.CREATED);
         const { id: baseSyncId } = baseSync;
 
@@ -606,9 +604,7 @@ describe('sync', function () {
       it(
         'should return 400 if rerun creation body is missing startDate property',
         async function () {
-          const sync = createStringifiedFakeSync({
-            isFull: false,
-          });
+          const sync = createStringifiedFakeSync();
           const { id } = sync;
 
           expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
@@ -624,9 +620,7 @@ describe('sync', function () {
       it(
         'should return 400 if rerun creation body is missing rerunId property',
         async function () {
-          const sync = createStringifiedFakeSync({
-            isFull: false,
-          });
+          const sync = createStringifiedFakeSync();
           const { id } = sync;
           const rerunCreateBody = createStringifiedFakeRerunCreateBody();
           const { startDate } = rerunCreateBody;
@@ -644,9 +638,7 @@ describe('sync', function () {
       it(
         'should return 400 if rerun creation body has bad rerunId property',
         async function () {
-          const sync = createStringifiedFakeSync({
-            isFull: false,
-          });
+          const sync = createStringifiedFakeSync();
           const { id } = sync;
           const rerunCreateBody = createStringifiedFakeRerunCreateBody({ rerunId: 'badId' });
 
@@ -664,9 +656,7 @@ describe('sync', function () {
       it(
         'should return 400 if rerun creation body has bad startDate property',
         async function () {
-          const sync = createStringifiedFakeSync({
-            isFull: false,
-          });
+          const sync = createStringifiedFakeSync();
           const { id } = sync;
           const rerunCreateBody = createStringifiedFakeRerunCreateBody({ startDate: 'badDate' });
 
@@ -684,9 +674,7 @@ describe('sync', function () {
       it(
         'should return 409 if a rerun with the same id already exists',
         async function () {
-          const sync = createStringifiedFakeSync({
-            isFull: false,
-          });
+          const sync = createStringifiedFakeSync();
           const { id } = sync;
           const rerunCreateBody = createStringifiedFakeRerunCreateBody();
 
@@ -720,9 +708,7 @@ describe('sync', function () {
       it(
         'should return 409 if the sync to rerun has no failed status',
         async function () {
-          const sync = createStringifiedFakeSync({
-            isFull: false,
-          });
+          const sync = createStringifiedFakeSync();
           const { id } = sync;
           const rerunCreateBody = createStringifiedFakeRerunCreateBody();
 
@@ -763,9 +749,7 @@ describe('sync', function () {
       it(
         'should return 409 if the sync to rerun has already a in progress rerun',
         async function () {
-          const sync = createStringifiedFakeSync({
-            isFull: false,
-          });
+          const sync = createStringifiedFakeSync();
           const { id } = sync;
           const rerunCreateBody = createStringifiedFakeRerunCreateBody();
 
@@ -859,7 +843,7 @@ describe('sync', function () {
 
     describe('POST /sync/:syncId/rerun', function () {
       it('should return 500 if the db throws an error', async function () {
-        const sync = createStringifiedFakeSync({ isFull: false, status: Status.FAILED });
+        const sync = createStringifiedFakeSync({ status: Status.FAILED });
 
         const findOneSyncMock = jest.fn();
         const findOneSyncWithLastRerunMock = jest.fn().mockResolvedValue({ ...sync, runNumber: 0, reruns: [] });

@@ -185,7 +185,7 @@ describe('SyncManager', () => {
     it('resolves without errors on a sync with no previous reruns', async () => {
       const rerunId = faker.datatype.uuid();
       const rerunStartDate = faker.datatype.datetime();
-      const sync = createFakeSync({ isFull: false, status: Status.FAILED });
+      const sync = createFakeSync({ status: Status.FAILED });
 
       findOneSync.mockResolvedValue(undefined);
       findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [] });
@@ -229,7 +229,7 @@ describe('SyncManager', () => {
     });
 
     it('resolves without errors on a sync with a previous failed rerun', async () => {
-      const sync = createFakeSync({ isFull: false, status: Status.FAILED });
+      const sync = createFakeSync({ status: Status.FAILED });
       const rerun = createFakeRerunSync({ baseSyncId: sync.id, status: Status.FAILED });
       const rerunStartDate = faker.datatype.datetime();
 
@@ -252,7 +252,7 @@ describe('SyncManager', () => {
     });
 
     it('resolves without errors on a sync with multiple previous failed reruns', async () => {
-      const sync = createFakeSync({ isFull: false, status: Status.FAILED });
+      const sync = createFakeSync({ status: Status.FAILED });
       const rerun = createFakeRerunSync({ baseSyncId: sync.id });
       const rerunStartDate = faker.datatype.datetime();
       const existingRerun2 = createFakeRerunSync({ baseSyncId: sync.id, status: Status.FAILED, runNumber: 2 });
@@ -297,7 +297,7 @@ describe('SyncManager', () => {
     });
 
     it('rejects if the sync for rerun is a rerun', async () => {
-      const sync = createFakeSync({ isFull: false, runNumber: 1, status: Status.FAILED });
+      const sync = createFakeSync({ runNumber: 1, status: Status.FAILED });
       const rerun = createFakeRerunSync({ baseSyncId: sync.id });
       const rerunStartDate = faker.datatype.datetime();
 
@@ -309,7 +309,7 @@ describe('SyncManager', () => {
     });
 
     it('rejects if the sync for rerun does not have failed status', async () => {
-      const sync = createFakeSync({ isFull: false, runNumber: 0, status: Status.IN_PROGRESS });
+      const sync = createFakeSync({ runNumber: 0, status: Status.IN_PROGRESS });
       const rerun = createFakeRerunSync({ baseSyncId: sync.id });
       const rerunStartDate = faker.datatype.datetime();
 
@@ -321,7 +321,7 @@ describe('SyncManager', () => {
     });
 
     it('rejects if the sync for rerun already has a rerun which is in progress', async () => {
-      const sync = createFakeSync({ isFull: false, status: Status.FAILED });
+      const sync = createFakeSync({ status: Status.FAILED });
       const existingRerun = createFakeRerunSync({ baseSyncId: sync.id });
       const rerunId = faker.datatype.uuid();
       const rerunStartDate = faker.datatype.datetime();
