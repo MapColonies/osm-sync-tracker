@@ -67,8 +67,8 @@ export class SyncManager {
       throw new SyncNotFoundError(`sync = ${syncId} not found`);
     }
 
-    if (baseSyncWithLastRerun.isFull || baseSyncWithLastRerun.runNumber != 0 || baseSyncWithLastRerun.status != Status.FAILED) {
-      throw new InvalidSyncForRerunError(`could not rerun sync = ${syncId} due to it not being a failed diff base sync`);
+    if (baseSyncWithLastRerun.runNumber != 0 || baseSyncWithLastRerun.status != Status.FAILED) {
+      throw new InvalidSyncForRerunError(`could not rerun sync = ${syncId} due to it not being a failed base sync`);
     }
 
     let runNumber = 1;

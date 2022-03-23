@@ -126,6 +126,25 @@ describe('sync', function () {
 
   describe('POST /sync/:syncId/rerun', function () {
     it(
+      'should return 201 if the sync to rerun is a full failed sync',
+      async function () {
+        const sync = createStringifiedFakeSync({
+          isFull: true,
+        });
+        const { id } = sync;
+        const rerunCreateBody = createStringifiedFakeRerunCreateBody();
+
+        expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.patchSync(id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+
+        const response = await syncRequestSender.rerunSync(id as string, rerunCreateBody);
+
+        expect(response).toHaveProperty('status', StatusCodes.CREATED);
+      },
+      RERUN_TEST_TIMEOUT
+    );
+
+    it(
       'should complete a sync on the first rerun',
       async function () {
         // create the base sync
@@ -712,27 +731,7 @@ describe('sync', function () {
           const response = await syncRequestSender.rerunSync(id as string, rerunCreateBody);
 
           expect(response).toHaveProperty('status', StatusCodes.CONFLICT);
-          expect(response.body).toHaveProperty('message', `could not rerun sync = ${id as string} due to it not being a failed diff base sync`);
-        },
-        RERUN_TEST_TIMEOUT
-      );
-
-      it(
-        'should return 409 if the sync to rerun is a full sync',
-        async function () {
-          const sync = createStringifiedFakeSync({
-            isFull: true,
-          });
-          const { id } = sync;
-          const rerunCreateBody = createStringifiedFakeRerunCreateBody();
-
-          expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
-          expect(await syncRequestSender.patchSync(id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
-
-          const response = await syncRequestSender.rerunSync(id as string, rerunCreateBody);
-
-          expect(response).toHaveProperty('status', StatusCodes.CONFLICT);
-          expect(response.body).toHaveProperty('message', `could not rerun sync = ${id as string} due to it not being a failed diff base sync`);
+          expect(response.body).toHaveProperty('message', `could not rerun sync = ${id as string} due to it not being a failed base sync`);
         },
         RERUN_TEST_TIMEOUT
       );
@@ -741,7 +740,7 @@ describe('sync', function () {
         'should return 409 if the sync to rerun is a rerun',
         async function () {
           const sync = createStringifiedFakeSync({
-            isFull: false,
+            isFull: true,
           });
           const { id } = sync;
           const rerunCreateBody = createStringifiedFakeRerunCreateBody();
@@ -755,7 +754,7 @@ describe('sync', function () {
           expect(response).toHaveProperty('status', StatusCodes.CONFLICT);
           expect(response.body).toHaveProperty(
             'message',
-            `could not rerun sync = ${rerunCreateBody.rerunId as string} due to it not being a failed diff base sync`
+            `could not rerun sync = ${rerunCreateBody.rerunId as string} due to it not being a failed base sync`
           );
         },
         RERUN_TEST_TIMEOUT

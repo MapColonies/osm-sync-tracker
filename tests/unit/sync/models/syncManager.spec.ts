@@ -205,6 +205,29 @@ describe('SyncManager', () => {
       expect(createRerun).toHaveBeenCalledWith(expectedRerunForCreation, undefined);
     });
 
+    it('resolves if the sync for rerun is full', async () => {
+      const rerunId = faker.datatype.uuid();
+      const rerunStartDate = faker.datatype.datetime();
+      const sync = createFakeSync({ isFull: true, runNumber: 0, status: Status.FAILED });
+
+      findOneSync.mockResolvedValue(undefined);
+      findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [] });
+      const createRerunPromise = syncManager.rerunSync(sync.id, rerunId, rerunStartDate);
+
+      const expectedRerunForCreation = {
+        ...sync,
+        id: rerunId,
+        baseSyncId: sync.id,
+        runNumber: 1,
+        status: Status.IN_PROGRESS,
+        startDate: rerunStartDate,
+        endDate: null,
+      };
+
+      await expect(createRerunPromise).resolves.not.toThrow();
+      expect(createRerun).toHaveBeenCalledWith(expectedRerunForCreation, undefined);
+    });
+
     it('resolves without errors on a sync with a previous failed rerun', async () => {
       const sync = createFakeSync({ isFull: false, status: Status.FAILED });
       const rerun = createFakeRerunSync({ baseSyncId: sync.id, status: Status.FAILED });
@@ -271,18 +294,6 @@ describe('SyncManager', () => {
       const createRerunPromise = syncManager.rerunSync(rerun.baseSyncId as string, rerun.id, rerunStartDate);
 
       await expect(createRerunPromise).rejects.toThrow(SyncNotFoundError);
-    });
-
-    it('rejects if the sync for rerun is full', async () => {
-      const sync = createFakeSync({ isFull: true, runNumber: 0, status: Status.FAILED });
-      const rerun = createFakeRerunSync({ baseSyncId: sync.id });
-      const rerunStartDate = faker.datatype.datetime();
-
-      findOneSync.mockResolvedValue(undefined);
-      findOneSyncWithLastRerun.mockResolvedValue(sync);
-      const createRerunPromise = syncManager.rerunSync(sync.id, rerun.id, rerunStartDate);
-
-      await expect(createRerunPromise).rejects.toThrow(InvalidSyncForRerunError);
     });
 
     it('rejects if the sync for rerun is a rerun', async () => {
