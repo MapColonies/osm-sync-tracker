@@ -57,4 +57,8 @@ export const getDbHealthCheckFunction = (connection: Connection): HealthCheck =>
   };
 };
 
-export type UpdateResult<T> = [T[], number];
+export interface ReturningId {
+  id: string;
+}
+
+export type ReturningResult<T> = [T[], number];

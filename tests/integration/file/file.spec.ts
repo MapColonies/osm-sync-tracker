@@ -10,11 +10,14 @@ import { SyncRequestSender } from '../sync/helpers/requestSender';
 import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions, RERUN_TEST_TIMEOUT } from '../helpers';
 import { Status } from '../../../src/common/enums';
 import { fileRepositorySymbol } from '../../../src/file/DAL/fileRepository';
+import { createStringifiedFakeEntity } from '../entity/helpers/generators';
+import { EntityRequestSender } from '../entity/helpers/requestSender';
 import { createStringifiedFakeFile } from './helpers/generators';
 
 describe('file', function () {
   let fileRequestSender: FileRequestSender;
   let syncRequestSender: SyncRequestSender;
+  let entityRequestSender: EntityRequestSender;
   let mockFileRequestSender: FileRequestSender;
 
   let sync: StringifiedSync;
@@ -23,6 +26,7 @@ describe('file', function () {
     const app = await getApp(getBaseRegisterOptions());
     fileRequestSender = new FileRequestSender(app);
     syncRequestSender = new SyncRequestSender(app);
+    entityRequestSender = new EntityRequestSender(app);
 
     sync = createStringifiedFakeSync();
     await syncRequestSender.postSync(sync);
@@ -158,10 +162,12 @@ describe('file', function () {
         async function () {
           const syncForRerun = createStringifiedFakeSync();
           const file = createStringifiedFakeFile();
+          const entity = createStringifiedFakeEntity();
           const rerunCreateBody = createStringifiedFakeRerunCreateBody();
 
           expect(await syncRequestSender.postSync(syncForRerun)).toHaveStatus(StatusCodes.CREATED);
           expect(await fileRequestSender.postFile(syncForRerun.id as string, file)).toHaveStatus(StatusCodes.CREATED);
+          expect(await entityRequestSender.postEntityBulk(file.fileId as string, [entity])).toHaveStatus(StatusCodes.CREATED);
           expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
           expect(await syncRequestSender.rerunSync(syncForRerun.id as string, rerunCreateBody)).toHaveStatus(StatusCodes.CREATED);
 

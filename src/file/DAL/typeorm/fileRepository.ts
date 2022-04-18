@@ -3,17 +3,13 @@ import { inject } from 'tsyringe';
 import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { TransactionFailureError } from '../../../changeset/models/errors';
 import { SERVICES } from '../../../common/constants';
-import { isTransactionFailure, UpdateResult } from '../../../common/db';
+import { isTransactionFailure, ReturningId, ReturningResult } from '../../../common/db';
 import { IApplication } from '../../../common/interfaces';
 import { File } from '../../models/file';
 import { IFileRepository } from '../fileRepository';
 import { SyncDb } from '../../../sync/DAL/typeorm/sync';
 import { Status } from '../../../common/enums';
 import { File as FileDb } from './file';
-
-interface UpdatedId {
-  id: string;
-}
 
 @EntityRepository(FileDb)
 export class FileRepository extends Repository<FileDb> implements IFileRepository {
@@ -65,7 +61,11 @@ export class FileRepository extends Repository<FileDb> implements IFileRepositor
     }
   }
 
-  private async updateFileAsCompleted(fileId: string, schema: string, transactionalEntityManager: EntityManager): Promise<UpdateResult<UpdatedId>> {
+  private async updateFileAsCompleted(
+    fileId: string,
+    schema: string,
+    transactionalEntityManager: EntityManager
+  ): Promise<ReturningResult<ReturningId>> {
     return (await transactionalEntityManager.query(
       `UPDATE ${schema}.file AS FILE SET status = 'completed', end_date = current_timestamp
     WHERE FILE.file_id = $1 AND FILE.total_entities = (SELECT COUNT(*) AS CompletedEntities
@@ -73,10 +73,14 @@ export class FileRepository extends Repository<FileDb> implements IFileRepositor
         WHERE file_id = $1 AND (status = 'completed' OR status = 'not_synced'))
         RETURNING FILE.file_id AS id`,
       [fileId]
-    )) as UpdateResult<UpdatedId>;
+    )) as ReturningResult<ReturningId>;
   }
 
-  private async updateSyncAsCompleted(fileId: string, schema: string, transactionalEntityManager: EntityManager): Promise<UpdateResult<UpdatedId>> {
+  private async updateSyncAsCompleted(
+    fileId: string,
+    schema: string,
+    transactionalEntityManager: EntityManager
+  ): Promise<ReturningResult<ReturningId>> {
     return (await transactionalEntityManager.query(
       `UPDATE ${schema}.sync AS sync_to_update SET status = 'completed', end_date = current_timestamp
     FROM (
@@ -86,7 +90,7 @@ export class FileRepository extends Repository<FileDb> implements IFileRepositor
     WHERE sync_to_update.id = sync_from_file.sync_id AND sync_to_update.total_files = (SELECT COUNT(*) FROM ${schema}.file WHERE sync_id = sync_to_update.id AND status = 'completed')
     RETURNING sync_to_update.id`,
       [fileId]
-    )) as UpdateResult<UpdatedId>;
+    )) as ReturningResult<ReturningId>;
   }
 
   private async updateLastRerunAsCompleted(syncId: string, transactionalEntityManager: EntityManager): Promise<void> {

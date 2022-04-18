@@ -189,7 +189,7 @@ describe('SyncManager', () => {
 
       findOneSync.mockResolvedValue(undefined);
       findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [] });
-      const createRerunPromise = syncManager.rerunSync(sync.id, rerunId, rerunStartDate);
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerunId, rerunStartDate);
 
       const expectedRerunForCreation = {
         ...sync,
@@ -212,7 +212,8 @@ describe('SyncManager', () => {
 
       findOneSync.mockResolvedValue(undefined);
       findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [] });
-      const createRerunPromise = syncManager.rerunSync(sync.id, rerunId, rerunStartDate);
+      createRerun.mockResolvedValue(true);
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerunId, rerunStartDate);
 
       const expectedRerunForCreation = {
         ...sync,
@@ -224,7 +225,31 @@ describe('SyncManager', () => {
         endDate: null,
       };
 
-      await expect(createRerunPromise).resolves.not.toThrow();
+      await expect(createRerunPromise).resolves.toBe(true);
+      expect(createRerun).toHaveBeenCalledWith(expectedRerunForCreation, undefined);
+    });
+
+    it('resolves with false if the sync has completed and does not need a rerun', async () => {
+      const rerunId = faker.datatype.uuid();
+      const rerunStartDate = faker.datatype.datetime();
+      const sync = createFakeSync({ isFull: true, runNumber: 0, status: Status.FAILED });
+
+      findOneSync.mockResolvedValue(undefined);
+      findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [] });
+      createRerun.mockResolvedValue(false);
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerunId, rerunStartDate);
+
+      const expectedRerunForCreation = {
+        ...sync,
+        id: rerunId,
+        baseSyncId: sync.id,
+        runNumber: 1,
+        status: Status.IN_PROGRESS,
+        startDate: rerunStartDate,
+        endDate: null,
+      };
+
+      await expect(createRerunPromise).resolves.toBe(false);
       expect(createRerun).toHaveBeenCalledWith(expectedRerunForCreation, undefined);
     });
 
@@ -235,7 +260,7 @@ describe('SyncManager', () => {
 
       findOneSync.mockResolvedValue(undefined);
       findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [rerun] });
-      const createRerunPromise = syncManager.rerunSync(sync.id, rerun.id, rerunStartDate);
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerun.id, rerunStartDate);
 
       const expectedRerunForCreation = {
         ...sync,
@@ -259,7 +284,7 @@ describe('SyncManager', () => {
 
       findOneSync.mockResolvedValue(undefined);
       findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [existingRerun2] });
-      const createRerunPromise = syncManager.rerunSync(sync.id, rerun.id, rerunStartDate);
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerun.id, rerunStartDate);
 
       const expectedRerunForCreation = {
         ...sync,
@@ -280,7 +305,7 @@ describe('SyncManager', () => {
       const rerunStartDate = faker.datatype.datetime();
 
       findOneSync.mockResolvedValue(rerun);
-      const createRerunPromise = syncManager.rerunSync(rerun.baseSyncId as string, rerun.id, rerunStartDate);
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(rerun.baseSyncId as string, rerun.id, rerunStartDate);
 
       await expect(createRerunPromise).rejects.toThrow(RerunAlreadyExistsError);
     });
@@ -291,7 +316,7 @@ describe('SyncManager', () => {
 
       findOneSync.mockResolvedValue(undefined);
       findOneSyncWithLastRerun.mockResolvedValue(undefined);
-      const createRerunPromise = syncManager.rerunSync(rerun.baseSyncId as string, rerun.id, rerunStartDate);
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(rerun.baseSyncId as string, rerun.id, rerunStartDate);
 
       await expect(createRerunPromise).rejects.toThrow(SyncNotFoundError);
     });
@@ -303,7 +328,7 @@ describe('SyncManager', () => {
 
       findOneSync.mockResolvedValue(undefined);
       findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [] });
-      const createRerunPromise = syncManager.rerunSync(sync.id, rerun.id, rerunStartDate);
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerun.id, rerunStartDate);
 
       await expect(createRerunPromise).rejects.toThrow(InvalidSyncForRerunError);
     });
@@ -315,7 +340,7 @@ describe('SyncManager', () => {
 
       findOneSync.mockResolvedValue(undefined);
       findOneSyncWithLastRerun.mockResolvedValue(sync);
-      const createRerunPromise = syncManager.rerunSync(sync.id, rerun.id, rerunStartDate);
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerun.id, rerunStartDate);
 
       await expect(createRerunPromise).rejects.toThrow(InvalidSyncForRerunError);
     });
@@ -328,7 +353,7 @@ describe('SyncManager', () => {
 
       findOneSync.mockResolvedValue(undefined);
       findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [existingRerun] });
-      const createRerunPromise = syncManager.rerunSync(sync.id, rerunId, rerunStartDate);
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerunId, rerunStartDate);
 
       await expect(createRerunPromise).rejects.toThrow(InvalidSyncForRerunError);
     });

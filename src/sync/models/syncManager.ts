@@ -56,7 +56,7 @@ export class SyncManager {
     await this.syncRepository.updateSync(syncId, updatedEntity);
   }
 
-  public async rerunSync(syncId: string, rerunId: string, startDate: Date): Promise<void> {
+  public async rerunSyncIfNeeded(syncId: string, rerunId: string, startDate: Date): Promise<boolean> {
     const rerunEntity = await this.syncRepository.findOneSync(rerunId);
     if (rerunEntity) {
       throw new RerunAlreadyExistsError(`rerun = ${rerunId} already exists`);
@@ -92,6 +92,6 @@ export class SyncManager {
       startDate,
       endDate: null,
     };
-    await this.syncRepository.createRerun(rerunSyncForCreation, this.dbSchema);
+    return this.syncRepository.createRerun(rerunSyncForCreation, this.dbSchema);
   }
 }

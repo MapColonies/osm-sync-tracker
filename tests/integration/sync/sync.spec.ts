@@ -143,6 +143,41 @@ describe('sync', function () {
     );
 
     it(
+      'should return 200 if the sync to rerun was successfully closed by trying to rerun',
+      async function () {
+        const sync = createStringifiedFakeSync({
+          isFull: true,
+          totalFiles: 1,
+        });
+        const { id } = sync;
+
+        expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
+
+        const file1 = createStringifiedFakeFile({ totalEntities: 1 });
+        expect(await fileRequestSender.postFile(id as string, file1)).toHaveStatus(StatusCodes.CREATED);
+
+        const changeset1 = createStringifiedFakeChangeset();
+        expect(await changesetRequestSender.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
+
+        const file1Entity = [createStringifiedFakeEntity({ status: EntityStatus.COMPLETED, changesetId: changeset1.changesetId })];
+        expect(await entityRequestSender.postEntityBulk(file1.fileId as string, file1Entity)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.putChangesets([changeset1.changesetId as string])).toHaveStatus(StatusCodes.OK);
+
+        // file2 will be empty thus deleted on rerun action
+        const file2 = createStringifiedFakeFile({ totalEntities: 1 });
+        expect(await fileRequestSender.postFile(id as string, file2)).toHaveStatus(StatusCodes.CREATED);
+
+        expect(await syncRequestSender.patchSync(id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+
+        const rerunCreateBody = createStringifiedFakeRerunCreateBody();
+        const response = await syncRequestSender.rerunSync(id as string, rerunCreateBody);
+
+        expect(response).toHaveProperty('status', StatusCodes.OK);
+      },
+      RERUN_TEST_TIMEOUT
+    );
+
+    it(
       'should complete a sync on the first rerun',
       async function () {
         // create the base sync
@@ -317,6 +352,9 @@ describe('sync', function () {
           await entityRequestSender.patchEntity(file1.fileId as string, entity3.entityId as string, { ...entity3, status: EntityStatus.NOT_SYNCED })
         ).toHaveStatus(StatusCodes.OK);
         expect(await entityRequestSender.postEntityBulk(file2.fileId as string, [entity6])).toHaveStatus(StatusCodes.CREATED);
+
+        // file3 had no entities so it was deleted on the rerun
+        expect(await fileRequestSender.postFile(firstRerunId as string, file3)).toHaveStatus(StatusCodes.CREATED);
         expect(await entityRequestSender.postEntityBulk(file3.fileId as string, [entity7])).toHaveStatus(StatusCodes.CREATED);
         expect(await changesetRequestSender.patchChangesetEntities(changeset3.changesetId as string)).toHaveStatus(StatusCodes.OK);
         expect(await changesetRequestSender.putChangesets([changeset3.changesetId as string])).toHaveStatus(StatusCodes.OK);
@@ -425,6 +463,8 @@ describe('sync', function () {
         const changeset = createStringifiedFakeChangeset();
         expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
 
+        // file2 was deleted on the rerun due to it being empty
+        expect(await fileRequestSender.postFile(baseSyncId as string, file2)).toHaveStatus(StatusCodes.CREATED);
         const entity2 = createStringifiedFakeEntity({ changesetId: changeset.changesetId, status: EntityStatus.COMPLETED });
         expect(await entityRequestSender.postEntityBulk(file2.fileId as string, [entity2])).toHaveStatus(StatusCodes.CREATED);
 

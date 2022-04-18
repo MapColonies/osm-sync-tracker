@@ -1,7 +1,7 @@
 import { EntityManager, EntityRepository, Repository } from 'typeorm';
 import { inject } from 'tsyringe';
 import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
-import { isTransactionFailure, UpdateResult } from '../../../common/db';
+import { isTransactionFailure, ReturningId, ReturningResult } from '../../../common/db';
 import { EntityStatus, Status } from '../../../common/enums';
 import { Entity } from '../../../entity/DAL/typeorm/entity';
 import { Changeset, UpdateChangeset } from '../../models/changeset';
@@ -11,10 +11,6 @@ import { IApplication } from '../../../common/interfaces';
 import { SyncDb } from '../../../sync/DAL/typeorm/sync';
 import { SERVICES } from '../../../common/constants';
 import { Changeset as ChangesetDb } from './changeset';
-
-interface UpdatedId {
-  id: string;
-}
 
 @EntityRepository(ChangesetDb)
 export class ChangesetRepository extends Repository<ChangesetDb> implements IChangesetRepository {
@@ -101,7 +97,7 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
     changesetIds: string[],
     schema: string,
     transactionalEntityManager: EntityManager
-  ): Promise<UpdateResult<UpdatedId>> {
+  ): Promise<ReturningResult<ReturningId>> {
     return (await transactionalEntityManager.query(
       `WITH touched_files AS (
       SELECT DISTINCT file_id
@@ -117,7 +113,7 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
     WHERE FILE.file_id = FILES_TO_UPDATE.file_id AND FILES_TO_UPDATE.CompletedEntities = FILE.total_entities AND FILE.status != 'completed'
     RETURNING FILE.file_id AS id`,
       [changesetIds]
-    )) as UpdateResult<UpdatedId>;
+    )) as ReturningResult<ReturningId>;
   }
 
   private async updateSyncAsCompleted(changesetIds: string[], schema: string, transactionalEntityManager: EntityManager): Promise<void> {
@@ -141,7 +137,7 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
     fileIds: string[],
     schema: string,
     transactionalEntityManager: EntityManager
-  ): Promise<UpdateResult<UpdatedId>> {
+  ): Promise<ReturningResult<ReturningId>> {
     return (await transactionalEntityManager.query(
       `UPDATE ${schema}.sync AS sync_to_update SET status = 'completed', end_date = current_timestamp
     FROM (
@@ -151,7 +147,7 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
     WHERE sync_to_update.id = sync_from_files.sync_id AND sync_to_update.total_files = (SELECT COUNT(*) FROM ${schema}.file WHERE sync_id = sync_to_update.id AND status = 'completed')
     RETURNING sync_to_update.id`,
       [fileIds]
-    )) as UpdateResult<UpdatedId>;
+    )) as ReturningResult<ReturningId>;
   }
 
   private async updateLastRerunAsCompleted(syncId: string, transactionalEntityManager: EntityManager): Promise<void> {

@@ -81,9 +81,10 @@ describe('entity', function () {
           const entity2 = createStringifiedFakeEntity();
 
           expect(await syncRequestSender.postSync(syncForRerun)).toHaveStatus(StatusCodes.CREATED);
-          expect(await fileRequestSender.postFile(syncForRerun.id as string, file)).toHaveStatus(StatusCodes.CREATED);
           expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
           expect(await syncRequestSender.rerunSync(syncForRerun.id as string, rerunCreateBody)).toHaveStatus(StatusCodes.CREATED);
+
+          expect(await fileRequestSender.postFile(syncForRerun.id as string, file)).toHaveStatus(StatusCodes.CREATED);
 
           const firstExpectedBody: EntityBulkCreationResult = { created: [entity1.entityId as string], previouslyCompleted: [] };
 

@@ -66,8 +66,11 @@ export class SyncController {
 
   public rerunSync: RerunSyncHandler = async (req, res, next) => {
     try {
-      await this.manager.rerunSync(req.params.syncId, req.body.rerunId, req.body.startDate);
-      return res.status(httpStatus.CREATED).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
+      const wasRerunCreated = await this.manager.rerunSyncIfNeeded(req.params.syncId, req.body.rerunId, req.body.startDate);
+      if (wasRerunCreated) {
+        return res.status(httpStatus.CREATED).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
+      }
+      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.OK));
     } catch (error) {
       if (error instanceof SyncNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;

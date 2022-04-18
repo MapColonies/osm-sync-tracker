@@ -153,7 +153,7 @@ paths:
           $ref: '#/components/responses/UnexpectedError'
   /sync/{syncId}/rerun:
     post:
-      summary: rerun a sync
+      summary: rerun a sync if needed
       parameters:
         - $ref: '#/components/parameters/syncId'
       requestBody:
@@ -175,6 +175,8 @@ paths:
       tags:
         - sync
       responses:
+        '200':
+          description: the rerun was not created due to the sync closing successfuly
         '201':
           description: created
         '400':
