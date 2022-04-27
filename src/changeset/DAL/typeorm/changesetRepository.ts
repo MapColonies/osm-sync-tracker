@@ -42,7 +42,7 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
       return await this.manager.connection.transaction(this.transationIsolationLevel, async (transactionalEntityManager) => {
         let completedSyncIds: string[] = [];
         const completedFilesResult = await this.updateFileAsCompleted(changesetIds, schema, transactionalEntityManager);
-        // check if are there affected rows from the update
+        // check if there are any affected rows from the update
         if (completedFilesResult[1] !== 0) {
           const fileIds = completedFilesResult[0].map((file) => file.id);
           const completedSyncsResult = await this.updateSyncAsCompletedByFiles(fileIds, schema, transactionalEntityManager);
@@ -159,13 +159,11 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
       .limit(1)
       .getOne();
 
-    if (completedSyncWithLastRerun && completedSyncWithLastRerun.reruns.length > 0) {
-      const lastRerun = completedSyncWithLastRerun.reruns[0];
-      await transactionalEntityManager.update(
-        SyncDb,
-        { id: lastRerun.id },
-        { status: Status.COMPLETED, endDate: completedSyncWithLastRerun.endDate }
-      );
+    if (completedSyncWithLastRerun === undefined || completedSyncWithLastRerun.reruns.length <= 0) {
+      return;
     }
+
+    const lastRerun = completedSyncWithLastRerun.reruns[0];
+    await transactionalEntityManager.update(SyncDb, { id: lastRerun.id }, { status: Status.COMPLETED, endDate: completedSyncWithLastRerun.endDate });
   }
 }
