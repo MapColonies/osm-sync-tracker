@@ -1,9 +1,10 @@
 import config from 'config';
+import { createConnection } from 'typeorm';
 import { DbConfig } from '../../src/common/interfaces';
-import { initConnection } from '../../src/common/db/index';
+import { createConnectionOptions } from '../../src/common/db/index';
 
 export default async (): Promise<void> => {
-  const connectionOptions = config.get<DbConfig>('db');
-  const connection = await initConnection({ ...connectionOptions });
-  await connection.synchronize();
+  const connectionOptionsConfig = config.get<DbConfig>('db');
+  const connectionOptions = createConnectionOptions(connectionOptionsConfig);
+  await createConnection({ ...connectionOptions });
 };

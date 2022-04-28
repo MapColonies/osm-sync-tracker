@@ -1,10 +1,10 @@
-import { Column, Entity, OneToMany, PrimaryColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryColumn } from 'typeorm';
 import { GeometryType, Status } from '../../../common/enums';
 import { File } from '../../../file/DAL/typeorm/file';
-import { Sync } from '../../models/sync';
+import { Sync as ISync } from '../../models/sync';
 
 @Entity({ name: 'sync' })
-export class SyncDb implements Sync {
+export class SyncDb implements ISync {
   @PrimaryColumn({ type: 'uuid' })
   public id!: string;
 
@@ -35,17 +35,16 @@ export class SyncDb implements Sync {
   @Column({ name: 'geometry_type', type: 'enum', enum: GeometryType })
   public geometryType!: GeometryType;
 
-  public getGenericSync(): Sync {
-    return {
-      dumpDate: this.dumpDate,
-      endDate: this.endDate,
-      id: this.id,
-      isFull: this.isFull,
-      layerId: this.layerId,
-      startDate: this.startDate,
-      status: this.status,
-      totalFiles: this.totalFiles,
-      geometryType: this.geometryType,
-    };
-  }
+  @Column({ name: 'base_sync_id', type: 'uuid', nullable: true })
+  public baseSyncId!: string | null;
+
+  @ManyToOne(() => SyncDb, (sync) => sync.id, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'base_sync_id' })
+  public baseSync?: SyncDb;
+
+  @OneToMany(() => SyncDb, (sync) => sync.baseSync)
+  public reruns!: SyncDb[];
+
+  @Column({ name: 'run_number', type: 'integer', default: 0 })
+  public runNumber!: number;
 }

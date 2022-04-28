@@ -2,7 +2,7 @@ import jsLogger from '@map-colonies/js-logger';
 import faker from 'faker';
 import { QueryFailedError } from 'typeorm';
 import { EntityManager } from '../../../../src/entity/models/entityManager';
-import { createFakeEntities, createFakeEntity, createFakeFile } from '../../../helpers/helper';
+import { createFakeEntities, createFakeEntity, createFakeFile, createFakeRerunSync } from '../../../helpers/helper';
 import { DuplicateEntityError, EntityAlreadyExistsError } from '../../../../src/entity/models/errors';
 import { EntityNotFoundError } from '../../../../src/entity/models/errors';
 import { FileNotFoundError } from '../../../../src/file/models/errors';
@@ -12,56 +12,52 @@ import { ExceededNumberOfRetriesError, TransactionFailureError } from '../../../
 import { IEntityRepository } from '../../../../src/entity/DAL/entityRepository';
 import { IFileRepository } from '../../../../src/file/DAL/fileRepository';
 import { DEFAULT_ISOLATION_LEVEL } from '../../../integration/helpers';
+import { ISyncRepository } from '../../../../src/sync/DAL/syncRepository';
 
 let entityManager: EntityManager;
 let entityManagerWithRetries: EntityManager;
 let entityRepository: IEntityRepository;
 let fileRepository: IFileRepository;
+let syncRepository: ISyncRepository;
 
 describe('EntityManager', () => {
-  let createEntity: jest.Mock;
-  let createEntities: jest.Mock;
-  let updateEntity: jest.Mock;
-  let findOneEntity: jest.Mock;
-  let findManyEntites: jest.Mock;
+  const createEntity = jest.fn();
+  const createEntities = jest.fn();
+  const updateEntity = jest.fn();
+  const findOneEntity = jest.fn();
+  const findManyEntites = jest.fn();
 
-  let createFile: jest.Mock;
-  let createFiles: jest.Mock;
-  let findOneFile: jest.Mock;
-  let findManyFiles: jest.Mock;
-  let updateEntities: jest.Mock;
-  let countEntitiesByIds: jest.Mock;
-  let tryClosingFile: jest.Mock;
+  const createFile = jest.fn();
+  const createFiles = jest.fn();
+  const findOneFile = jest.fn();
+  const findManyFiles = jest.fn();
+  const updateEntities = jest.fn();
+  const countEntitiesByIds = jest.fn();
+  const tryClosingFile = jest.fn();
+
+  const createSync = jest.fn();
+  const getLatestSync = jest.fn();
+  const updateSync = jest.fn();
+  const findOneSync = jest.fn();
+  const findSyncs = jest.fn();
+  const findOneSyncWithLastRerun = jest.fn();
+  const createRerun = jest.fn();
 
   beforeEach(() => {
-    createEntity = jest.fn();
-    createEntities = jest.fn();
-    updateEntity = jest.fn();
-    findOneEntity = jest.fn();
-    findManyEntites = jest.fn();
-
-    createFile = jest.fn();
-    createFiles = jest.fn();
-    findOneFile = jest.fn();
-    findManyFiles = jest.fn();
-    updateEntities = jest.fn();
-    countEntitiesByIds = jest.fn();
-    tryClosingFile = jest.fn();
+    jest.resetAllMocks();
 
     entityRepository = { createEntity, createEntities, updateEntity, findOneEntity, findManyEntites, updateEntities, countEntitiesByIds };
     fileRepository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile };
+    syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithLastRerun, createRerun };
 
     entityManager = new EntityManager(
       entityRepository,
       fileRepository,
+      syncRepository,
       jsLogger({ enabled: false }),
       { get: jest.fn(), has: jest.fn() },
       { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
     );
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
   });
 
   describe('#createEntity', () => {
@@ -101,25 +97,96 @@ describe('EntityManager', () => {
   });
 
   describe('#createEntities', () => {
-    it("resolves without errors if all of the entitysId's are not already in use by the db", async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+    it('resolves without errors if all of the entitysIds are not already in use by the db', async () => {
+      const entities = createFakeEntities();
       const file = createFakeFile();
 
       findOneFile.mockResolvedValue(file);
       findManyEntites.mockResolvedValue(undefined);
       createEntities.mockResolvedValue(undefined);
+      findSyncs.mockResolvedValue([]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
 
       await expect(createBulkPromise).resolves.not.toThrow();
+      expect(updateEntities).not.toHaveBeenCalled();
+      expect(createEntities).toHaveBeenCalledWith(entities.map((entity) => ({ ...entity, fileId: file.fileId })));
+    });
+
+    it('resolves without errors if all of the entitysIds are not already in use by the db while having a rerun', async () => {
+      const entities = createFakeEntities();
+      const file = createFakeFile();
+      const rerun = createFakeRerunSync();
+
+      findOneFile.mockResolvedValue(file);
+      findManyEntites.mockResolvedValue(undefined);
+      findSyncs.mockResolvedValue([rerun]);
+
+      const createBulkPromise = entityManager.createEntities(file.fileId, entities);
+
+      await expect(createBulkPromise).resolves.not.toThrow();
+      expect(createEntities).not.toHaveBeenCalled();
+      expect(updateEntities).toHaveBeenCalledWith(entities.map((entity) => ({ ...entity, fileId: file.fileId })));
+    });
+
+    it('resolves without errors if all of the entitysIds are already in use by the db while having a rerun', async () => {
+      const entities = createFakeEntities();
+      const file = createFakeFile();
+      const rerun = createFakeRerunSync();
+
+      findOneFile.mockResolvedValue(file);
+      findManyEntites.mockResolvedValue(entities);
+      findSyncs.mockResolvedValue([rerun]);
+
+      const createBulkPromise = entityManager.createEntities(file.fileId, entities);
+
+      await expect(createBulkPromise).resolves.not.toThrow();
+      expect(createEntities).not.toHaveBeenCalled();
+      expect(updateEntities).toHaveBeenCalledWith([]);
+    });
+
+    it('resolves without errors if some of the entitysIds are already in use by the db while having a rerun', async () => {
+      const entities = createFakeEntities();
+      const entity = createFakeEntity();
+      const file = createFakeFile();
+      const rerun = createFakeRerunSync();
+
+      findOneFile.mockResolvedValue(file);
+      findManyEntites.mockResolvedValue([entity]);
+      findSyncs.mockResolvedValue([rerun]);
+
+      const createBulkPromise = entityManager.createEntities(file.fileId, [...entities, entity]);
+
+      await expect(createBulkPromise).resolves.not.toThrow();
+      expect(createEntities).not.toHaveBeenCalled();
+      expect(updateEntities).toHaveBeenCalledWith(entities.map((entity) => ({ ...entity, fileId: file.fileId })));
+    });
+
+    it('resolves without errors if an already existing entity with inrerun status is created on rerun', async () => {
+      const entity1 = createFakeEntity();
+      const entity2 = createFakeEntity();
+      const entities = [entity1, entity2];
+      const file = createFakeFile();
+      const rerun = createFakeRerunSync();
+
+      findOneFile.mockResolvedValue(file);
+      findManyEntites.mockResolvedValue([{ entity2, status: EntityStatus.IN_RERUN }]);
+      findSyncs.mockResolvedValue([rerun]);
+
+      const createBulkPromise = entityManager.createEntities(file.fileId, entities);
+
+      await expect(createBulkPromise).resolves.not.toThrow();
+      expect(createEntities).not.toHaveBeenCalled();
+      expect(updateEntities).toHaveBeenCalledWith(entities.map((entity) => ({ ...entity, fileId: file.fileId })));
     });
 
     it("rejects if one of the entitysId's already exists in the db", async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       const file = createFakeFile();
 
       findOneFile.mockResolvedValue(file);
       findManyEntites.mockResolvedValue(entities);
+      findSyncs.mockResolvedValue([]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
 
@@ -127,7 +194,7 @@ describe('EntityManager', () => {
     });
 
     it("rejects if one of the entitysId's is duplicate", async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       entities.push(entities[0]);
       const file = createFakeFile();
 
@@ -140,7 +207,7 @@ describe('EntityManager', () => {
     });
 
     it('rejects if fileId is not exists in the db', async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
 
       findOneFile.mockResolvedValue(undefined);
 
@@ -192,6 +259,7 @@ describe('EntityManager', () => {
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
+        syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
@@ -239,6 +307,7 @@ describe('EntityManager', () => {
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
+        syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
@@ -264,6 +333,7 @@ describe('EntityManager', () => {
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
+        syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
@@ -289,6 +359,7 @@ describe('EntityManager', () => {
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
+        syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
@@ -303,7 +374,7 @@ describe('EntityManager', () => {
 
   describe('#updateEntities', () => {
     it("resolves without errors if all of the entitysId's are not already in use by the db", async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
 
       countEntitiesByIds.mockResolvedValue(entities.length);
       updateEntities.mockResolvedValue(undefined);
@@ -314,7 +385,7 @@ describe('EntityManager', () => {
     });
 
     it('resolves without errors if one of the entities status is not_synced', async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       entities[0].status = EntityStatus.NOT_SYNCED;
 
       countEntitiesByIds.mockResolvedValue(entities.length);
@@ -326,7 +397,7 @@ describe('EntityManager', () => {
     });
 
     it('resolves without errors if one of the entities status is not_synced when retries is configured and failed once', async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       entities[0].status = EntityStatus.NOT_SYNCED;
 
       countEntitiesByIds.mockResolvedValue(entities.length);
@@ -339,6 +410,7 @@ describe('EntityManager', () => {
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
+        syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
@@ -351,7 +423,7 @@ describe('EntityManager', () => {
     });
 
     it("rejects if one of the entitysId's is duplicate", async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       entities.push(entities[0]);
 
       countEntitiesByIds.mockResolvedValue(entities.length);
@@ -363,7 +435,7 @@ describe('EntityManager', () => {
     });
 
     it('rejects if entity id does not exists in the db', async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
 
       countEntitiesByIds.mockResolvedValue(entities.length - 1);
       updateEntities.mockResolvedValue(undefined);
@@ -374,7 +446,7 @@ describe('EntityManager', () => {
     });
 
     it('rejects with transaction failure error if closing the files has failed', async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       entities[0].status = EntityStatus.NOT_SYNCED;
 
       countEntitiesByIds.mockResolvedValue(entities.length);
@@ -387,6 +459,7 @@ describe('EntityManager', () => {
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
+        syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
@@ -399,7 +472,7 @@ describe('EntityManager', () => {
     });
 
     it('rejects with exceeded number of retries error if closing files has failed when retries is configured', async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       entities[0].status = EntityStatus.NOT_SYNCED;
 
       countEntitiesByIds.mockResolvedValue(entities.length);
@@ -413,6 +486,7 @@ describe('EntityManager', () => {
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
+        syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
@@ -425,7 +499,7 @@ describe('EntityManager', () => {
     });
 
     it('rejects without transaction failure error when retries is configured due to another error raising', async () => {
-      const entities = createFakeEntities(faker.datatype.number());
+      const entities = createFakeEntities();
       entities[0].status = EntityStatus.NOT_SYNCED;
 
       countEntitiesByIds.mockResolvedValue(entities.length);
@@ -439,6 +513,7 @@ describe('EntityManager', () => {
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
+        syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL }

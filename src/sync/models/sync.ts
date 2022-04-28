@@ -18,6 +18,14 @@ export interface Sync {
   totalFiles: number | null;
 
   geometryType: GeometryType;
+
+  baseSyncId: string | null;
+
+  runNumber: number;
 }
 
+export type BaseSync = Omit<Sync, 'baseSyncId' | 'runNumber'>;
+
 export type SyncUpdate = Omit<Partial<Sync>, 'id' | 'isFull'>;
+
+export type SyncWithReruns = Sync & { reruns: Sync[] };

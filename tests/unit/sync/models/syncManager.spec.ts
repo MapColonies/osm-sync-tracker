@@ -1,31 +1,32 @@
 import jsLogger from '@map-colonies/js-logger';
+import faker from 'faker';
 import { SyncManager } from '../../../../src/sync/models/syncManager';
-import { createFakeSync } from '../../../helpers/helper';
-import { FullSyncAlreadyExistsError, SyncAlreadyExistsError, SyncNotFoundError } from '../../../../src/sync/models/errors';
-import { GeometryType } from '../../../../src/common/enums';
+import { createFakeRerunSync, createFakeSync } from '../../../helpers/helper';
+import {
+  FullSyncAlreadyExistsError,
+  InvalidSyncForRerunError,
+  RerunAlreadyExistsError,
+  SyncAlreadyExistsError,
+  SyncNotFoundError,
+} from '../../../../src/sync/models/errors';
+import { GeometryType, Status } from '../../../../src/common/enums';
 
 let syncManager: SyncManager;
 
 describe('SyncManager', () => {
-  let createSync: jest.Mock;
-  let getLatestSync: jest.Mock;
-  let updateSync: jest.Mock;
-  let findOneSync: jest.Mock;
-  let findSyncs: jest.Mock;
+  const createSync = jest.fn();
+  const getLatestSync = jest.fn();
+  const updateSync = jest.fn();
+  const findOneSync = jest.fn();
+  const findSyncs = jest.fn();
+  const findOneSyncWithLastRerun = jest.fn();
+  const createRerun = jest.fn();
 
   beforeEach(() => {
-    getLatestSync = jest.fn();
-    createSync = jest.fn();
-    updateSync = jest.fn();
-    findOneSync = jest.fn();
-    findSyncs = jest.fn();
+    jest.resetAllMocks();
 
-    const repository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs };
-    syncManager = new SyncManager(repository, jsLogger({ enabled: false }));
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
+    const syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithLastRerun, createRerun };
+    syncManager = new SyncManager(syncRepository, jsLogger({ enabled: false }), { get: jest.fn(), has: jest.fn() });
   });
 
   describe('#createSync', () => {
@@ -177,6 +178,184 @@ describe('SyncManager', () => {
       const getLatestPromise = syncManager.getLatestSync(sync.layerId, sync.geometryType);
 
       await expect(getLatestPromise).rejects.toThrow(SyncNotFoundError);
+    });
+  });
+
+  describe('#rerunSync', () => {
+    it('resolves without errors on a sync with no previous reruns', async () => {
+      const rerunId = faker.datatype.uuid();
+      const rerunStartDate = faker.datatype.datetime();
+      const sync = createFakeSync({ status: Status.FAILED });
+
+      findOneSync.mockResolvedValue(undefined);
+      findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [] });
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerunId, rerunStartDate);
+
+      const expectedRerunForCreation = {
+        ...sync,
+        id: rerunId,
+        baseSyncId: sync.id,
+        runNumber: 1,
+        status: Status.IN_PROGRESS,
+        startDate: rerunStartDate,
+        endDate: null,
+      };
+
+      await expect(createRerunPromise).resolves.not.toThrow();
+      expect(createRerun).toHaveBeenCalledWith(expectedRerunForCreation, undefined);
+    });
+
+    it('resolves if the sync for rerun is full', async () => {
+      const rerunId = faker.datatype.uuid();
+      const rerunStartDate = faker.datatype.datetime();
+      const sync = createFakeSync({ isFull: true, runNumber: 0, status: Status.FAILED });
+
+      findOneSync.mockResolvedValue(undefined);
+      findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [] });
+      createRerun.mockResolvedValue(true);
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerunId, rerunStartDate);
+
+      const expectedRerunForCreation = {
+        ...sync,
+        id: rerunId,
+        baseSyncId: sync.id,
+        runNumber: 1,
+        status: Status.IN_PROGRESS,
+        startDate: rerunStartDate,
+        endDate: null,
+      };
+
+      await expect(createRerunPromise).resolves.toBe(true);
+      expect(createRerun).toHaveBeenCalledWith(expectedRerunForCreation, undefined);
+    });
+
+    it('resolves with false if the sync has completed and does not need a rerun', async () => {
+      const rerunId = faker.datatype.uuid();
+      const rerunStartDate = faker.datatype.datetime();
+      const sync = createFakeSync({ isFull: true, runNumber: 0, status: Status.FAILED });
+
+      findOneSync.mockResolvedValue(undefined);
+      findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [] });
+      createRerun.mockResolvedValue(false);
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerunId, rerunStartDate);
+
+      const expectedRerunForCreation = {
+        ...sync,
+        id: rerunId,
+        baseSyncId: sync.id,
+        runNumber: 1,
+        status: Status.IN_PROGRESS,
+        startDate: rerunStartDate,
+        endDate: null,
+      };
+
+      await expect(createRerunPromise).resolves.toBe(false);
+      expect(createRerun).toHaveBeenCalledWith(expectedRerunForCreation, undefined);
+    });
+
+    it('resolves without errors on a sync with a previous failed rerun', async () => {
+      const sync = createFakeSync({ status: Status.FAILED });
+      const rerun = createFakeRerunSync({ baseSyncId: sync.id, status: Status.FAILED });
+      const rerunStartDate = faker.datatype.datetime();
+
+      findOneSync.mockResolvedValue(undefined);
+      findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [rerun] });
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerun.id, rerunStartDate);
+
+      const expectedRerunForCreation = {
+        ...sync,
+        id: rerun.id,
+        baseSyncId: sync.id,
+        runNumber: rerun.runNumber + 1,
+        status: Status.IN_PROGRESS,
+        startDate: rerunStartDate,
+        endDate: null,
+      };
+
+      await expect(createRerunPromise).resolves.not.toThrow();
+      expect(createRerun).toHaveBeenCalledWith(expectedRerunForCreation, undefined);
+    });
+
+    it('resolves without errors on a sync with multiple previous failed reruns', async () => {
+      const sync = createFakeSync({ status: Status.FAILED });
+      const rerun = createFakeRerunSync({ baseSyncId: sync.id });
+      const rerunStartDate = faker.datatype.datetime();
+      const existingRerun2 = createFakeRerunSync({ baseSyncId: sync.id, status: Status.FAILED, runNumber: 2 });
+
+      findOneSync.mockResolvedValue(undefined);
+      findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [existingRerun2] });
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerun.id, rerunStartDate);
+
+      const expectedRerunForCreation = {
+        ...sync,
+        id: rerun.id,
+        baseSyncId: sync.id,
+        runNumber: 3,
+        status: Status.IN_PROGRESS,
+        startDate: rerunStartDate,
+        endDate: null,
+      };
+
+      await expect(createRerunPromise).resolves.not.toThrow();
+      expect(createRerun).toHaveBeenCalledWith(expectedRerunForCreation, undefined);
+    });
+
+    it('rejects if a rerun with the same id already exists in the db', async () => {
+      const rerun = createFakeRerunSync();
+      const rerunStartDate = faker.datatype.datetime();
+
+      findOneSync.mockResolvedValue(rerun);
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(rerun.baseSyncId as string, rerun.id, rerunStartDate);
+
+      await expect(createRerunPromise).rejects.toThrow(RerunAlreadyExistsError);
+    });
+
+    it('rejects if no sync was found with provided id', async () => {
+      const rerun = createFakeRerunSync();
+      const rerunStartDate = faker.datatype.datetime();
+
+      findOneSync.mockResolvedValue(undefined);
+      findOneSyncWithLastRerun.mockResolvedValue(undefined);
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(rerun.baseSyncId as string, rerun.id, rerunStartDate);
+
+      await expect(createRerunPromise).rejects.toThrow(SyncNotFoundError);
+    });
+
+    it('rejects if the sync for rerun is a rerun', async () => {
+      const sync = createFakeSync({ runNumber: 1, status: Status.FAILED });
+      const rerun = createFakeRerunSync({ baseSyncId: sync.id });
+      const rerunStartDate = faker.datatype.datetime();
+
+      findOneSync.mockResolvedValue(undefined);
+      findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [] });
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerun.id, rerunStartDate);
+
+      await expect(createRerunPromise).rejects.toThrow(InvalidSyncForRerunError);
+    });
+
+    it('rejects if the sync for rerun does not have failed status', async () => {
+      const sync = createFakeSync({ runNumber: 0, status: Status.IN_PROGRESS });
+      const rerun = createFakeRerunSync({ baseSyncId: sync.id });
+      const rerunStartDate = faker.datatype.datetime();
+
+      findOneSync.mockResolvedValue(undefined);
+      findOneSyncWithLastRerun.mockResolvedValue(sync);
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerun.id, rerunStartDate);
+
+      await expect(createRerunPromise).rejects.toThrow(InvalidSyncForRerunError);
+    });
+
+    it('rejects if the sync for rerun already has a rerun which is in progress', async () => {
+      const sync = createFakeSync({ status: Status.FAILED });
+      const existingRerun = createFakeRerunSync({ baseSyncId: sync.id });
+      const rerunId = faker.datatype.uuid();
+      const rerunStartDate = faker.datatype.datetime();
+
+      findOneSync.mockResolvedValue(undefined);
+      findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [existingRerun] });
+      const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerunId, rerunStartDate);
+
+      await expect(createRerunPromise).rejects.toThrow(InvalidSyncForRerunError);
     });
   });
 });

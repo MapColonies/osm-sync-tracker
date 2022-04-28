@@ -5,14 +5,14 @@ import { injectable, inject } from 'tsyringe';
 import mime from 'mime-types';
 import { SERVICES } from '../../common/constants';
 import { Entity, UpdateEntities, UpdateEntity } from '../models/entity';
-import { EntityManager } from '../models/entityManager';
+import { EntityBulkCreationResult, EntityManager } from '../models/entityManager';
 import { HttpError } from '../../common/errors';
 import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } from '../models/errors';
 import { FileNotFoundError } from '../../file/models/errors';
 import { ExceededNumberOfRetriesError } from '../../changeset/models/errors';
 
 type PostEntityHandler = RequestHandler<{ fileId: string }, string, Entity>;
-type PostEntitiesHandler = RequestHandler<{ fileId: string }, string, Entity[]>;
+type PostEntitiesHandler = RequestHandler<{ fileId: string }, EntityBulkCreationResult, Entity[]>;
 type PatchEntityHandler = RequestHandler<{ fileId: string; entityId: string }, string[], UpdateEntity>;
 type PatchEntitiesHandler = RequestHandler<undefined, string, UpdateEntities>;
 
@@ -38,8 +38,8 @@ export class EntityController {
 
   public postEntities: PostEntitiesHandler = async (req, res, next) => {
     try {
-      await this.manager.createEntities(req.params.fileId, req.body);
-      return res.status(httpStatus.CREATED).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
+      const result = await this.manager.createEntities(req.params.fileId, req.body);
+      return res.status(httpStatus.CREATED).json(result);
     } catch (error) {
       if (error instanceof EntityAlreadyExistsError || error instanceof DuplicateEntityError) {
         (error as HttpError).status = StatusCodes.CONFLICT;

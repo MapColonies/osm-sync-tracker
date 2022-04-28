@@ -1,5 +1,4 @@
 import jsLogger from '@map-colonies/js-logger';
-import config from 'config';
 import faker from 'faker';
 import { QueryFailedError } from 'typeorm';
 import { ChangesetManager } from '../../../../src/changeset/models/changesetManager';
@@ -16,20 +15,15 @@ let changesetManager: ChangesetManager;
 let changesetManagerWithRetries: ChangesetManager;
 
 describe('ChangesetManager', () => {
-  let createChangeset: jest.Mock;
-  let updateChangeset: jest.Mock;
-  let updateEntitiesOfChangesetAsCompleted: jest.Mock;
-  let tryClosingChangeset: jest.Mock;
-  let tryClosingChangesets: jest.Mock;
-  let findOneChangeset: jest.Mock;
+  const createChangeset = jest.fn();
+  const updateChangeset = jest.fn();
+  const updateEntitiesOfChangesetAsCompleted = jest.fn();
+  const tryClosingChangeset = jest.fn();
+  const tryClosingChangesets = jest.fn();
+  const findOneChangeset = jest.fn();
 
   beforeEach(() => {
-    createChangeset = jest.fn();
-    updateChangeset = jest.fn();
-    updateEntitiesOfChangesetAsCompleted = jest.fn();
-    tryClosingChangeset = jest.fn();
-    tryClosingChangesets = jest.fn();
-    findOneChangeset = jest.fn();
+    jest.resetAllMocks();
 
     const repository = {
       createChangeset,
@@ -39,14 +33,15 @@ describe('ChangesetManager', () => {
       updateEntitiesOfChangesetAsCompleted,
       tryClosingChangesets,
     };
-    changesetManager = new ChangesetManager(repository, jsLogger({ enabled: false }), config, {
-      transactionRetryPolicy: { enabled: false },
-      isolationLevel: DEFAULT_ISOLATION_LEVEL,
-    });
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
+    changesetManager = new ChangesetManager(
+      repository,
+      jsLogger({ enabled: false }),
+      { get: jest.fn(), has: jest.fn() },
+      {
+        transactionRetryPolicy: { enabled: false },
+        isolationLevel: DEFAULT_ISOLATION_LEVEL,
+      }
+    );
   });
 
   describe('#createChangeset', () => {
@@ -144,10 +139,15 @@ describe('ChangesetManager', () => {
         updateEntitiesOfChangesetAsCompleted,
         tryClosingChangesets,
       };
-      changesetManagerWithRetries = new ChangesetManager(repository, jsLogger({ enabled: false }), config, {
-        transactionRetryPolicy: { enabled: true, numRetries: 1 },
-        isolationLevel: DEFAULT_ISOLATION_LEVEL,
-      });
+      changesetManagerWithRetries = new ChangesetManager(
+        repository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        {
+          transactionRetryPolicy: { enabled: true, numRetries: 1 },
+          isolationLevel: DEFAULT_ISOLATION_LEVEL,
+        }
+      );
 
       const closePromise = changesetManagerWithRetries.closeChangeset(entity.changesetId);
 
@@ -181,10 +181,15 @@ describe('ChangesetManager', () => {
         updateEntitiesOfChangesetAsCompleted,
         tryClosingChangesets,
       };
-      changesetManagerWithRetries = new ChangesetManager(repository, jsLogger({ enabled: false }), config, {
-        transactionRetryPolicy: { enabled: true, numRetries: retries },
-        isolationLevel: DEFAULT_ISOLATION_LEVEL,
-      });
+      changesetManagerWithRetries = new ChangesetManager(
+        repository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        {
+          transactionRetryPolicy: { enabled: true, numRetries: retries },
+          isolationLevel: DEFAULT_ISOLATION_LEVEL,
+        }
+      );
 
       const closePromise = changesetManagerWithRetries.closeChangeset(entity.changesetId);
 
@@ -207,10 +212,15 @@ describe('ChangesetManager', () => {
         updateEntitiesOfChangesetAsCompleted,
         tryClosingChangesets,
       };
-      changesetManagerWithRetries = new ChangesetManager(repository, jsLogger({ enabled: false }), config, {
-        transactionRetryPolicy: { enabled: true, numRetries: retries },
-        isolationLevel: DEFAULT_ISOLATION_LEVEL,
-      });
+      changesetManagerWithRetries = new ChangesetManager(
+        repository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        {
+          transactionRetryPolicy: { enabled: true, numRetries: retries },
+          isolationLevel: DEFAULT_ISOLATION_LEVEL,
+        }
+      );
 
       const closePromise = changesetManagerWithRetries.closeChangeset(entity.changesetId);
 
@@ -254,10 +264,15 @@ describe('ChangesetManager', () => {
         updateEntitiesOfChangesetAsCompleted,
         tryClosingChangesets,
       };
-      changesetManagerWithRetries = new ChangesetManager(repository, jsLogger({ enabled: false }), config, {
-        transactionRetryPolicy: { enabled: true, numRetries: 1 },
-        isolationLevel: DEFAULT_ISOLATION_LEVEL,
-      });
+      changesetManagerWithRetries = new ChangesetManager(
+        repository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        {
+          transactionRetryPolicy: { enabled: true, numRetries: 1 },
+          isolationLevel: DEFAULT_ISOLATION_LEVEL,
+        }
+      );
 
       const closePromise = changesetManagerWithRetries.closeChangesets([entity.changesetId]);
 
@@ -291,10 +306,15 @@ describe('ChangesetManager', () => {
         updateEntitiesOfChangesetAsCompleted,
         tryClosingChangesets,
       };
-      changesetManagerWithRetries = new ChangesetManager(repository, jsLogger({ enabled: false }), config, {
-        transactionRetryPolicy: { enabled: true, numRetries: retries },
-        isolationLevel: DEFAULT_ISOLATION_LEVEL,
-      });
+      changesetManagerWithRetries = new ChangesetManager(
+        repository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        {
+          transactionRetryPolicy: { enabled: true, numRetries: retries },
+          isolationLevel: DEFAULT_ISOLATION_LEVEL,
+        }
+      );
 
       const closePromise = changesetManagerWithRetries.closeChangesets([entity1.changesetId, entity2.changesetId]);
 
@@ -316,10 +336,15 @@ describe('ChangesetManager', () => {
         updateEntitiesOfChangesetAsCompleted,
         tryClosingChangesets,
       };
-      changesetManagerWithRetries = new ChangesetManager(repository, jsLogger({ enabled: false }), config, {
-        transactionRetryPolicy: { enabled: true, numRetries: retries },
-        isolationLevel: DEFAULT_ISOLATION_LEVEL,
-      });
+      changesetManagerWithRetries = new ChangesetManager(
+        repository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        {
+          transactionRetryPolicy: { enabled: true, numRetries: retries },
+          isolationLevel: DEFAULT_ISOLATION_LEVEL,
+        }
+      );
 
       const closePromise = changesetManagerWithRetries.closeChangesets([entity.changesetId]);
 

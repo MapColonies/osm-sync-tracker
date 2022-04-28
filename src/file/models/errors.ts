@@ -18,3 +18,10 @@ export class FileNotFoundError extends Error {
     Object.setPrototypeOf(this, FileNotFoundError.prototype);
   }
 }
+
+export class ConflictingRerunFileError extends Error {
+  public constructor(message: string) {
+    super(message);
+    Object.setPrototypeOf(this, ConflictingRerunFileError.prototype);
+  }
+}

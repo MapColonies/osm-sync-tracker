@@ -5,6 +5,9 @@ import { File } from '../../src/file/models/file';
 import { Entity } from '../../src/entity/models/entity';
 import { Changeset } from '../../src/changeset/models/changeset';
 
+const MAX_GENERATED_FAKES = 1000;
+const MIN_GENERATED_FAKES = 1;
+
 export type FakeSyncParams = Partial<Sync>;
 
 export const createFakeSync = (params: FakeSyncParams = {}): Sync => {
@@ -24,6 +27,10 @@ export const createFakeSync = (params: FakeSyncParams = {}): Sync => {
     totalFiles: params.totalFiles ?? faker.datatype.number(),
 
     geometryType: params.geometryType ?? GeometryType.POLYGON,
+
+    runNumber: params.runNumber ?? 0,
+
+    baseSyncId: params.baseSyncId ?? null,
   };
 };
 
@@ -33,6 +40,30 @@ export const createMultipleSyncData = (amount: number): Sync[] => {
     data.push(createFakeSync());
   }
   return data;
+};
+
+export const createFakeRerunSync = (params: FakeSyncParams = {}): Sync => {
+  return {
+    id: params.id ?? faker.datatype.uuid(),
+
+    dumpDate: params.dumpDate ?? faker.datatype.datetime(),
+
+    startDate: params.startDate ?? faker.datatype.datetime(),
+
+    status: params.status ?? Status.IN_PROGRESS,
+
+    layerId: params.layerId ?? faker.datatype.number(),
+
+    isFull: params.isFull ?? faker.datatype.boolean(),
+
+    totalFiles: params.totalFiles ?? faker.datatype.number(),
+
+    geometryType: params.geometryType ?? GeometryType.POLYGON,
+
+    runNumber: params.runNumber ?? faker.datatype.number({ min: 1 }),
+
+    baseSyncId: params.baseSyncId ?? faker.datatype.uuid(),
+  };
 };
 
 export const createFakeFile = (): File => {
@@ -51,7 +82,7 @@ export const createFakeFile = (): File => {
   };
 };
 
-export const createFakeFiles = (quantity: number): File[] => {
+export const createFakeFiles = (quantity: number = faker.datatype.number({ max: MAX_GENERATED_FAKES, min: MIN_GENERATED_FAKES })): File[] => {
   const files: File[] = [];
   for (let i = 0; i < quantity; i++) {
     files.push(createFakeFile());
@@ -73,7 +104,7 @@ export const createFakeEntity: () => Entity = () => {
   };
 };
 
-export const createFakeEntities = (quantity: number): Entity[] => {
+export const createFakeEntities = (quantity: number = faker.datatype.number({ max: MAX_GENERATED_FAKES, min: MIN_GENERATED_FAKES })): Entity[] => {
   const entities: Entity[] = [];
   for (let i = 0; i < quantity; i++) {
     entities.push(createFakeEntity());

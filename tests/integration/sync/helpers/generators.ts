@@ -1,6 +1,6 @@
 import faker from 'faker';
 import { GeometryType, Status } from '../../../../src/common/enums';
-import { StringifiedSync } from '../types';
+import { StringifiedRerunCreateBody, StringifiedSync } from '../types';
 
 export type FakeStringifiedSyncParams = Partial<StringifiedSync>;
 
@@ -21,5 +21,14 @@ export const createStringifiedFakeSync = (params: FakeStringifiedSyncParams = {}
     totalFiles: params.totalFiles ?? faker.datatype.number(),
 
     geometryType: params.geometryType ?? GeometryType.POLYGON,
+  };
+};
+
+export type FakeStringifiedRerunCreateBodyParams = Partial<StringifiedRerunCreateBody>;
+
+export const createStringifiedFakeRerunCreateBody = (params: FakeStringifiedRerunCreateBodyParams = {}): StringifiedRerunCreateBody => {
+  return {
+    rerunId: params.rerunId ?? faker.datatype.uuid(),
+    startDate: params.startDate ?? faker.datatype.datetime().toISOString(),
   };
 };

@@ -9,11 +9,11 @@ export interface Entity {
 
   fileId?: string;
 
-  changesetId?: string;
+  changesetId?: string | null;
 
   status: EntityStatus;
 
-  action: ActionType;
+  action: ActionType | null;
 
-  failReason?: string;
+  failReason?: string | null;
 }

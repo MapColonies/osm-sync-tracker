@@ -61,7 +61,7 @@ paths:
         - sync
       responses:
         '200':
-          description: the latest sync for the requsted layer
+          description: the latest sync for the requsted layer and geometry
           content:
             application/json:
               schema:
@@ -151,6 +151,42 @@ paths:
           $ref: '#/components/responses/NotFound'
         5XX:
           $ref: '#/components/responses/UnexpectedError'
+  /sync/{syncId}/rerun:
+    post:
+      summary: rerun a sync if needed
+      parameters:
+        - $ref: '#/components/parameters/syncId'
+      requestBody:
+        description: the rerun id to be created and its start date
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rerunId:
+                  $ref: '#/components/schemas/uniqueId'
+                startDate:
+                  type: string
+                  format: date-time
+              required:
+                - rerunId
+                - startDate
+      operationId: rerunSync
+      tags:
+        - sync
+      responses:
+        '200':
+          description: the rerun was not created due to the sync closing successfuly
+        '201':
+          description: created
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        5XX:
+          $ref: '#/components/responses/UnexpectedError'
   /file/{fileId}/entity:
     post:
       summary: add a new entity to the file
@@ -206,7 +242,20 @@ paths:
         - entity
       responses:
         '201':
-          description: created
+          description: created result constiting the newly created and previously completed entity ids
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/entityId'
+                  previouslyCompleted:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/entityId'
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
@@ -450,6 +499,7 @@ components:
       enum:
         - inprogress
         - completed
+        - failed
     geometryType:
       type: string
       enum:

@@ -4,15 +4,22 @@ import httpStatus, { StatusCodes } from 'http-status-codes';
 import { injectable, inject } from 'tsyringe';
 import mime from 'mime-types';
 import { SERVICES } from '../../common/constants';
-import { Sync, SyncUpdate } from '../models/sync';
+import { BaseSync, Sync, SyncUpdate } from '../models/sync';
 import { SyncManager } from '../models/syncManager';
 import { HttpError } from '../../common/errors';
-import { FullSyncAlreadyExistsError, SyncAlreadyExistsError, SyncNotFoundError } from '../models/errors';
+import {
+  FullSyncAlreadyExistsError,
+  InvalidSyncForRerunError,
+  RerunAlreadyExistsError,
+  SyncAlreadyExistsError,
+  SyncNotFoundError,
+} from '../models/errors';
 import { GeometryType } from '../../common/enums';
 
-type GetLatestSyncHandler = RequestHandler<undefined, Sync, undefined, { layerId: number; geometryType: GeometryType }>;
+type GetLatestSyncHandler = RequestHandler<undefined, BaseSync, undefined, { layerId: number; geometryType: GeometryType }>;
 type PostSyncHandler = RequestHandler<undefined, string, Sync>;
 type PatchSyncHandler = RequestHandler<{ syncId: string }, string, SyncUpdate>;
+type RerunSyncHandler = RequestHandler<{ syncId: string }, string, { rerunId: string; startDate: Date }>;
 
 const txtplain = mime.contentType('text/plain') as string;
 
@@ -52,6 +59,24 @@ export class SyncController {
     } catch (error) {
       if (error instanceof SyncNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
+      }
+      return next(error);
+    }
+  };
+
+  public rerunSync: RerunSyncHandler = async (req, res, next) => {
+    try {
+      const wasRerunCreated = await this.manager.rerunSyncIfNeeded(req.params.syncId, req.body.rerunId, req.body.startDate);
+      if (wasRerunCreated) {
+        return res.status(httpStatus.CREATED).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
+      }
+      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.OK));
+    } catch (error) {
+      if (error instanceof SyncNotFoundError) {
+        (error as HttpError).status = StatusCodes.NOT_FOUND;
+      }
+      if (error instanceof RerunAlreadyExistsError || error instanceof InvalidSyncForRerunError) {
+        (error as HttpError).status = StatusCodes.CONFLICT;
       }
       return next(error);
     }

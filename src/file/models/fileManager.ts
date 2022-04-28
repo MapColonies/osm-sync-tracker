@@ -5,7 +5,8 @@ import { SERVICES } from '../../common/constants';
 import { ISyncRepository, syncRepositorySymbol } from '../../sync/DAL/syncRepository';
 import { SyncNotFoundError } from '../../sync/models/errors';
 import { IFileRepository, fileRepositorySymbol } from '../DAL/fileRepository';
-import { DuplicateFilesError, FileAlreadyExistsError } from './errors';
+import { Sync } from '../../sync/models/sync';
+import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError } from './errors';
 import { File } from './file';
 
 @injectable()
@@ -18,10 +19,13 @@ export class FileManager {
 
   public async createFile(syncId: string, file: File): Promise<void> {
     const syncEntity = await this.syncRepository.findOneSync(syncId);
-    file.syncId = syncId;
 
     if (!syncEntity) {
       throw new SyncNotFoundError(`sync = ${syncId} not found`);
+    }
+
+    if (syncEntity.baseSyncId != null) {
+      return this.createRerunFile(syncEntity, file);
     }
 
     const fileEntity = await this.fileRepository.findOneFile(file.fileId);
@@ -30,7 +34,7 @@ export class FileManager {
       throw new FileAlreadyExistsError(`file = ${file.fileId} already exists`);
     }
 
-    await this.fileRepository.createFile(file);
+    await this.fileRepository.createFile({ ...file, syncId });
   }
 
   public async createFiles(syncId: string, files: File[]): Promise<void> {
@@ -53,5 +57,31 @@ export class FileManager {
     }
 
     await this.fileRepository.createFiles(filesWithSyncId);
+  }
+
+  private async createRerunFile(rerunSync: Sync, rerunFile: File): Promise<void> {
+    const fileEntity = await this.fileRepository.findOneFile(rerunFile.fileId);
+
+    if (!fileEntity) {
+      return this.fileRepository.createFile({ ...rerunFile, syncId: rerunSync.baseSyncId as string });
+    }
+
+    if (rerunSync.baseSyncId != fileEntity.syncId) {
+      this.logger.error(
+        `conflicting file creation on rerun sync = ${rerunSync.id}, existing file = ${fileEntity.fileId} with syncId ${
+          fileEntity.syncId
+        } while rerun has base syncId ${rerunSync.baseSyncId as string}`
+      );
+      throw new ConflictingRerunFileError(`rerun file = ${rerunFile.fileId} conflicting sync id`);
+    }
+
+    if (rerunFile.totalEntities != fileEntity.totalEntities) {
+      const rerunFileTotalEntities = rerunFile.totalEntities != null ? rerunFile.totalEntities : 'null';
+      const existingFileTotalEntities = fileEntity.totalEntities != null ? fileEntity.totalEntities : 'null';
+      this.logger.error(
+        `conflicting file creation on rerun = ${rerunSync.id}, existing file = ${fileEntity.fileId} with total entities of ${existingFileTotalEntities} while rerun has total entities of ${rerunFileTotalEntities}`
+      );
+      throw new ConflictingRerunFileError(`rerun file = ${rerunFile.fileId} conflicting total entities`);
+    }
   }
 }

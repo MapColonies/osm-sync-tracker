@@ -49,6 +49,8 @@ jobs:
             POSTGRES_PASSWORD: 1234
             POSTGRES_USER: postgres
             POSTGRES_DB: postgres
+          ports:
+            - 5432:5432
           # Set health checks to wait until postgres has started
           options: >-
             --health-cmd pg_isready
@@ -71,6 +73,27 @@ jobs:
 
         - name: Install Node.js dependencies
           run: npm ci
+
+        - name: Install pg client
+          run: |
+            apt-get update && apt-get install -y lsb-release
+            sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+            wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+            apt-get update
+            apt-get install -y postgresql-client
+
+        - name: Create schema
+          run: psql -h postgres -d postgres -U postgres -c 'CREATE SCHEMA osm_sync_tracker;'
+          env:
+            PGPASSWORD: 1234
+
+        - name: Run migrations
+          run: npm run migration:run
+          env:
+            DB_HOST: postgres
+            DB_PORT: 5432
+            DB_USERNAME: postgres
+            DB_PASSWORD: 1234
 
         - name: Run tests
           run: npm run test

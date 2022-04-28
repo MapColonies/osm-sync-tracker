@@ -1,19 +1,16 @@
 import { EntityManager, EntityRepository, Repository } from 'typeorm';
 import { inject } from 'tsyringe';
 import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
-import { isTransactionFailure, UpdateResult } from '../../../common/db';
-import { EntityStatus } from '../../../common/enums';
+import { isTransactionFailure, ReturningId, ReturningResult } from '../../../common/db';
+import { EntityStatus, Status } from '../../../common/enums';
 import { Entity } from '../../../entity/DAL/typeorm/entity';
 import { Changeset, UpdateChangeset } from '../../models/changeset';
 import { TransactionFailureError } from '../../models/errors';
 import { IChangesetRepository } from '../changsetRepository';
 import { IApplication } from '../../../common/interfaces';
+import { SyncDb } from '../../../sync/DAL/typeorm/sync';
 import { SERVICES } from '../../../common/constants';
 import { Changeset as ChangesetDb } from './changeset';
-
-interface UpdatedId {
-  id: string;
-}
 
 @EntityRepository(ChangesetDb)
 export class ChangesetRepository extends Repository<ChangesetDb> implements IChangesetRepository {
@@ -45,11 +42,12 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
       return await this.manager.connection.transaction(this.transationIsolationLevel, async (transactionalEntityManager) => {
         let completedSyncIds: string[] = [];
         const completedFilesResult = await this.updateFileAsCompleted(changesetIds, schema, transactionalEntityManager);
-        // check if are there affected rows from the update
+        // check if there are any affected rows from the update
         if (completedFilesResult[1] !== 0) {
           const fileIds = completedFilesResult[0].map((file) => file.id);
           const completedSyncsResult = await this.updateSyncAsCompletedByFiles(fileIds, schema, transactionalEntityManager);
           completedSyncIds = completedSyncsResult[0].map((sync) => sync.id);
+          await Promise.all(completedSyncIds.map(async (syncId) => this.updateLastRerunAsCompleted(syncId, transactionalEntityManager)));
         }
         return completedSyncIds;
       });
@@ -99,7 +97,7 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
     changesetIds: string[],
     schema: string,
     transactionalEntityManager: EntityManager
-  ): Promise<UpdateResult<UpdatedId>> {
+  ): Promise<ReturningResult<ReturningId>> {
     return (await transactionalEntityManager.query(
       `WITH touched_files AS (
       SELECT DISTINCT file_id
@@ -115,7 +113,7 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
     WHERE FILE.file_id = FILES_TO_UPDATE.file_id AND FILES_TO_UPDATE.CompletedEntities = FILE.total_entities AND FILE.status != 'completed'
     RETURNING FILE.file_id AS id`,
       [changesetIds]
-    )) as UpdateResult<UpdatedId>;
+    )) as ReturningResult<ReturningId>;
   }
 
   private async updateSyncAsCompleted(changesetIds: string[], schema: string, transactionalEntityManager: EntityManager): Promise<void> {
@@ -139,7 +137,7 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
     fileIds: string[],
     schema: string,
     transactionalEntityManager: EntityManager
-  ): Promise<UpdateResult<UpdatedId>> {
+  ): Promise<ReturningResult<ReturningId>> {
     return (await transactionalEntityManager.query(
       `UPDATE ${schema}.sync AS sync_to_update SET status = 'completed', end_date = current_timestamp
     FROM (
@@ -149,6 +147,23 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
     WHERE sync_to_update.id = sync_from_files.sync_id AND sync_to_update.total_files = (SELECT COUNT(*) FROM ${schema}.file WHERE sync_id = sync_to_update.id AND status = 'completed')
     RETURNING sync_to_update.id`,
       [fileIds]
-    )) as UpdateResult<UpdatedId>;
+    )) as ReturningResult<ReturningId>;
+  }
+
+  private async updateLastRerunAsCompleted(syncId: string, transactionalEntityManager: EntityManager): Promise<void> {
+    const completedSyncWithLastRerun = await transactionalEntityManager
+      .createQueryBuilder(SyncDb, 'sync')
+      .leftJoinAndSelect('sync.reruns', 'rerun')
+      .where('sync.id = :syncId', { syncId })
+      .orderBy('rerun.run_number', 'DESC')
+      .limit(1)
+      .getOne();
+
+    if (completedSyncWithLastRerun === undefined || completedSyncWithLastRerun.reruns.length <= 0) {
+      return;
+    }
+
+    const lastRerun = completedSyncWithLastRerun.reruns[0];
+    await transactionalEntityManager.update(SyncDb, { id: lastRerun.id }, { status: Status.COMPLETED, endDate: completedSyncWithLastRerun.endDate });
   }
 }
