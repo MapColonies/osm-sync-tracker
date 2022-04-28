@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.0.0](https://github.com/MapColonies/osm-sync-tracker/compare/v2.1.0...v3.0.0) (2022-04-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **sync:** sync rerun compatibility (#37)
+
+### Features
+
+* **sync:** sync rerun compatibility ([#37](https://github.com/MapColonies/osm-sync-tracker/issues/37)) ([ecef85e](https://github.com/MapColonies/osm-sync-tracker/commit/ecef85e823cc540805e0abc8c4fc3b4595654cf0))
+
 ## [2.1.0](https://github.com/MapColonies/osm-sync-tracker/compare/v2.0.0...v2.1.0) (2021-12-30)
 
 

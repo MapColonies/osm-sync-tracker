@@ -4,7 +4,7 @@ info:
   description: Api to update on the progress of a cycle of entities sync
   license:
     name: MIT
-  version: 2.1.0
+  version: 3.0.0
 tags:
   - name: sync
   - name: file
@@ -242,7 +242,9 @@ paths:
         - entity
       responses:
         '201':
-          description: created result constiting the newly created and previously completed entity ids
+          description: >-
+            created result constiting the newly created and previously completed
+            entity ids
           content:
             application/json:
               schema:
