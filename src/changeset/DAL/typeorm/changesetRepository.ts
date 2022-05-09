@@ -104,7 +104,7 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
       FROM ${schema}.entity
       WHERE changeset_id = ANY($1))
 
-    UPDATE ${schema}.file AS FILE SET status = 'completed', end_date = current_timestamp
+    UPDATE ${schema}.file AS FILE SET status = 'completed', end_date = LOCALTIMESTAMP
     FROM (
       SELECT file_id, COUNT(*) AS CompletedEntities
       FROM ${schema}.entity
@@ -123,7 +123,7 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
       FROM ${schema}.entity
       WHERE changeset_id = ANY($1))
 
-    UPDATE ${schema}.sync AS sync_to_update SET status = 'completed', end_date = current_timestamp
+    UPDATE ${schema}.sync AS sync_to_update SET status = 'completed', end_date = LOCALTIMESTAMP
     FROM (
       SELECT DISTINCT sync_id
       FROM ${schema}.file
@@ -139,7 +139,7 @@ export class ChangesetRepository extends Repository<ChangesetDb> implements ICha
     transactionalEntityManager: EntityManager
   ): Promise<ReturningResult<ReturningId>> {
     return (await transactionalEntityManager.query(
-      `UPDATE ${schema}.sync AS sync_to_update SET status = 'completed', end_date = current_timestamp
+      `UPDATE ${schema}.sync AS sync_to_update SET status = 'completed', end_date = LOCALTIMESTAMP
     FROM (
       SELECT DISTINCT sync_id
       FROM ${schema}.file

@@ -67,7 +67,7 @@ export class FileRepository extends Repository<FileDb> implements IFileRepositor
     transactionalEntityManager: EntityManager
   ): Promise<ReturningResult<ReturningId>> {
     return (await transactionalEntityManager.query(
-      `UPDATE ${schema}.file AS FILE SET status = 'completed', end_date = current_timestamp
+      `UPDATE ${schema}.file AS FILE SET status = 'completed', end_date = LOCALTIMESTAMP
     WHERE FILE.file_id = $1 AND FILE.total_entities = (SELECT COUNT(*) AS CompletedEntities
         FROM ${schema}.entity
         WHERE file_id = $1 AND (status = 'completed' OR status = 'not_synced'))
@@ -82,7 +82,7 @@ export class FileRepository extends Repository<FileDb> implements IFileRepositor
     transactionalEntityManager: EntityManager
   ): Promise<ReturningResult<ReturningId>> {
     return (await transactionalEntityManager.query(
-      `UPDATE ${schema}.sync AS sync_to_update SET status = 'completed', end_date = current_timestamp
+      `UPDATE ${schema}.sync AS sync_to_update SET status = 'completed', end_date = LOCALTIMESTAMP
     FROM (
       SELECT DISTINCT sync_id
       FROM ${schema}.file
