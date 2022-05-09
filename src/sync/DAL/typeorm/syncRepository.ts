@@ -114,7 +114,7 @@ export class SyncRepository extends Repository<DbSync> implements ISyncRepositor
     return (await transactionalEntityManager.query(
       `
       UPDATE ${schema}.sync AS sync_to_update
-        SET status = 'completed', end_date = current_timestamp
+        SET status = 'completed', end_date = LOCALTIMESTAMP
         WHERE sync_to_update.id = $1
         AND sync_to_update.total_files = (
           SELECT COUNT(*) FROM osm_sync_tracker.file
