@@ -1,6 +1,8 @@
 import jsLogger from '@map-colonies/js-logger';
 import { faker } from '@faker-js/faker';
 import { FileManager } from '../../../../src/file/models/fileManager';
+import { FileRepository } from '../../../../src/file/DAL/fileRepository';
+import { SyncRepository } from '../../../../src/sync/DAL/syncRepository';
 import { createFakeFile, createFakeSync, createFakeFiles, createFakeRerunSync } from '../../../helpers/helper';
 import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from '../../../../src/file/models/errors';
 import { SyncNotFoundError } from '../../../../src/sync/models/errors';
@@ -31,8 +33,16 @@ describe('FileManager', () => {
   beforeEach(() => {
     jest.resetAllMocks();
 
-    fileRepository = { createFile, createFiles, findOneFile, updateFile, findManyFiles, tryClosingFile };
-    syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithLastRerun, createRerun };
+    const fileRepository = ({ createFile, createFiles, findOneFile, findManyFiles, tryClosingFile } as unknown) as FileRepository;
+    const syncRepository = {
+      getLatestSync,
+      createSync,
+      updateSync,
+      findOneSync,
+      findSyncs,
+      findOneSyncWithLastRerun,
+      createRerun,
+    } as unknown as SyncRepository;
 
     fileManager = new FileManager(
       fileRepository,
