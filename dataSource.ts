@@ -5,12 +5,9 @@ import { DbConfig } from './src/common/interfaces';
 
 const connectionOptions = config.get<DbConfig>('db');
 
-module.exports = new DataSource({
+export const appDataSource = new DataSource({
   ...createConnectionOptions(connectionOptions),
-  entities: ['src/**/DAL/typeorm/*.ts'],
+  entities: ['src/**/DAL/*.ts'],
   migrationsTableName: 'migrations_table',
   migrations: ['db/migrations/*.ts'],
-  cli: {
-    migrationsDir: 'db/migrations',
-  },
 });
