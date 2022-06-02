@@ -5,7 +5,7 @@ import { TransactionFailureError } from '../../../changeset/models/errors';
 import { SERVICES } from '../../../common/constants';
 import { isTransactionFailure, ReturningId, ReturningResult } from '../../../common/db';
 import { IApplication } from '../../../common/interfaces';
-import { File } from '../../models/file';
+import { File, FileUpdate } from '../../models/file';
 import { IFileRepository } from '../fileRepository';
 import { SyncDb } from '../../../sync/DAL/typeorm/sync';
 import { Status } from '../../../common/enums';
@@ -30,6 +30,10 @@ export class FileRepository extends Repository<FileDb> implements IFileRepositor
 
   public async findOneFile(fileId: string): Promise<FileDb | undefined> {
     return this.findOne(fileId);
+  }
+
+  public async updateFile(fileId: string, updatedFile: FileUpdate): Promise<void> {
+    await this.update(fileId, updatedFile);
   }
 
   public async findManyFiles(files: File[]): Promise<FileDb[] | undefined> {
