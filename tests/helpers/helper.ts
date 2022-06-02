@@ -1,4 +1,4 @@
-import faker from 'faker';
+import { faker } from '@faker-js/faker';
 import { ActionType, EntityStatus, GeometryType, Status } from '../../src/common/enums';
 import { Sync } from '../../src/sync/models/sync';
 import { File } from '../../src/file/models/file';

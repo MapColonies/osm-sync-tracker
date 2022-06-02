@@ -1,7 +1,7 @@
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { container } from 'tsyringe';
-import faker from 'faker';
-import { Connection, QueryFailedError } from 'typeorm';
+import { faker } from '@faker-js/faker';
+import { DataSource, QueryFailedError } from 'typeorm';
 import { getApp } from '../../../src/app';
 import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from '../sync/helpers/generators';
 import { StringifiedSync } from '../sync/types';
@@ -9,7 +9,7 @@ import { FileRequestSender } from '../file/helpers/requestSender';
 import { SyncRequestSender } from '../sync/helpers/requestSender';
 import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions, RERUN_TEST_TIMEOUT } from '../helpers';
 import { Status } from '../../../src/common/enums';
-import { fileRepositorySymbol } from '../../../src/file/DAL/fileRepository';
+import { FILE_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/file/DAL/fileRepository';
 import { createStringifiedFakeEntity } from '../entity/helpers/generators';
 import { EntityRequestSender } from '../entity/helpers/requestSender';
 import { createStringifiedFakeFile } from './helpers/generators';
@@ -33,8 +33,8 @@ describe('file', function () {
   }, BEFORE_ALL_TIMEOUT);
 
   afterAll(async function () {
-    const connection = container.resolve(Connection);
-    await connection.close();
+    const connection = container.resolve(DataSource);
+    await connection.destroy();
     container.reset();
   });
 
@@ -236,7 +236,7 @@ describe('file', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: fileRepositorySymbol,
+          token: FILE_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { createFile: createFileMock, findOneFile: findOneFileMock } },
         });
         const mockApp = await getApp(mockRegisterOptions);
@@ -256,7 +256,7 @@ describe('file', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: fileRepositorySymbol,
+          token: FILE_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { createFiles: createFilesMock, findManyFiles: findManyFilesMock } },
         });
         const mockApp = await getApp(mockRegisterOptions);

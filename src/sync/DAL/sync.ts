@@ -1,7 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryColumn } from 'typeorm';
-import { GeometryType, Status } from '../../../common/enums';
-import { File } from '../../../file/DAL/typeorm/file';
-import { Sync as ISync } from '../../models/sync';
+import { GeometryType, Status } from '../../common/enums';
+import { File } from '../../file/DAL/file';
+import { Sync as ISync } from '../models/sync';
 
 @Entity({ name: 'sync' })
 export class SyncDb implements ISync {

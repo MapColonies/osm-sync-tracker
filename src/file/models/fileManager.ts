@@ -2,9 +2,9 @@ import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
 import lodash from 'lodash';
 import { SERVICES } from '../../common/constants';
-import { ISyncRepository, syncRepositorySymbol } from '../../sync/DAL/syncRepository';
+import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../../sync/DAL/syncRepository';
 import { SyncNotFoundError } from '../../sync/models/errors';
-import { IFileRepository, fileRepositorySymbol } from '../DAL/fileRepository';
+import { FILE_CUSTOM_REPOSITORY_SYMBOL, FileRepository } from '../DAL/fileRepository';
 import { Sync } from '../../sync/models/sync';
 import { TransactionFailureError } from '../../changeset/models/errors';
 import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
@@ -18,15 +18,10 @@ export class FileManager {
   private readonly transactionRetryPolicy: TransactionRetryPolicy;
 
   public constructor(
-    @inject(fileRepositorySymbol) private readonly fileRepository: IFileRepository,
-    @inject(syncRepositorySymbol) private readonly syncRepository: ISyncRepository,
-    @inject(SERVICES.LOGGER) private readonly logger: Logger,
-    @inject(SERVICES.CONFIG) private readonly config: IConfig,
-    @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication
-  ) {
-    this.dbSchema = this.config.get('db.schema');
-    this.transactionRetryPolicy = this.appConfig.transactionRetryPolicy;
-  }
+    @inject(FILE_CUSTOM_REPOSITORY_SYMBOL) private readonly fileRepository: FileRepository,
+    @inject(SYNC_CUSTOM_REPOSITORY_SYMBOL) private readonly syncRepository: SyncRepository,
+    @inject(SERVICES.LOGGER) private readonly logger: Logger
+  ) {}
 
   public async createFile(syncId: string, file: File): Promise<void> {
     const syncEntity = await this.syncRepository.findOneSync(syncId);

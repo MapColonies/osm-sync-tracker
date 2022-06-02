@@ -1,4 +1,4 @@
-import faker from 'faker';
+import { faker } from '@faker-js/faker';
 import { Status } from '../../../../src/common/enums';
 import { StringifiedFile } from '../types';
 

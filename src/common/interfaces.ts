@@ -1,4 +1,4 @@
-import { ConnectionOptions } from 'typeorm';
+import { DataSourceOptions } from 'typeorm';
 import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 
 export interface IConfig {
@@ -23,7 +23,7 @@ export interface IServerConfig {
 export type DbConfig = {
   enableSslAuth: boolean;
   sslPaths: { ca: string; cert: string; key: string };
-} & ConnectionOptions;
+} & DataSourceOptions;
 
 export interface OpenApiConfig {
   filePath: string;

@@ -1,5 +1,5 @@
 import jsLogger from '@map-colonies/js-logger';
-import faker from 'faker';
+import { faker } from '@faker-js/faker';
 import { SyncManager } from '../../../../src/sync/models/syncManager';
 import { createFakeRerunSync, createFakeSync } from '../../../helpers/helper';
 import {

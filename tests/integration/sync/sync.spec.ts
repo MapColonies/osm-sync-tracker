@@ -1,11 +1,10 @@
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { container } from 'tsyringe';
-import faker from 'faker';
-import { Connection, QueryFailedError } from 'typeorm';
+import { faker } from '@faker-js/faker';
+import { DataSource, QueryFailedError } from 'typeorm';
 import { getApp } from '../../../src/app';
 import { BEFORE_ALL_TIMEOUT, RERUN_TEST_TIMEOUT, getBaseRegisterOptions } from '../helpers';
-import { syncRepositorySymbol } from '../../../src/sync/DAL/syncRepository';
-import { fileRepositorySymbol } from '../../../src/file/DAL/fileRepository';
+import { SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/sync/DAL/syncRepository';
 import { EntityStatus, GeometryType, Status } from '../../../src/common/enums';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { FileRequestSender } from '../file/helpers/requestSender';
@@ -32,8 +31,8 @@ describe('sync', function () {
   }, BEFORE_ALL_TIMEOUT);
 
   afterAll(async function () {
-    const connection = container.resolve(Connection);
-    await connection.close();
+    const connection = container.resolve(DataSource);
+    await connection.destroy();
     container.reset();
   });
 
@@ -905,7 +904,7 @@ describe('sync', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: syncRepositorySymbol,
+          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
           provider: {
             useValue: {
               createSync: createSyncMock,
@@ -931,7 +930,7 @@ describe('sync', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: syncRepositorySymbol,
+          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
           provider: {
             useValue: {
               updateSync: updateSyncMock,
@@ -955,7 +954,7 @@ describe('sync', function () {
         const getLatestSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
 
         const mockRegisterOptions = getBaseRegisterOptions();
-        mockRegisterOptions.override.push({ token: syncRepositorySymbol, provider: { useValue: { getLatestSync: getLatestSyncMock } } });
+        mockRegisterOptions.override.push({ token: SYNC_CUSTOM_REPOSITORY_SYMBOL, provider: { useValue: { getLatestSync: getLatestSyncMock } } });
         const mockApp = await getApp(mockRegisterOptions);
         mockSyncRequestSender = new SyncRequestSender(mockApp);
         const body = createStringifiedFakeSync();
@@ -977,7 +976,7 @@ describe('sync', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: syncRepositorySymbol,
+          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
           provider: {
             useValue: {
               findOneSync: findOneSyncMock,

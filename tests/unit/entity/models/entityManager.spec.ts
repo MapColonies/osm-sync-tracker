@@ -1,5 +1,5 @@
 import jsLogger from '@map-colonies/js-logger';
-import faker from 'faker';
+import { faker } from '@faker-js/faker';
 import { QueryFailedError } from 'typeorm';
 import { EntityManager } from '../../../../src/entity/models/entityManager';
 import { createFakeEntities, createFakeEntity, createFakeFile, createFakeRerunSync } from '../../../helpers/helper';
@@ -9,23 +9,23 @@ import { FileNotFoundError } from '../../../../src/file/models/errors';
 import { UpdateEntities } from '../../../../src/entity/models/entity';
 import { EntityStatus } from '../../../../src/common/enums';
 import { ExceededNumberOfRetriesError, TransactionFailureError } from '../../../../src/changeset/models/errors';
-import { IEntityRepository } from '../../../../src/entity/DAL/entityRepository';
-import { IFileRepository } from '../../../../src/file/DAL/fileRepository';
 import { DEFAULT_ISOLATION_LEVEL } from '../../../integration/helpers';
-import { ISyncRepository } from '../../../../src/sync/DAL/syncRepository';
+import { SyncRepository } from '../../../../src/sync/DAL/syncRepository';
+import { EntityRepository } from '../../../../src/entity/DAL/entityRepository';
+import { FileRepository } from '../../../../src/file/DAL/fileRepository';
 
 let entityManager: EntityManager;
 let entityManagerWithRetries: EntityManager;
-let entityRepository: IEntityRepository;
-let fileRepository: IFileRepository;
-let syncRepository: ISyncRepository;
+let entityRepository: Partial<EntityRepository>;
+let fileRepository: Partial<FileRepository>;
+let syncRepository: Partial<SyncRepository>;
 
 describe('EntityManager', () => {
   const createEntity = jest.fn();
   const createEntities = jest.fn();
   const updateEntity = jest.fn();
   const findOneEntity = jest.fn();
-  const findManyEntites = jest.fn();
+  const findManyEntities = jest.fn();
 
   const createFile = jest.fn();
   const createFiles = jest.fn();
@@ -47,8 +47,8 @@ describe('EntityManager', () => {
   beforeEach(() => {
     jest.resetAllMocks();
 
-    entityRepository = { createEntity, createEntities, updateEntity, findOneEntity, findManyEntites, updateEntities, countEntitiesByIds };
-    fileRepository = { createFile, createFiles, findOneFile, updateFile, findManyFiles, tryClosingFile };
+    entityRepository = { createEntity, createEntities, updateEntity, findOneEntity, findManyEntities, updateEntities, countEntitiesByIds };
+    fileRepository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile };
     syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithLastRerun, createRerun };
 
     entityManager = new EntityManager(
@@ -103,7 +103,7 @@ describe('EntityManager', () => {
       const file = createFakeFile();
 
       findOneFile.mockResolvedValue(file);
-      findManyEntites.mockResolvedValue(undefined);
+      findManyEntities.mockResolvedValue(undefined);
       createEntities.mockResolvedValue(undefined);
       findSyncs.mockResolvedValue([]);
 
@@ -120,7 +120,7 @@ describe('EntityManager', () => {
       const rerun = createFakeRerunSync();
 
       findOneFile.mockResolvedValue(file);
-      findManyEntites.mockResolvedValue(undefined);
+      findManyEntities.mockResolvedValue(undefined);
       findSyncs.mockResolvedValue([rerun]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
@@ -136,7 +136,7 @@ describe('EntityManager', () => {
       const rerun = createFakeRerunSync();
 
       findOneFile.mockResolvedValue(file);
-      findManyEntites.mockResolvedValue(entities);
+      findManyEntities.mockResolvedValue(entities);
       findSyncs.mockResolvedValue([rerun]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
@@ -153,7 +153,7 @@ describe('EntityManager', () => {
       const rerun = createFakeRerunSync();
 
       findOneFile.mockResolvedValue(file);
-      findManyEntites.mockResolvedValue([entity]);
+      findManyEntities.mockResolvedValue([entity]);
       findSyncs.mockResolvedValue([rerun]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, [...entities, entity]);
@@ -171,7 +171,7 @@ describe('EntityManager', () => {
       const rerun = createFakeRerunSync();
 
       findOneFile.mockResolvedValue(file);
-      findManyEntites.mockResolvedValue([{ entity2, status: EntityStatus.IN_RERUN }]);
+      findManyEntities.mockResolvedValue([{ entity2, status: EntityStatus.IN_RERUN }]);
       findSyncs.mockResolvedValue([rerun]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
@@ -186,7 +186,7 @@ describe('EntityManager', () => {
       const file = createFakeFile();
 
       findOneFile.mockResolvedValue(file);
-      findManyEntites.mockResolvedValue(entities);
+      findManyEntities.mockResolvedValue(entities);
       findSyncs.mockResolvedValue([]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
@@ -200,7 +200,7 @@ describe('EntityManager', () => {
       const file = createFakeFile();
 
       findOneFile.mockResolvedValue(file);
-      findManyEntites.mockResolvedValue(entities);
+      findManyEntities.mockResolvedValue(entities);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
 

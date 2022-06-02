@@ -1,5 +1,5 @@
 import jsLogger from '@map-colonies/js-logger';
-import faker from 'faker';
+import { faker } from '@faker-js/faker';
 import { FileManager } from '../../../../src/file/models/fileManager';
 import { createFakeFile, createFakeSync, createFakeFiles, createFakeRerunSync } from '../../../helpers/helper';
 import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from '../../../../src/file/models/errors';

@@ -1,5 +1,5 @@
 import jsLogger from '@map-colonies/js-logger';
-import faker from 'faker';
+import { faker } from '@faker-js/faker';
 import { QueryFailedError } from 'typeorm';
 import { ChangesetManager } from '../../../../src/changeset/models/changesetManager';
 import { createFakeChangeset } from '../../../helpers/helper';
