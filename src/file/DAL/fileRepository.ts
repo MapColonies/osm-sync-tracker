@@ -62,6 +62,10 @@ const createFileRepo = (dataSource: DataSource) => {
       await this.insert(file);
     },
 
+    async updateFile(fileId: string, updatedFile: FileUpdate): Promise<void> {
+      await this.update(fileId, updatedFile);
+    },
+
     async createFiles(files: File[]): Promise<void> {
       await this.insert(files);
     },

@@ -47,7 +47,7 @@ describe('EntityManager', () => {
   beforeEach(() => {
     jest.resetAllMocks();
 
-    entityRepository = ({ createEntity, createEntities, updateEntity, findOneEntity, findManyEntities, updateEntities, countEntitiesByIds } as unknown) as EntityRepository;
+    entityRepository = ({ createEntity, createEntities, updateFile, updateEntity, findOneEntity, findManyEntities, updateEntities, countEntitiesByIds } as unknown) as EntityRepository;
     fileRepository = ({ createFile, createFiles, findOneFile, findManyFiles, tryClosingFile } as unknown) as FileRepository;
     syncRepository = ({ getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithLastRerun, createRerun } as unknown) as SyncRepository;
 

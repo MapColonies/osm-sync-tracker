@@ -1,5 +1,6 @@
 import * as supertest from 'supertest';
 import { GeometryType } from '../../../../src/common/enums';
+import { FileUpdate } from '../../../../src/file/models/file';
 import { StringifiedRerunCreateBody, StringifiedSync } from '../types';
 
 export class SyncRequestSender {
@@ -11,6 +12,10 @@ export class SyncRequestSender {
 
   public async patchSync(syncId: string, body: Omit<StringifiedSync, 'id' | 'isFull'>): Promise<supertest.Response> {
     return supertest.agent(this.app).patch(`/sync/${syncId}`).set('Content-Type', 'application/json').send(body);
+  }
+
+  public async patchFile(syncId: string, fileId: string, body: FileUpdate): Promise<supertest.Response> {
+    return supertest.agent(this.app).patch(`/sync/${syncId}/file/${fileId}`).set('Content-Type', 'application/json').send(body);
   }
 
   public async getLatestSync(layerId: number, geometryType: GeometryType): Promise<supertest.Response> {
