@@ -151,6 +151,41 @@ paths:
           $ref: '#/components/responses/NotFound'
         5XX:
           $ref: '#/components/responses/UnexpectedError'
+  /sync/{syncId}/file/{fileId}:
+    patch:
+      summary: patch a file of sync
+      parameters:
+        - $ref: '#/components/parameters/syncId'
+        - $ref: '#/components/parameters/fileId'
+      requestBody:
+        description: the file and the file's sync to patch
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/filePatch'
+                - type: object
+                  required:
+                    - totalEntities
+        required: true
+      operationId: patchFile
+      tags:
+        - file
+      responses:
+        '200':
+          description: the possible sync id that was completed due to the request
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/uniqueId'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        5XX:
+          $ref: '#/components/responses/UnexpectedError'
   /sync/{syncId}/rerun:
     post:
       summary: rerun a sync if needed
@@ -587,6 +622,12 @@ components:
           format: date-time
         status:
           $ref: '#/components/schemas/status'
+    filePatch:
+      type: object
+      properties:
+        totalEntities:
+          type: integer
+          format: int64
     changesetWithoutId:
       type: object
       properties:

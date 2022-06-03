@@ -6,16 +6,27 @@ import { ISyncRepository, syncRepositorySymbol } from '../../sync/DAL/syncReposi
 import { SyncNotFoundError } from '../../sync/models/errors';
 import { IFileRepository, fileRepositorySymbol } from '../DAL/fileRepository';
 import { Sync } from '../../sync/models/sync';
-import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError } from './errors';
-import { File } from './file';
+import { TransactionFailureError } from '../../changeset/models/errors';
+import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
+import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
+import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from './errors';
+import { File, FileUpdate } from './file';
 
 @injectable()
 export class FileManager {
+  private readonly dbSchema: string;
+  private readonly transactionRetryPolicy: TransactionRetryPolicy;
+
   public constructor(
     @inject(fileRepositorySymbol) private readonly fileRepository: IFileRepository,
     @inject(syncRepositorySymbol) private readonly syncRepository: ISyncRepository,
-    @inject(SERVICES.LOGGER) private readonly logger: Logger
-  ) {}
+    @inject(SERVICES.LOGGER) private readonly logger: Logger,
+    @inject(SERVICES.CONFIG) private readonly config: IConfig,
+    @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication
+  ) {
+    this.dbSchema = this.config.get('db.schema');
+    this.transactionRetryPolicy = this.appConfig.transactionRetryPolicy;
+  }
 
   public async createFile(syncId: string, file: File): Promise<void> {
     const syncEntity = await this.syncRepository.findOneSync(syncId);
@@ -59,6 +70,26 @@ export class FileManager {
     await this.fileRepository.createFiles(filesWithSyncId);
   }
 
+  public async updateFile(syncId: string, fileId: string, fileUpdate: FileUpdate): Promise<string[]> {
+    const syncEntity = await this.syncRepository.findOneSync(syncId);
+
+    if (!syncEntity) {
+      throw new SyncNotFoundError(`sync = ${syncId} not found`);
+    }
+
+    const fileEntity = await this.fileRepository.findOneFile(fileId);
+
+    if (!fileEntity) {
+      throw new FileNotFoundError(`file = ${fileId} not found`);
+    }
+
+    await this.fileRepository.updateFile(fileId, fileUpdate);
+
+    // try closing the file and if successeded try closing the sync
+    const closedSyncIds = await this.closeFile(fileId);
+    return closedSyncIds;
+  }
+
   private async createRerunFile(rerunSync: Sync, rerunFile: File): Promise<void> {
     const fileEntity = await this.fileRepository.findOneFile(rerunFile.fileId);
 
@@ -83,5 +114,14 @@ export class FileManager {
       );
       throw new ConflictingRerunFileError(`rerun file = ${rerunFile.fileId} conflicting total entities`);
     }
+  }
+
+  private async closeFile(fileId: string): Promise<string[]> {
+    if (!this.transactionRetryPolicy.enabled) {
+      return this.fileRepository.tryClosingFile(fileId, this.dbSchema);
+    }
+    const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
+    const functionRef = this.fileRepository.tryClosingFile.bind(this.fileRepository);
+    return retryFunctionWrapper(retryOptions, functionRef, fileId, this.dbSchema);
   }
 }

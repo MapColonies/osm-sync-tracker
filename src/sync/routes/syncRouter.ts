@@ -16,6 +16,7 @@ export const syncRouterFactory: FactoryFunction<Router> = (dependencyContainer) 
 
   router.post('/:syncId/file', fileController.postFile);
   router.post('/:syncId/file/_bulk', fileController.postFiles);
+  router.patch('/:syncId/file/:fileId', fileController.patchFile);
   router.post('/:syncId/rerun', syncController.rerunSync);
 
   return router;

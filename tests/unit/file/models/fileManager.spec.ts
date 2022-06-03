@@ -2,15 +2,21 @@ import jsLogger from '@map-colonies/js-logger';
 import faker from 'faker';
 import { FileManager } from '../../../../src/file/models/fileManager';
 import { createFakeFile, createFakeSync, createFakeFiles, createFakeRerunSync } from '../../../helpers/helper';
-import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError } from '../../../../src/file/models/errors';
+import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from '../../../../src/file/models/errors';
 import { SyncNotFoundError } from '../../../../src/sync/models/errors';
+import { DEFAULT_ISOLATION_LEVEL } from '../../../integration/helpers';
+import { IFileRepository } from '../../../../src/file/DAL/fileRepository';
+import { ISyncRepository } from '../../../../src/sync/DAL/syncRepository';
+
+let fileRepository: IFileRepository;
+let syncRepository: ISyncRepository;
 
 let fileManager: FileManager;
-
 describe('FileManager', () => {
   const createFile = jest.fn();
   const createFiles = jest.fn();
   const findOneFile = jest.fn();
+  const updateFile = jest.fn();
   const findManyFiles = jest.fn();
   const tryClosingFile = jest.fn();
 
@@ -25,10 +31,77 @@ describe('FileManager', () => {
   beforeEach(() => {
     jest.resetAllMocks();
 
-    const fileRepository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile };
-    const syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithLastRerun, createRerun };
+    fileRepository = { createFile, createFiles, findOneFile, updateFile, findManyFiles, tryClosingFile };
+    syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithLastRerun, createRerun };
 
-    fileManager = new FileManager(fileRepository, syncRepository, jsLogger({ enabled: false }));
+    fileManager = new FileManager(
+      fileRepository,
+      syncRepository,
+      jsLogger({ enabled: false }),
+      { get: jest.fn(), has: jest.fn() },
+      { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
+    );
+  });
+
+  describe('#updateFile', () => {
+    it('resolves without errors for valid update file', async () => {
+      const sync = createFakeSync();
+      const file = createFakeFile();
+
+      findOneSync.mockResolvedValue(sync);
+      findOneFile.mockResolvedValue(file);
+
+      const updatePromise = fileManager.updateFile(sync.id, file.fileId, { totalEntities: 1 });
+
+      await expect(updatePromise).resolves.not.toThrow();
+      expect(updateFile).toHaveBeenCalled();
+    });
+
+    it('resolves without errors for valid update file when retry policy is configured', async () => {
+      const fileManagerWithRetries = new FileManager(
+        fileRepository,
+        syncRepository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
+      );
+
+      const sync = createFakeSync();
+      const file = createFakeFile();
+
+      findOneSync.mockResolvedValue(sync);
+      findOneFile.mockResolvedValue(file);
+
+      const updatePromise = fileManagerWithRetries.updateFile(sync.id, file.fileId, { totalEntities: 1 });
+
+      await expect(updatePromise).resolves.not.toThrow();
+      expect(updateFile).toHaveBeenCalled();
+    });
+
+    it('rejects if a sync not found', async () => {
+      const sync = createFakeSync();
+      const file = createFakeFile();
+
+      findOneSync.mockResolvedValue(undefined);
+
+      const updatePromise = fileManager.updateFile(sync.id, file.fileId, { totalEntities: 1 });
+
+      await expect(updatePromise).rejects.toThrow(SyncNotFoundError);
+      expect(updateFile).not.toHaveBeenCalled();
+    });
+
+    it('rejects if a file not found', async () => {
+      const sync = createFakeSync();
+      const file = createFakeFile();
+
+      findOneSync.mockResolvedValue(sync);
+      findOneFile.mockResolvedValue(undefined);
+
+      const updatePromise = fileManager.updateFile(sync.id, file.fileId, { totalEntities: 1 });
+
+      await expect(updatePromise).rejects.toThrow(FileNotFoundError);
+      expect(updateFile).not.toHaveBeenCalled();
+    });
   });
 
   describe('#createFile', () => {

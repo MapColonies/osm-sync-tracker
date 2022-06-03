@@ -13,3 +13,5 @@ export interface File {
 
   status: Status;
 }
+
+export type FileUpdate = Pick<File, 'totalEntities'>;

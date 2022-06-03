@@ -31,6 +31,7 @@ describe('EntityManager', () => {
   const createFiles = jest.fn();
   const findOneFile = jest.fn();
   const findManyFiles = jest.fn();
+  const updateFile = jest.fn();
   const updateEntities = jest.fn();
   const countEntitiesByIds = jest.fn();
   const tryClosingFile = jest.fn();
@@ -47,7 +48,7 @@ describe('EntityManager', () => {
     jest.resetAllMocks();
 
     entityRepository = { createEntity, createEntities, updateEntity, findOneEntity, findManyEntites, updateEntities, countEntitiesByIds };
-    fileRepository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile };
+    fileRepository = { createFile, createFiles, findOneFile, updateFile, findManyFiles, tryClosingFile };
     syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithLastRerun, createRerun };
 
     entityManager = new EntityManager(
