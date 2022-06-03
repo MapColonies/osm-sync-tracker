@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.1.0](https://github.com/MapColonies/osm-sync-tracker/compare/v3.0.0...v3.1.0) (2022-06-03)
+
+
+### Features
+
+* **file:** patch endpoint ([#44](https://github.com/MapColonies/osm-sync-tracker/issues/44)) ([eb09fe5](https://github.com/MapColonies/osm-sync-tracker/commit/eb09fe585bf803e446bd12896a84642fdeff83c6))
+
+
+### Bug Fixes
+
+* closing a sync or file will set end_date without timezone ([#42](https://github.com/MapColonies/osm-sync-tracker/issues/42)) ([2c5ca50](https://github.com/MapColonies/osm-sync-tracker/commit/2c5ca50eabfc298cb49bf9a079a679ddbbff90af))
+
 ## [3.0.0](https://github.com/MapColonies/osm-sync-tracker/compare/v2.1.0...v3.0.0) (2022-04-28)
 
 
