@@ -26,7 +26,15 @@ describe('SyncManager', () => {
   beforeEach(() => {
     jest.resetAllMocks();
 
-    const syncRepository = ({ getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithLastRerun, createRerun } as unknown) as SyncRepository;
+    const syncRepository = {
+      getLatestSync,
+      createSync,
+      updateSync,
+      findOneSync,
+      findSyncs,
+      findOneSyncWithLastRerun,
+      createRerun,
+    } as unknown as SyncRepository;
     syncManager = new SyncManager(syncRepository, jsLogger({ enabled: false }), { get: jest.fn(), has: jest.fn() });
   });
 

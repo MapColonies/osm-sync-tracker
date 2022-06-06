@@ -26,16 +26,16 @@ describe('ChangesetManager', () => {
   beforeEach(() => {
     jest.resetAllMocks();
 
-    const repository = ({
+    const repository = {
       createChangeset,
       updateChangeset,
       tryClosingChangeset,
       findOneChangeset,
       updateEntitiesOfChangesetAsCompleted,
       tryClosingChangesets,
-    } as unknown) as ChangesetRepository;
+    } as unknown as ChangesetRepository;
     changesetManager = new ChangesetManager(
-      (repository as unknown) as ChangesetRepository,
+      repository as unknown as ChangesetRepository,
       jsLogger({ enabled: false }),
       { get: jest.fn(), has: jest.fn() },
       {
@@ -141,7 +141,7 @@ describe('ChangesetManager', () => {
         tryClosingChangesets,
       };
       changesetManagerWithRetries = new ChangesetManager(
-        (repository as unknown) as ChangesetRepository,
+        repository as unknown as ChangesetRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         {
@@ -183,7 +183,7 @@ describe('ChangesetManager', () => {
         tryClosingChangesets,
       };
       changesetManagerWithRetries = new ChangesetManager(
-        (repository as unknown) as ChangesetRepository,
+        repository as unknown as ChangesetRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         {
@@ -214,7 +214,7 @@ describe('ChangesetManager', () => {
         tryClosingChangesets,
       };
       changesetManagerWithRetries = new ChangesetManager(
-        (repository as unknown) as ChangesetRepository,
+        repository as unknown as ChangesetRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         {
@@ -266,7 +266,7 @@ describe('ChangesetManager', () => {
         tryClosingChangesets,
       };
       changesetManagerWithRetries = new ChangesetManager(
-        (repository as unknown) as ChangesetRepository,
+        repository as unknown as ChangesetRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         {
@@ -308,7 +308,7 @@ describe('ChangesetManager', () => {
         tryClosingChangesets,
       };
       changesetManagerWithRetries = new ChangesetManager(
-        (repository as unknown) as ChangesetRepository,
+        repository as unknown as ChangesetRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         {
@@ -338,7 +338,7 @@ describe('ChangesetManager', () => {
         tryClosingChangesets,
       };
       changesetManagerWithRetries = new ChangesetManager(
-        (repository as unknown) as ChangesetRepository,
+        repository as unknown as ChangesetRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         {

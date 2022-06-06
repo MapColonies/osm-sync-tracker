@@ -47,9 +47,26 @@ describe('EntityManager', () => {
   beforeEach(() => {
     jest.resetAllMocks();
 
-    entityRepository = ({ createEntity, createEntities, updateFile, updateEntity, findOneEntity, findManyEntities, updateEntities, countEntitiesByIds } as unknown) as EntityRepository;
-    fileRepository = ({ createFile, createFiles, findOneFile, findManyFiles, tryClosingFile } as unknown) as FileRepository;
-    syncRepository = ({ getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithLastRerun, createRerun } as unknown) as SyncRepository;
+    entityRepository = {
+      createEntity,
+      createEntities,
+      updateFile,
+      updateEntity,
+      findOneEntity,
+      findManyEntities,
+      updateEntities,
+      countEntitiesByIds,
+    } as unknown as EntityRepository;
+    fileRepository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile } as unknown as FileRepository;
+    syncRepository = {
+      getLatestSync,
+      createSync,
+      updateSync,
+      findOneSync,
+      findSyncs,
+      findOneSyncWithLastRerun,
+      createRerun,
+    } as unknown as SyncRepository;
 
     entityManager = new EntityManager(
       entityRepository,
@@ -255,8 +272,8 @@ describe('EntityManager', () => {
       findOneEntity.mockResolvedValue(entity);
       findOneFile.mockResolvedValue(file);
       tryClosingFile.mockRejectedValueOnce(new TransactionFailureError('transaction failure'));
-      entityRepository = ({ ...entityRepository, findOneEntity } as unknown) as EntityRepository;
-      fileRepository = ({ ...fileRepository, findOneFile, tryClosingFile } as unknown) as FileRepository;
+      entityRepository = { ...entityRepository, findOneEntity } as unknown as EntityRepository;
+      fileRepository = { ...fileRepository, findOneFile, tryClosingFile } as unknown as FileRepository;
       entityManagerWithRetries = new EntityManager(
         entityRepository,
         fileRepository,
@@ -303,7 +320,7 @@ describe('EntityManager', () => {
       findOneEntity.mockResolvedValue(entity);
       findOneFile.mockResolvedValue(file);
       tryClosingFile.mockRejectedValue(new TransactionFailureError('transaction failure'));
-      entityRepository = ({ ...entityRepository, findOneEntity } as unknown) as EntityRepository;
+      entityRepository = { ...entityRepository, findOneEntity } as unknown as EntityRepository;
       fileRepository = { ...fileRepository, findOneFile, tryClosingFile } as unknown as FileRepository;
       entityManagerWithRetries = new EntityManager(
         entityRepository,
@@ -328,7 +345,7 @@ describe('EntityManager', () => {
       findOneEntity.mockResolvedValue(entity);
       findOneFile.mockResolvedValue(file);
       tryClosingFile.mockRejectedValue(new TransactionFailureError('transaction failure'));
-      entityRepository = ({ ...entityRepository, findOneEntity } as unknown) as EntityRepository;
+      entityRepository = { ...entityRepository, findOneEntity } as unknown as EntityRepository;
       fileRepository = { ...fileRepository, findOneFile, tryClosingFile } as unknown as FileRepository;
       const retries = faker.datatype.number({ min: 1, max: 10 });
       entityManagerWithRetries = new EntityManager(
@@ -354,8 +371,8 @@ describe('EntityManager', () => {
       findOneEntity.mockResolvedValue(entity);
       findOneFile.mockResolvedValue(file);
       tryClosingFile.mockRejectedValue(new QueryFailedError('some query', undefined, new Error()));
-      entityRepository = ({ ...entityRepository, findOneEntity } as unknown) as EntityRepository;
-      fileRepository = ( { ...fileRepository, findOneFile, tryClosingFile } as unknown) as FileRepository;
+      entityRepository = { ...entityRepository, findOneEntity } as unknown as EntityRepository;
+      fileRepository = { ...fileRepository, findOneFile, tryClosingFile } as unknown as FileRepository;
       const retries = faker.datatype.number({ min: 1, max: 10 });
       entityManagerWithRetries = new EntityManager(
         entityRepository,
@@ -405,8 +422,8 @@ describe('EntityManager', () => {
       updateEntities.mockResolvedValue(undefined);
       tryClosingFile.mockRejectedValueOnce(new TransactionFailureError('transaction failure'));
 
-      entityRepository = ( { ...entityRepository, countEntitiesByIds, updateEntities } as unknown) as EntityRepository;
-      fileRepository = ({ ...fileRepository, tryClosingFile } as unknown) as FileRepository;
+      entityRepository = { ...entityRepository, countEntitiesByIds, updateEntities } as unknown as EntityRepository;
+      fileRepository = { ...fileRepository, tryClosingFile } as unknown as FileRepository;
 
       entityManagerWithRetries = new EntityManager(
         entityRepository,
@@ -454,8 +471,8 @@ describe('EntityManager', () => {
       updateEntities.mockResolvedValue(undefined);
       tryClosingFile.mockRejectedValue(new TransactionFailureError('transaction failure'));
 
-      entityRepository = ( { ...entityRepository, countEntitiesByIds, updateEntities } as unknown) as EntityRepository;
-      fileRepository = ({ ...fileRepository, tryClosingFile } as unknown) as FileRepository;
+      entityRepository = { ...entityRepository, countEntitiesByIds, updateEntities } as unknown as EntityRepository;
+      fileRepository = { ...fileRepository, tryClosingFile } as unknown as FileRepository;
 
       entityManagerWithRetries = new EntityManager(
         entityRepository,
@@ -480,8 +497,8 @@ describe('EntityManager', () => {
       updateEntities.mockResolvedValue(undefined);
       tryClosingFile.mockRejectedValue(new TransactionFailureError('transaction failure'));
 
-      entityRepository = ({ ...entityRepository, countEntitiesByIds, updateEntities } as unknown) as EntityRepository;
-      fileRepository = ({ ...fileRepository, tryClosingFile } as unknown) as FileRepository;
+      entityRepository = { ...entityRepository, countEntitiesByIds, updateEntities } as unknown as EntityRepository;
+      fileRepository = { ...fileRepository, tryClosingFile } as unknown as FileRepository;
 
       const retries = faker.datatype.number({ min: 1, max: 10 });
       entityManagerWithRetries = new EntityManager(
@@ -507,8 +524,8 @@ describe('EntityManager', () => {
       updateEntities.mockResolvedValue(undefined);
       tryClosingFile.mockRejectedValue(new QueryFailedError('some query', undefined, new Error()));
 
-      fileRepository = ({ ...fileRepository, tryClosingFile } as unknown) as FileRepository;
-      entityRepository = ( { ...entityRepository, countEntitiesByIds, updateEntities } as unknown) as EntityRepository;
+      fileRepository = { ...fileRepository, tryClosingFile } as unknown as FileRepository;
+      entityRepository = { ...entityRepository, countEntitiesByIds, updateEntities } as unknown as EntityRepository;
 
       const retries = faker.datatype.number({ min: 1, max: 10 });
       entityManagerWithRetries = new EntityManager(

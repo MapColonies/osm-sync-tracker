@@ -14,10 +14,6 @@ export class SyncRequestSender {
     return supertest.agent(this.app).patch(`/sync/${syncId}`).set('Content-Type', 'application/json').send(body);
   }
 
-  public async patchFile(syncId: string, fileId: string, body: FileUpdate): Promise<supertest.Response> {
-    return supertest.agent(this.app).patch(`/sync/${syncId}/file/${fileId}`).set('Content-Type', 'application/json').send(body);
-  }
-
   public async getLatestSync(layerId: number, geometryType: GeometryType): Promise<supertest.Response> {
     return supertest.agent(this.app).get(`/sync/latest`).query({ layerId, geometryType });
   }

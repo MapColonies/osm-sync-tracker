@@ -2,7 +2,7 @@ import { EntityManager, DataSource, In } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { TransactionFailureError } from '../../changeset/models/errors';
 import { isTransactionFailure, ReturningId, ReturningResult } from '../../common/db';
-import { File } from '../models/file';
+import { File, FileUpdate } from '../models/file';
 import { SyncDb } from '../../sync/DAL/sync';
 import { Status } from '../../common/enums';
 import { getIsolationLevel } from '../../common/utils/db';

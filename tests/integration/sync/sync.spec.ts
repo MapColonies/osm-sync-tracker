@@ -32,8 +32,8 @@ describe('sync', function () {
   }, BEFORE_ALL_TIMEOUT);
 
   afterAll(async function () {
-    const connection = container.resolve(Connection);
-    await connection.close();
+    const connection = container.resolve(DataSource);
+    await connection.destroy();
     container.reset();
   });
 
@@ -905,7 +905,7 @@ describe('sync', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: syncRepositorySymbol,
+          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
           provider: {
             useValue: {
               createSync: createSyncMock,
@@ -931,7 +931,7 @@ describe('sync', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: syncRepositorySymbol,
+          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
           provider: {
             useValue: {
               updateSync: updateSyncMock,
@@ -955,7 +955,7 @@ describe('sync', function () {
         const getLatestSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
 
         const mockRegisterOptions = getBaseRegisterOptions();
-        mockRegisterOptions.override.push({ token: syncRepositorySymbol, provider: { useValue: { getLatestSync: getLatestSyncMock } } });
+        mockRegisterOptions.override.push({ token: SYNC_CUSTOM_REPOSITORY_SYMBOL, provider: { useValue: { getLatestSync: getLatestSyncMock } } });
         const mockApp = await getApp(mockRegisterOptions);
         mockSyncRequestSender = new SyncRequestSender(mockApp);
         const body = createStringifiedFakeSync();
@@ -977,7 +977,7 @@ describe('sync', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: syncRepositorySymbol,
+          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
           provider: {
             useValue: {
               findOneSync: findOneSyncMock,
@@ -1005,7 +1005,7 @@ describe('sync', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: syncRepositorySymbol,
+          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
           provider: {
             useValue: {
               findOneSync: findOneSyncMock,
@@ -1014,7 +1014,7 @@ describe('sync', function () {
         });
 
         mockRegisterOptions.override.push({
-          token: fileRepositorySymbol,
+          token: FILE_CUSTOM_REPOSITORY_SYMBOL,
           provider: {
             useValue: {
               findOneFile: findOneFileMock,
