@@ -1,14 +1,15 @@
 import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
 import lodash from 'lodash';
-import { SERVICES } from '../../common/constants';
+import { DB_SCHEMA, SERVICES } from '../../common/constants';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../../sync/DAL/syncRepository';
 import { SyncNotFoundError } from '../../sync/models/errors';
 import { FILE_CUSTOM_REPOSITORY_SYMBOL, FileRepository } from '../DAL/fileRepository';
 import { Sync } from '../../sync/models/sync';
 import { TransactionFailureError } from '../../changeset/models/errors';
 import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
-import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
+import { getTransactionRetryPolicy } from '../../common/utils/db';
+import { TransactionRetryPolicy } from '../../common/interfaces';
 import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from './errors';
 import { File, FileUpdate } from './file';
 
@@ -20,8 +21,12 @@ export class FileManager {
   public constructor(
     @inject(FILE_CUSTOM_REPOSITORY_SYMBOL) private readonly fileRepository: FileRepository,
     @inject(SYNC_CUSTOM_REPOSITORY_SYMBOL) private readonly syncRepository: SyncRepository,
-    @inject(SERVICES.LOGGER) private readonly logger: Logger
-  ) {}
+    @inject(SERVICES.LOGGER) private readonly logger: Logger,
+    @inject(DB_SCHEMA) private readonly schema: string
+  ) {
+    this.dbSchema = schema;
+    this.transactionRetryPolicy = getTransactionRetryPolicy();
+  }
 
   public async createFile(syncId: string, file: File): Promise<void> {
     const syncEntity = await this.syncRepository.findOneSync(syncId);
@@ -80,7 +85,7 @@ export class FileManager {
 
     await this.fileRepository.updateFile(fileId, fileUpdate);
 
-    // try closing the file and if successeded try closing the sync
+    // try closing the file and if succeeded try closing the sync
     const closedSyncIds = await this.closeFile(fileId);
     return closedSyncIds;
   }

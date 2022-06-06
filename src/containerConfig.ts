@@ -4,7 +4,7 @@ import { logMethod } from '@map-colonies/telemetry';
 import jsLogger, { LoggerOptions } from '@map-colonies/js-logger';
 import { DataSource } from 'typeorm';
 import { trace } from '@opentelemetry/api';
-import { HEALTHCHECK, ON_SIGNAL, SERVICES, SERVICE_NAME } from './common/constants';
+import { DB_SCHEMA, HEALTHCHECK, ON_SIGNAL, SERVICES, SERVICE_NAME } from './common/constants';
 import { DbConfig, IApplication } from './common/interfaces';
 import { getDbHealthCheckFunction, initDataSource } from './common/db';
 import { tracing } from './common/tracing';
@@ -38,6 +38,7 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
 
   const dependencies: InjectionObject<unknown>[] = [
     { token: SERVICES.CONFIG, provider: { useValue: config } },
+    { token: DB_SCHEMA, provider: { useValue: config.get('db.schema') } },
     { token: SERVICES.LOGGER, provider: { useValue: logger } },
     { token: SERVICES.TRACER, provider: { useValue: tracer } },
     { token: SERVICES.APPLICATION, provider: { useValue: appConfig } },

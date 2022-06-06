@@ -1,6 +1,5 @@
 import * as supertest from 'supertest';
 import { GeometryType } from '../../../../src/common/enums';
-import { FileUpdate } from '../../../../src/file/models/file';
 import { StringifiedRerunCreateBody, StringifiedSync } from '../types';
 
 export class SyncRequestSender {

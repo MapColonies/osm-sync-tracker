@@ -6,12 +6,9 @@ import { SyncRepository } from '../../../../src/sync/DAL/syncRepository';
 import { createFakeFile, createFakeSync, createFakeFiles, createFakeRerunSync } from '../../../helpers/helper';
 import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from '../../../../src/file/models/errors';
 import { SyncNotFoundError } from '../../../../src/sync/models/errors';
-import { DEFAULT_ISOLATION_LEVEL } from '../../../integration/helpers';
-import { IFileRepository } from '../../../../src/file/DAL/fileRepository';
-import { ISyncRepository } from '../../../../src/sync/DAL/syncRepository';
 
-let fileRepository: IFileRepository;
-let syncRepository: ISyncRepository;
+let fileRepository: FileRepository;
+let syncRepository: SyncRepository;
 
 let fileManager: FileManager;
 describe('FileManager', () => {
@@ -33,8 +30,8 @@ describe('FileManager', () => {
   beforeEach(() => {
     jest.resetAllMocks();
 
-    const fileRepository = ({ createFile, createFiles, findOneFile, findManyFiles, tryClosingFile } as unknown) as FileRepository;
-    const syncRepository = {
+    fileRepository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile, updateFile } as unknown as FileRepository;
+    syncRepository = {
       getLatestSync,
       createSync,
       updateSync,
@@ -44,13 +41,7 @@ describe('FileManager', () => {
       createRerun,
     } as unknown as SyncRepository;
 
-    fileManager = new FileManager(
-      fileRepository,
-      syncRepository,
-      jsLogger({ enabled: false }),
-      { get: jest.fn(), has: jest.fn() },
-      { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
-    );
+    fileManager = new FileManager(fileRepository, syncRepository, jsLogger({ enabled: false }), 'public');
   });
 
   describe('#updateFile', () => {
@@ -60,6 +51,8 @@ describe('FileManager', () => {
 
       findOneSync.mockResolvedValue(sync);
       findOneFile.mockResolvedValue(file);
+      updateFile.mockResolvedValue(undefined);
+      tryClosingFile.mockResolvedValue([]);
 
       const updatePromise = fileManager.updateFile(sync.id, file.fileId, { totalEntities: 1 });
 
@@ -68,13 +61,7 @@ describe('FileManager', () => {
     });
 
     it('resolves without errors for valid update file when retry policy is configured', async () => {
-      const fileManagerWithRetries = new FileManager(
-        fileRepository,
-        syncRepository,
-        jsLogger({ enabled: false }),
-        { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
-      );
+      const fileManagerWithRetries = new FileManager(fileRepository, syncRepository, jsLogger({ enabled: false }), 'public');
 
       const sync = createFakeSync();
       const file = createFakeFile();
