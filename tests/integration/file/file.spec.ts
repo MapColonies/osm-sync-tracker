@@ -1,5 +1,5 @@
 import httpStatus, { StatusCodes } from 'http-status-codes';
-import { container } from 'tsyringe';
+import { container, DependencyContainer } from 'tsyringe';
 import { faker } from '@faker-js/faker';
 import { DataSource, QueryFailedError } from 'typeorm';
 import { getApp } from '../../../src/app';
@@ -22,8 +22,11 @@ describe('file', function () {
 
   let sync: StringifiedSync;
 
+  let depContainer: DependencyContainer;
+
   beforeAll(async function () {
-    const app = await getApp(getBaseRegisterOptions());
+    const { app, container } = await getApp(getBaseRegisterOptions());
+    depContainer = container;
     fileRequestSender = new FileRequestSender(app);
     syncRequestSender = new SyncRequestSender(app);
     entityRequestSender = new EntityRequestSender(app);
@@ -33,9 +36,9 @@ describe('file', function () {
   }, BEFORE_ALL_TIMEOUT);
 
   afterAll(async function () {
-    const connection = container.resolve(DataSource);
+    const connection = depContainer.resolve(DataSource);
     await connection.destroy();
-    container.reset();
+    depContainer.reset();
   });
 
   describe('Happy Path', function () {
@@ -239,7 +242,7 @@ describe('file', function () {
           token: FILE_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { createFile: createFileMock, findOneFile: findOneFileMock } },
         });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockFileRequestSender = new FileRequestSender(mockApp);
 
         const response = await mockFileRequestSender.postFile(sync.id as string, createStringifiedFakeFile());
@@ -259,7 +262,7 @@ describe('file', function () {
           token: FILE_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { createFiles: createFilesMock, findManyFiles: findManyFilesMock } },
         });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockFileRequestSender = new FileRequestSender(mockApp);
 
         const body = createStringifiedFakeFile();

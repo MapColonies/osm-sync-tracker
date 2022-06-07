@@ -1,6 +1,6 @@
 import httpStatus, { StatusCodes } from 'http-status-codes';
-import { container } from 'tsyringe';
 import { faker } from '@faker-js/faker';
+import { DependencyContainer } from 'tsyringe';
 import { DataSource, QueryFailedError } from 'typeorm';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { createStringifiedFakeSync } from '../sync/helpers/generators';
@@ -26,9 +26,11 @@ describe('changeset', function () {
   let fileRequestSender: FileRequestSender;
   let syncRequestSender: SyncRequestSender;
   let mockChangesetRequestSender: ChangesetRequestSender;
+  let depContainer: DependencyContainer;
 
   beforeAll(async () => {
-    const app = await getApp(getBaseRegisterOptions());
+    const { app, container } = await getApp(getBaseRegisterOptions());
+    depContainer = container;
     changesetRequestSender = new ChangesetRequestSender(app);
     fileRequestSender = new FileRequestSender(app);
     syncRequestSender = new SyncRequestSender(app);
@@ -40,15 +42,15 @@ describe('changeset', function () {
     };
     const registerOptions = getBaseRegisterOptions();
     registerOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfigWithRetries } });
-    const appWithRetries = await getApp(registerOptions);
+    const { app: appWithRetries } = await getApp(registerOptions);
     changesetRequestSenderWithRetries = new ChangesetRequestSender(appWithRetries);
     entityRequestSenderWithRetries = new EntityRequestSender(appWithRetries);
   }, BEFORE_ALL_TIMEOUT);
 
   afterAll(async function () {
-    const connection = container.resolve(DataSource);
+    const connection = depContainer.resolve(DataSource);
     await connection.destroy();
-    container.reset();
+    depContainer.reset();
   });
 
   describe('Happy Path', function () {
@@ -123,7 +125,7 @@ describe('changeset', function () {
         });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
         const body = createStringifiedFakeChangeset();
         expect(await changesetRequestSender.postChangeset(body)).toHaveStatus(StatusCodes.CREATED);
@@ -172,7 +174,7 @@ describe('changeset', function () {
         });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
         const changeset = createStringifiedFakeChangeset();
         expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
@@ -294,7 +296,7 @@ describe('changeset', function () {
           token: CHANGESET_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { createChangeset: createChangesetMock, findOneChangeset: findOneChangesetMock } },
         });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
         const response = await mockChangesetRequestSender.postChangeset(createStringifiedFakeChangeset());
@@ -314,7 +316,7 @@ describe('changeset', function () {
           token: CHANGESET_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { updateChangeset: updateChangesetMock, findOneChangeset: findOneChangesetMock } },
         });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
         const body = createStringifiedFakeChangeset();
 
@@ -340,7 +342,7 @@ describe('changeset', function () {
             useValue: { updateEntitiesOfChangesetAsCompleted: updateEntitiesOfChangesetAsCompletedMock, findOneChangeset: findOneChangesetMock },
           },
         });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
         const changeset = createStringifiedFakeChangeset();
 
@@ -364,7 +366,7 @@ describe('changeset', function () {
           token: CHANGESET_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { tryClosingChangeset: tryClosingChangesetMock, findOneChangeset: findOneChangesetMock } },
         });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
         const body = createStringifiedFakeChangeset();
@@ -387,7 +389,7 @@ describe('changeset', function () {
         });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
         const body = createStringifiedFakeChangeset();
@@ -412,7 +414,7 @@ describe('changeset', function () {
         const retries = faker.datatype.number({ min: 1, max: 10 });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
         const body = createStringifiedFakeChangeset();
@@ -438,7 +440,7 @@ describe('changeset', function () {
         const retries = faker.datatype.number({ min: 1, max: 10 });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
         const body = createStringifiedFakeChangeset();
@@ -462,7 +464,7 @@ describe('changeset', function () {
           token: CHANGESET_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { tryClosingChangesets: tryClosingChangesetsMock } },
         });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
         const changeset1 = createStringifiedFakeChangeset();
@@ -486,7 +488,7 @@ describe('changeset', function () {
         });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
         const changeset = createStringifiedFakeChangeset();
@@ -510,7 +512,7 @@ describe('changeset', function () {
         const retries = faker.datatype.number({ min: 1, max: 10 });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
         const changeset = createStringifiedFakeChangeset();
@@ -535,7 +537,7 @@ describe('changeset', function () {
         const retries = faker.datatype.number({ min: 1, max: 10 });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
         const changeset = createStringifiedFakeChangeset();
