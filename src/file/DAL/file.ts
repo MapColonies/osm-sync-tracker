@@ -1,8 +1,8 @@
 import { Column, Entity as EntityDecorator, JoinColumn, ManyToOne, OneToMany, PrimaryColumn } from 'typeorm';
-import { Status } from '../../../common/enums';
-import { Entity } from '../../../entity/DAL/typeorm/entity';
-import { SyncDb } from '../../../sync/DAL/typeorm/sync';
-import { File as IFile } from '../../models/file';
+import { Status } from '../../common/enums';
+import { Entity } from '../../entity/DAL/entity';
+import { SyncDb } from '../../sync/DAL/sync';
+import { File as IFile } from '../models/file';
 
 @EntityDecorator()
 export class File implements IFile {

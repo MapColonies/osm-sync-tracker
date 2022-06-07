@@ -37,7 +37,7 @@ jobs:
   tests:
       name: Run Tests
       runs-on: ubuntu-latest
-      container: node:12
+      container: node:16
 
       services:
         # Label used to access the service container
@@ -60,7 +60,7 @@ jobs:
 
       strategy:
         matrix:
-          node: [12.x, 14.x]
+          node: [14.x, 16.x]
 
       steps:
         - name: Check out Git repository
@@ -109,7 +109,6 @@ jobs:
     - uses: actions/checkout@master
     - name: Run Snyk to check for vulnerabilities
       uses: snyk/actions/node@master
-      continue-on-error: true
       env:
         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 

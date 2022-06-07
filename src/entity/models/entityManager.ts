@@ -6,10 +6,10 @@ import { SERVICES } from '../../common/constants';
 import { EntityStatus } from '../../common/enums';
 import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
 import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
-import { IFileRepository, fileRepositorySymbol } from '../../file/DAL/fileRepository';
+import { FileRepository, FILE_CUSTOM_REPOSITORY_SYMBOL } from '../../file/DAL/fileRepository';
 import { FileNotFoundError } from '../../file/models/errors';
-import { ISyncRepository, syncRepositorySymbol } from '../../sync/DAL/syncRepository';
-import { IEntityRepository, entityRepositorySymbol } from '../DAL/entityRepository';
+import { SyncRepository, SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../sync/DAL/syncRepository';
+import { EntityRepository, ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../DAL/entityRepository';
 import { Entity, UpdateEntities, UpdateEntity } from './entity';
 import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } from './errors';
 
@@ -24,9 +24,9 @@ export class EntityManager {
   private readonly transactionRetryPolicy: TransactionRetryPolicy;
 
   public constructor(
-    @inject(entityRepositorySymbol) private readonly entityRepository: IEntityRepository,
-    @inject(fileRepositorySymbol) private readonly fileRepository: IFileRepository,
-    @inject(syncRepositorySymbol) private readonly syncRepository: ISyncRepository,
+    @inject(ENTITY_CUSTOM_REPOSITORY_SYMBOL) private readonly entityRepository: EntityRepository,
+    @inject(FILE_CUSTOM_REPOSITORY_SYMBOL) private readonly fileRepository: FileRepository,
+    @inject(SYNC_CUSTOM_REPOSITORY_SYMBOL) private readonly syncRepository: SyncRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
     @inject(SERVICES.CONFIG) private readonly config: IConfig,
     @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication
@@ -66,7 +66,7 @@ export class EntityManager {
     }
 
     let result: EntityBulkCreationResult = { created: entityIdsForCreation, previouslyCompleted: [] };
-    const existingEntities = await this.entityRepository.findManyEntites(entitiesWithFileId);
+    const existingEntities = await this.entityRepository.findManyEntities(entitiesWithFileId);
 
     const reruns = await this.syncRepository.findSyncs({ baseSyncId: fileEntity.syncId });
 

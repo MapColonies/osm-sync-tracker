@@ -1,11 +1,11 @@
 import httpStatus, { StatusCodes } from 'http-status-codes';
-import { container } from 'tsyringe';
-import faker from 'faker';
-import { Connection, QueryFailedError } from 'typeorm';
+import { container, DependencyContainer } from 'tsyringe';
+import { faker } from '@faker-js/faker';
+import { DataSource, QueryFailedError } from 'typeorm';
 import { getApp } from '../../../src/app';
 import { BEFORE_ALL_TIMEOUT, RERUN_TEST_TIMEOUT, getBaseRegisterOptions } from '../helpers';
-import { syncRepositorySymbol } from '../../../src/sync/DAL/syncRepository';
-import { fileRepositorySymbol } from '../../../src/file/DAL/fileRepository';
+import { SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/sync/DAL/syncRepository';
+import { FILE_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/file/DAL/fileRepository';
 import { EntityStatus, GeometryType, Status } from '../../../src/common/enums';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { FileRequestSender } from '../file/helpers/requestSender';
@@ -23,8 +23,11 @@ describe('sync', function () {
   let changesetRequestSender: ChangesetRequestSender;
   let mockSyncRequestSender: SyncRequestSender;
 
+  let depContainer: DependencyContainer;
+
   beforeAll(async function () {
-    const app = await getApp(getBaseRegisterOptions());
+    const { app, container } = await getApp(getBaseRegisterOptions());
+    depContainer = container;
     syncRequestSender = new SyncRequestSender(app);
     fileRequestSender = new FileRequestSender(app);
     entityRequestSender = new EntityRequestSender(app);
@@ -32,9 +35,9 @@ describe('sync', function () {
   }, BEFORE_ALL_TIMEOUT);
 
   afterAll(async function () {
-    const connection = container.resolve(Connection);
-    await connection.close();
-    container.reset();
+    const connection = depContainer.resolve(DataSource);
+    await connection.destroy();
+    depContainer.reset();
   });
 
   describe('Happy Path', function () {
@@ -905,7 +908,7 @@ describe('sync', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: syncRepositorySymbol,
+          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
           provider: {
             useValue: {
               createSync: createSyncMock,
@@ -914,7 +917,7 @@ describe('sync', function () {
             },
           },
         });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockSyncRequestSender = new SyncRequestSender(mockApp);
 
         const response = await mockSyncRequestSender.postSync(createStringifiedFakeSync());
@@ -931,7 +934,7 @@ describe('sync', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: syncRepositorySymbol,
+          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
           provider: {
             useValue: {
               updateSync: updateSyncMock,
@@ -939,7 +942,7 @@ describe('sync', function () {
             },
           },
         });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockSyncRequestSender = new SyncRequestSender(mockApp);
         const { id, isFull, ...body } = createStringifiedFakeSync();
 
@@ -955,8 +958,8 @@ describe('sync', function () {
         const getLatestSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
 
         const mockRegisterOptions = getBaseRegisterOptions();
-        mockRegisterOptions.override.push({ token: syncRepositorySymbol, provider: { useValue: { getLatestSync: getLatestSyncMock } } });
-        const mockApp = await getApp(mockRegisterOptions);
+        mockRegisterOptions.override.push({ token: SYNC_CUSTOM_REPOSITORY_SYMBOL, provider: { useValue: { getLatestSync: getLatestSyncMock } } });
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockSyncRequestSender = new SyncRequestSender(mockApp);
         const body = createStringifiedFakeSync();
 
@@ -977,7 +980,7 @@ describe('sync', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: syncRepositorySymbol,
+          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
           provider: {
             useValue: {
               findOneSync: findOneSyncMock,
@@ -986,7 +989,7 @@ describe('sync', function () {
             },
           },
         });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockSyncRequestSender = new SyncRequestSender(mockApp);
         const rerunCreateBody = createStringifiedFakeRerunCreateBody();
 
@@ -1005,7 +1008,7 @@ describe('sync', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: syncRepositorySymbol,
+          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
           provider: {
             useValue: {
               findOneSync: findOneSyncMock,
@@ -1014,7 +1017,7 @@ describe('sync', function () {
         });
 
         mockRegisterOptions.override.push({
-          token: fileRepositorySymbol,
+          token: FILE_CUSTOM_REPOSITORY_SYMBOL,
           provider: {
             useValue: {
               findOneFile: findOneFileMock,
@@ -1022,7 +1025,7 @@ describe('sync', function () {
             },
           },
         });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         const mockFileRequestSender = new FileRequestSender(mockApp);
         const { id } = createStringifiedFakeSync();
         const { fileId, totalEntities } = createStringifiedFakeFile();

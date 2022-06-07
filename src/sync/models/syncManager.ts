@@ -3,7 +3,7 @@ import { inject, injectable } from 'tsyringe';
 import { SERVICES } from '../../common/constants';
 import { GeometryType, Status } from '../../common/enums';
 import { IConfig } from '../../common/interfaces';
-import { ISyncRepository, syncRepositorySymbol } from '../DAL/syncRepository';
+import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../DAL/syncRepository';
 import { FullSyncAlreadyExistsError, InvalidSyncForRerunError, RerunAlreadyExistsError, SyncAlreadyExistsError, SyncNotFoundError } from './errors';
 import { BaseSync, Sync, SyncUpdate } from './sync';
 
@@ -12,7 +12,7 @@ export class SyncManager {
   private readonly dbSchema: string;
 
   public constructor(
-    @inject(syncRepositorySymbol) private readonly syncRepository: ISyncRepository,
+    @inject(SYNC_CUSTOM_REPOSITORY_SYMBOL) private readonly syncRepository: SyncRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
     @inject(SERVICES.CONFIG) private readonly config: IConfig
   ) {
@@ -20,7 +20,7 @@ export class SyncManager {
   }
   public async getLatestSync(layerId: number, geometryType: GeometryType): Promise<BaseSync> {
     const latestSync = await this.syncRepository.getLatestSync(layerId, geometryType);
-    if (latestSync === undefined) {
+    if (latestSync === null) {
       throw new SyncNotFoundError(`sync with layer id = ${layerId}, geometry type = ${geometryType} not found`);
     }
     return latestSync;

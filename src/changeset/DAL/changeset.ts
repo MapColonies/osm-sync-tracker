@@ -1,5 +1,5 @@
 import { Column, Entity as EntityDecorator, OneToMany, PrimaryColumn } from 'typeorm';
-import { Entity } from '../../../entity/DAL/typeorm/entity';
+import { Entity } from '../../entity/DAL/entity';
 
 @EntityDecorator()
 export class Changeset {

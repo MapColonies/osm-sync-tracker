@@ -1,14 +1,15 @@
 import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
 import lodash from 'lodash';
-import { SERVICES } from '../../common/constants';
-import { ISyncRepository, syncRepositorySymbol } from '../../sync/DAL/syncRepository';
+import { DB_SCHEMA, SERVICES } from '../../common/constants';
+import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../../sync/DAL/syncRepository';
 import { SyncNotFoundError } from '../../sync/models/errors';
-import { IFileRepository, fileRepositorySymbol } from '../DAL/fileRepository';
+import { FILE_CUSTOM_REPOSITORY_SYMBOL, FileRepository } from '../DAL/fileRepository';
 import { Sync } from '../../sync/models/sync';
 import { TransactionFailureError } from '../../changeset/models/errors';
 import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
-import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
+import { getTransactionRetryPolicy } from '../../common/utils/db';
+import { TransactionRetryPolicy } from '../../common/interfaces';
 import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from './errors';
 import { File, FileUpdate } from './file';
 
@@ -18,14 +19,13 @@ export class FileManager {
   private readonly transactionRetryPolicy: TransactionRetryPolicy;
 
   public constructor(
-    @inject(fileRepositorySymbol) private readonly fileRepository: IFileRepository,
-    @inject(syncRepositorySymbol) private readonly syncRepository: ISyncRepository,
+    @inject(FILE_CUSTOM_REPOSITORY_SYMBOL) private readonly fileRepository: FileRepository,
+    @inject(SYNC_CUSTOM_REPOSITORY_SYMBOL) private readonly syncRepository: SyncRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
-    @inject(SERVICES.CONFIG) private readonly config: IConfig,
-    @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication
+    @inject(DB_SCHEMA) private readonly schema: string
   ) {
-    this.dbSchema = this.config.get('db.schema');
-    this.transactionRetryPolicy = this.appConfig.transactionRetryPolicy;
+    this.dbSchema = schema;
+    this.transactionRetryPolicy = getTransactionRetryPolicy();
   }
 
   public async createFile(syncId: string, file: File): Promise<void> {
@@ -85,7 +85,7 @@ export class FileManager {
 
     await this.fileRepository.updateFile(fileId, fileUpdate);
 
-    // try closing the file and if successeded try closing the sync
+    // try closing the file and if succeeded try closing the sync
     const closedSyncIds = await this.closeFile(fileId);
     return closedSyncIds;
   }

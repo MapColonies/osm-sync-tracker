@@ -1,6 +1,7 @@
 import jsLogger from '@map-colonies/js-logger';
-import faker from 'faker';
+import { faker } from '@faker-js/faker';
 import { SyncManager } from '../../../../src/sync/models/syncManager';
+import { SyncRepository } from '../../../../src/sync/DAL/syncRepository';
 import { createFakeRerunSync, createFakeSync } from '../../../helpers/helper';
 import {
   FullSyncAlreadyExistsError,
@@ -25,7 +26,15 @@ describe('SyncManager', () => {
   beforeEach(() => {
     jest.resetAllMocks();
 
-    const syncRepository = { getLatestSync, createSync, updateSync, findOneSync, findSyncs, findOneSyncWithLastRerun, createRerun };
+    const syncRepository = {
+      getLatestSync,
+      createSync,
+      updateSync,
+      findOneSync,
+      findSyncs,
+      findOneSyncWithLastRerun,
+      createRerun,
+    } as unknown as SyncRepository;
     syncManager = new SyncManager(syncRepository, jsLogger({ enabled: false }), { get: jest.fn(), has: jest.fn() });
   });
 
@@ -174,7 +183,7 @@ describe('SyncManager', () => {
     it('rejects if the sync does not exist in the db', async () => {
       const sync = createFakeSync();
 
-      getLatestSync.mockResolvedValue(undefined);
+      getLatestSync.mockResolvedValue(null);
       const getLatestPromise = syncManager.getLatestSync(sync.layerId, sync.geometryType);
 
       await expect(getLatestPromise).rejects.toThrow(SyncNotFoundError);
@@ -187,7 +196,7 @@ describe('SyncManager', () => {
       const rerunStartDate = faker.datatype.datetime();
       const sync = createFakeSync({ status: Status.FAILED });
 
-      findOneSync.mockResolvedValue(undefined);
+      findOneSync.mockResolvedValue(null);
       findOneSyncWithLastRerun.mockResolvedValue({ ...sync, reruns: [] });
       const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerunId, rerunStartDate);
 

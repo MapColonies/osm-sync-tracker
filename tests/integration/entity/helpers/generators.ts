@@ -1,4 +1,4 @@
-import faker from 'faker';
+import { faker } from '@faker-js/faker';
 import { ActionType, EntityStatus } from '../../../../src/common/enums';
 
 import { Entity } from '../../../../src/entity/models/entity';

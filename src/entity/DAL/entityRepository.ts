@@ -1,20 +1,53 @@
+import { In, DataSource } from 'typeorm';
+import { FactoryFunction } from 'tsyringe';
 import { Entity, UpdateEntities, UpdateEntity } from '../models/entity';
-import { Entity as EntityDb } from './typeorm/entity';
+import { Entity as EntityDb } from './entity';
 
-export const entityRepositorySymbol = Symbol('EntityRepository');
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+const createEntityRepository = (dataSource: DataSource) => {
+  return dataSource.getRepository(EntityDb).extend({
+    async createEntity(entity: Entity): Promise<void> {
+      await this.insert(entity);
+    },
 
-export interface IEntityRepository {
-  createEntity: (entity: Entity) => Promise<void>;
+    async createEntities(entities: Entity[]): Promise<void> {
+      await this.insert(entities);
+    },
 
-  createEntities: (entities: Entity[]) => Promise<void>;
+    async updateEntity(entityId: string, fileId: string, entity: UpdateEntity): Promise<void> {
+      await this.update({ entityId, fileId }, entity);
+    },
 
-  updateEntity: (entityId: string, fileId: string, entity: UpdateEntity) => Promise<void>;
+    async updateEntities(entities: UpdateEntities): Promise<void> {
+      await this.save(entities);
+    },
 
-  updateEntities: (entities: UpdateEntities) => Promise<void>;
+    async findOneEntity(entityId: string, fileId: string): Promise<EntityDb | undefined> {
+      const entityEntity = await this.findOne({ where: { entityId, fileId } });
+      if (entityEntity === null) {
+        return undefined;
+      }
+      return entityEntity;
+    },
 
-  findOneEntity: (entityId: string, fileId: string) => Promise<EntityDb | undefined>;
+    async findManyEntities(entities: Entity[]): Promise<EntityDb[] | undefined> {
+      const entityEntities = await this.findBy({ entityId: In(entities.map((e) => e.entityId)) });
+      if (entityEntities.length === 0) {
+        return undefined;
+      }
+      return entityEntities;
+    },
 
-  findManyEntites: (entities: Entity[]) => Promise<EntityDb[] | undefined>;
+    async countEntitiesByIds(entityIds: string[], fileIds: string[]): Promise<number> {
+      return this.count({ where: { entityId: In(entityIds), fileId: In(fileIds) } });
+    },
+  });
+};
 
-  countEntitiesByIds: (entityIds: string[], fileIds: string[]) => Promise<number>;
-}
+export type EntityRepository = ReturnType<typeof createEntityRepository>;
+
+export const entityRepositoryFactory: FactoryFunction<EntityRepository> = (depContainer) => {
+  return createEntityRepository(depContainer.resolve<DataSource>(DataSource));
+};
+
+export const ENTITY_CUSTOM_REPOSITORY_SYMBOL = Symbol('ENTITY_CUSTOM_REPOSITORY_SYMBOL');

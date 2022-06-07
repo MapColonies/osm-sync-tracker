@@ -1,7 +1,7 @@
-import faker from 'faker';
-import { container } from 'tsyringe';
+import { faker } from '@faker-js/faker';
+import { container, DependencyContainer } from 'tsyringe';
 import httpStatus, { StatusCodes } from 'http-status-codes';
-import { Connection, QueryFailedError } from 'typeorm';
+import { DataSource, QueryFailedError } from 'typeorm';
 import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from '../sync/helpers/generators';
 import { StringifiedSync } from '../sync/types';
 import { SyncRequestSender } from '../sync/helpers/requestSender';
@@ -13,13 +13,13 @@ import { ActionType, EntityStatus, Status } from '../../../src/common/enums';
 import { getApp } from '../../../src/app';
 import { Entity } from '../../../src/entity/models/entity';
 import { BEFORE_ALL_TIMEOUT, DEFAULT_ISOLATION_LEVEL, getBaseRegisterOptions, RERUN_TEST_TIMEOUT } from '../helpers';
-import { entityRepositorySymbol } from '../../../src/entity/DAL/entityRepository';
 import { TransactionFailureError } from '../../../src/changeset/models/errors';
 import { createFakeEntity, createFakeFile } from '../../helpers/helper';
-import { fileRepositorySymbol } from '../../../src/file/DAL/fileRepository';
+import { FILE_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/file/DAL/fileRepository';
 import { EntityBulkCreationResult } from '../../../src/entity/models/entityManager';
 import { IApplication } from '../../../src/common/interfaces';
 import { SERVICES } from '../../../src/common/constants';
+import { ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/entity/DAL/entityRepository';
 import { createStringifiedFakeEntity } from './helpers/generators';
 
 describe('entity', function () {
@@ -31,8 +31,11 @@ describe('entity', function () {
   let sync: StringifiedSync;
   let file: StringifiedFile;
 
+  let depContainer: DependencyContainer;
+
   beforeAll(async function () {
-    const app = await getApp(getBaseRegisterOptions());
+    const { app, container } = await getApp(getBaseRegisterOptions());
+    depContainer = container;
     entityRequestSender = new EntityRequestSender(app);
     fileRequestSender = new FileRequestSender(app);
     syncRequestSender = new SyncRequestSender(app);
@@ -43,9 +46,9 @@ describe('entity', function () {
   }, BEFORE_ALL_TIMEOUT);
 
   afterAll(async function () {
-    const connection = container.resolve(Connection);
-    await connection.close();
-    container.reset();
+    const connection = depContainer.resolve(DataSource);
+    await connection.destroy();
+    depContainer.reset();
   });
 
   describe('Happy Path', function () {
@@ -131,7 +134,7 @@ describe('entity', function () {
         };
         const registerOptions = getBaseRegisterOptions();
         registerOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfigWithRetries } });
-        const appWithRetries = await getApp(registerOptions);
+        const { app: appWithRetries } = await getApp(registerOptions);
         const entityRequestSenderWithRetries = new EntityRequestSender(appWithRetries);
 
         const body = createStringifiedFakeEntity();
@@ -157,16 +160,16 @@ describe('entity', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: entityRepositorySymbol,
+          token: ENTITY_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { findOneEntity: findOneEntityMock, updateEntity: updateEntityMock } },
         });
         mockRegisterOptions.override.push({
-          token: fileRepositorySymbol,
+          token: FILE_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { findOneFile: findOneFileMock, tryClosingFile: tryClosingFileMock } },
         });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const body = createStringifiedFakeEntity();
@@ -205,10 +208,10 @@ describe('entity', function () {
         const tryClosingFileMock = jest.fn().mockRejectedValueOnce(new TransactionFailureError('transaction failure'));
 
         const mockRegisterOptions = getBaseRegisterOptions();
-        mockRegisterOptions.override.push({ token: fileRepositorySymbol, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
+        mockRegisterOptions.override.push({ token: FILE_CUSTOM_REPOSITORY_SYMBOL, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const body = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
@@ -428,14 +431,14 @@ describe('entity', function () {
       it('should return 500 if the db throws an error', async function () {
         const createEntityMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
         const findOneEntityMock = jest.fn().mockResolvedValue(false);
-        const findManyEntitesMock = jest.fn().mockResolvedValue(false);
+        const findManyEntitiesMock = jest.fn().mockResolvedValue(false);
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: entityRepositorySymbol,
-          provider: { useValue: { createEntity: createEntityMock, findOneEntity: findOneEntityMock, findManyEntites: findManyEntitesMock } },
+          token: ENTITY_CUSTOM_REPOSITORY_SYMBOL,
+          provider: { useValue: { createEntity: createEntityMock, findOneEntity: findOneEntityMock, findManyEntites: findManyEntitiesMock } },
         });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const response = await mockEntityRequestSender.postEntity(file.fileId as string, createStringifiedFakeEntity());
@@ -449,14 +452,14 @@ describe('entity', function () {
       it('should return 500 if the db throws an error', async function () {
         const createEntitiesMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
         const findOneEntityMock = jest.fn().mockResolvedValue(false);
-        const findManyEntitesMock = jest.fn().mockResolvedValue(false);
+        const findManyEntitiesMock = jest.fn().mockResolvedValue(false);
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: entityRepositorySymbol,
-          provider: { useValue: { createEntities: createEntitiesMock, findOneEntity: findOneEntityMock, findManyEntites: findManyEntitesMock } },
+          token: ENTITY_CUSTOM_REPOSITORY_SYMBOL,
+          provider: { useValue: { createEntities: createEntitiesMock, findOneEntity: findOneEntityMock, findManyEntities: findManyEntitiesMock } },
         });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
         const body = createStringifiedFakeEntity();
 
@@ -474,10 +477,10 @@ describe('entity', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: entityRepositorySymbol,
+          token: ENTITY_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { updateEntity: updateEntitiesMock, findOneEntity: findOneEntityMock } },
         });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const { entityId, ...updateBody } = createStringifiedFakeEntity();
@@ -498,16 +501,16 @@ describe('entity', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: entityRepositorySymbol,
+          token: ENTITY_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { findOneEntity: findOneEntityMock, updateEntity: updateEntityMock } },
         });
         mockRegisterOptions.override.push({
-          token: fileRepositorySymbol,
+          token: FILE_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { findOneFile: findOneFileMock, tryClosingFile: tryClosingFileMock } },
         });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const body = createStringifiedFakeEntity();
@@ -534,16 +537,16 @@ describe('entity', function () {
         const retries = faker.datatype.number({ min: 1, max: 10 });
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: entityRepositorySymbol,
+          token: ENTITY_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { findOneEntity: findOneEntityMock, updateEntity: updateEntityMock } },
         });
         mockRegisterOptions.override.push({
-          token: fileRepositorySymbol,
+          token: FILE_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { findOneFile: findOneFileMock, tryClosingFile: tryClosingFileMock } },
         });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const body = createStringifiedFakeEntity();
@@ -571,16 +574,16 @@ describe('entity', function () {
         const retries = faker.datatype.number({ min: 1, max: 10 });
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: entityRepositorySymbol,
+          token: ENTITY_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { findOneEntity: findOneEntityMock, updateEntity: updateEntityMock } },
         });
         mockRegisterOptions.override.push({
-          token: fileRepositorySymbol,
+          token: FILE_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { findOneFile: findOneFileMock, tryClosingFile: tryClosingFileMock } },
         });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const body = createStringifiedFakeEntity();
@@ -605,10 +608,10 @@ describe('entity', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
-          token: entityRepositorySymbol,
+          token: ENTITY_CUSTOM_REPOSITORY_SYMBOL,
           provider: { useValue: { updateEntities: updateEntitiesMock, countEntitiesByIds: countEntitiesByIdsMock } },
         });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
         const entity = createStringifiedFakeEntity({ fileId: file.fileId });
 
@@ -621,10 +624,10 @@ describe('entity', function () {
       it('should return 500 when failing to close file due to transaction failure', async function () {
         const tryClosingFileMock = jest.fn().mockRejectedValue(new TransactionFailureError('transaction failure'));
         const mockRegisterOptions = getBaseRegisterOptions();
-        mockRegisterOptions.override.push({ token: fileRepositorySymbol, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
+        mockRegisterOptions.override.push({ token: FILE_CUSTOM_REPOSITORY_SYMBOL, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const body = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
@@ -650,10 +653,10 @@ describe('entity', function () {
         const tryClosingFileMock = jest.fn().mockRejectedValue(new TransactionFailureError('transaction failure'));
         const retries = faker.datatype.number({ min: 1, max: 10 });
         const mockRegisterOptions = getBaseRegisterOptions();
-        mockRegisterOptions.override.push({ token: fileRepositorySymbol, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
+        mockRegisterOptions.override.push({ token: FILE_CUSTOM_REPOSITORY_SYMBOL, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const body = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
@@ -680,10 +683,10 @@ describe('entity', function () {
         const tryClosingFileMock = jest.fn().mockRejectedValue(new QueryFailedError('some query', undefined, new Error('failed')));
         const retries = faker.datatype.number({ min: 1, max: 10 });
         const mockRegisterOptions = getBaseRegisterOptions();
-        mockRegisterOptions.override.push({ token: fileRepositorySymbol, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
+        mockRegisterOptions.override.push({ token: FILE_CUSTOM_REPOSITORY_SYMBOL, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const mockApp = await getApp(mockRegisterOptions);
+        const { app: mockApp } = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const body = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];

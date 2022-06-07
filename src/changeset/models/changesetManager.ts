@@ -1,9 +1,9 @@
 import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
 import { SERVICES } from '../../common/constants';
-import { IChangesetRepository, changesetRepositorySymbol } from '../DAL/changsetRepository';
 import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
 import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
+import { ChangesetRepository, CHANGESET_CUSTOM_REPOSITORY_SYMBOL } from '../DAL/changesetRepository';
 import { Changeset, UpdateChangeset } from './changeset';
 import { ChangesetAlreadyExistsError, ChangesetNotFoundError, TransactionFailureError } from './errors';
 
@@ -13,7 +13,7 @@ export class ChangesetManager {
   private readonly transactionRetryPolicy: TransactionRetryPolicy;
 
   public constructor(
-    @inject(changesetRepositorySymbol) private readonly changesetRepository: IChangesetRepository,
+    @inject(CHANGESET_CUSTOM_REPOSITORY_SYMBOL) private readonly changesetRepository: ChangesetRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
     @inject(SERVICES.CONFIG) private readonly config: IConfig,
     @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication
