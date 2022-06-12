@@ -227,7 +227,14 @@ describe('sync', function () {
 
           // the failed entity should reset
           const entity2 = await entityRepository.findOneBy({ entityId: file1Entities[1].entityId });
-          expect(entity2).toMatchObject({ ...file1Entities[1], fileId: file1.fileId, status: EntityStatus.IN_RERUN, changesetId: null, action: null, failReason: null });
+          expect(entity2).toMatchObject({
+            ...file1Entities[1],
+            fileId: file1.fileId,
+            status: EntityStatus.IN_RERUN,
+            changesetId: null,
+            action: null,
+            failReason: null,
+          });
 
           // create another changeset
           const changeset2 = createStringifiedFakeChangeset();
@@ -319,14 +326,35 @@ describe('sync', function () {
           expect(fetchedEntity1).toMatchObject({ ...entity1, status: EntityStatus.COMPLETED, fileId: file1.fileId, failReason: null });
 
           // the inprogress entities should reset
-          let fetchedEntity2= await entityRepository.findOneBy({ entityId: entity2.entityId });
-          expect(fetchedEntity2).toMatchObject({ ...entity2, fileId: file1.fileId, status: EntityStatus.IN_RERUN, changesetId: null, action: null, failReason: null });
+          let fetchedEntity2 = await entityRepository.findOneBy({ entityId: entity2.entityId });
+          expect(fetchedEntity2).toMatchObject({
+            ...entity2,
+            fileId: file1.fileId,
+            status: EntityStatus.IN_RERUN,
+            changesetId: null,
+            action: null,
+            failReason: null,
+          });
           let fetchedEntity3 = await entityRepository.findOneBy({ entityId: entity3.entityId });
-          expect(fetchedEntity3 ).toMatchObject({ ...entity3, fileId: file1.fileId, status: EntityStatus.IN_RERUN, changesetId: null, action: null, failReason: null });
+          expect(fetchedEntity3).toMatchObject({
+            ...entity3,
+            fileId: file1.fileId,
+            status: EntityStatus.IN_RERUN,
+            changesetId: null,
+            action: null,
+            failReason: null,
+          });
 
           // the failed entity should also reset
           let fetchedEntity4 = await entityRepository.findOneBy({ entityId: entity4.entityId });
-          expect(fetchedEntity4).toMatchObject({ ...entity4, fileId: file2.fileId, status: EntityStatus.IN_RERUN, changesetId: null, action: null, failReason: null });
+          expect(fetchedEntity4).toMatchObject({
+            ...entity4,
+            fileId: file2.fileId,
+            status: EntityStatus.IN_RERUN,
+            changesetId: null,
+            action: null,
+            failReason: null,
+          });
 
           // create another changeset and a files
           const changeset2 = createStringifiedFakeChangeset();
@@ -371,7 +399,6 @@ describe('sync', function () {
           expect(await syncRequestSender.patchSync(firstRerunId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
           expect(await syncRequestSender.rerunSync(baseSyncId as string, secondRerunCreateBody)).toHaveStatus(StatusCodes.CREATED);
 
-
           // the completed entities should remain completed
           fetchedEntity1 = await entityRepository.findOneBy({ entityId: entity1.entityId });
           expect(fetchedEntity1).toMatchObject({ ...entity1, status: EntityStatus.COMPLETED, fileId: file1.fileId, failReason: null });
@@ -384,7 +411,14 @@ describe('sync', function () {
 
           // the failed entity should reset
           fetchedEntity3 = await entityRepository.findOneBy({ entityId: entity3.entityId });
-          expect(fetchedEntity3).toMatchObject({ ...entity3, fileId: file1.fileId, status: EntityStatus.IN_RERUN, changesetId: null, action: null, failReason: null });
+          expect(fetchedEntity3).toMatchObject({
+            ...entity3,
+            fileId: file1.fileId,
+            status: EntityStatus.IN_RERUN,
+            changesetId: null,
+            action: null,
+            failReason: null,
+          });
 
           // create another changeset
           const changeset3 = createStringifiedFakeChangeset();
@@ -507,7 +541,14 @@ describe('sync', function () {
 
           // the not synced entity should reset
           let fetchedEntity1 = await entityRepository.findOneBy({ entityId: entity1.entityId });
-          expect(fetchedEntity1).toMatchObject({ ...entity1, fileId: file1.fileId, status: EntityStatus.IN_RERUN, changesetId: null, action: null, failReason: null });
+          expect(fetchedEntity1).toMatchObject({
+            ...entity1,
+            fileId: file1.fileId,
+            status: EntityStatus.IN_RERUN,
+            changesetId: null,
+            action: null,
+            failReason: null,
+          });
 
           // create changeset and a complete entity for file2
           const changeset = createStringifiedFakeChangeset();
@@ -534,7 +575,14 @@ describe('sync', function () {
 
           // the failed entity should reset
           fetchedEntity1 = await entityRepository.findOneBy({ entityId: entity1.entityId });
-          expect(fetchedEntity1).toMatchObject({ ...entity1, fileId: file1.fileId, status: EntityStatus.IN_RERUN, changesetId: null, action: null, failReason: null });
+          expect(fetchedEntity1).toMatchObject({
+            ...entity1,
+            fileId: file1.fileId,
+            status: EntityStatus.IN_RERUN,
+            changesetId: null,
+            action: null,
+            failReason: null,
+          });
 
           // the completed entity should remain completed
           const fetchedEntity2 = await entityRepository.findOneBy({ entityId: entity2.entityId });
