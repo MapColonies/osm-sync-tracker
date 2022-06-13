@@ -51,16 +51,16 @@ export class EntityController {
   };
 
   public patchEntity: PatchEntityHandler = async (req, res, next) => {
+    const { fileId, entityId } = req.params;
     try {
-      const completedSyncIds = await this.manager.updateEntity(req.params.fileId, req.params.entityId, req.body);
+      const completedSyncIds = await this.manager.updateEntity(fileId, entityId, req.body);
       return res.status(httpStatus.OK).json(completedSyncIds);
     } catch (error) {
       if (error instanceof EntityNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
       if (error instanceof ExceededNumberOfRetriesError) {
-        const { entityId, fileId } = req.params;
-        this.logger.info(`could not update entity ${entityId} from file ${fileId} due to exceeded number of retries`);
+        this.logger.warn({ err: error, msg: 'could not attempt to close file, number of retries exceeded', fileId, entityId });
       }
       return next(error);
     }
@@ -77,7 +77,7 @@ export class EntityController {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
       if (error instanceof ExceededNumberOfRetriesError) {
-        this.logger.info(`could not update entities due to exceeded number of retries`);
+        this.logger.warn({ err: error, msg: 'could not attempt to close file, number of retries exceeded', entitiesCount: req.body.length });
       }
       return next(error);
     }

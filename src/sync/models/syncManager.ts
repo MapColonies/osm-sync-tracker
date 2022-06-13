@@ -18,17 +18,24 @@ export class SyncManager {
   ) {
     this.dbSchema = this.config.get('db.schema');
   }
+
   public async getLatestSync(layerId: number, geometryType: GeometryType): Promise<BaseSync> {
+    this.logger.info({ msg: 'getting latest sync', layerId, geometryType });
+
     const latestSync = await this.syncRepository.getLatestSync(layerId, geometryType);
     if (latestSync === null) {
+      this.logger.error({ msg: 'latest sync not found', layerId, geometryType });
       throw new SyncNotFoundError(`sync with layer id = ${layerId}, geometry type = ${geometryType} not found`);
     }
     return latestSync;
   }
 
   public async createSync(sync: Sync): Promise<void> {
+    this.logger.info({ msg: 'creating sync', syncId: sync.id, layerId: sync.layerId, isFull: sync.isFull, geometryType: sync.geometryType });
+
     const syncEntity = await this.syncRepository.findOneSync(sync.id);
     if (syncEntity) {
+      this.logger.error({ msg: 'could not create sync due to sync with the same id already existing', syncId: syncEntity.id });
       throw new SyncAlreadyExistsError(`sync = ${syncEntity.id} already exists`);
     }
 
@@ -36,8 +43,16 @@ export class SyncManager {
       const { isFull, layerId, geometryType } = sync;
       const alreadyExistingFullSync = await this.syncRepository.findSyncs({ layerId, geometryType, isFull });
       if (alreadyExistingFullSync.length > 0) {
+        const existingFullSyncId = alreadyExistingFullSync[0].id;
+        this.logger.error({
+          msg: 'could not create full sync due to already existing full sync on this layer id and geometry type',
+          layerId,
+          geometryType,
+          existingFullSyncId,
+        });
+
         throw new FullSyncAlreadyExistsError(
-          `full sync with layer id = ${layerId} and geometry type = ${geometryType} already exists with id ${alreadyExistingFullSync[0].id}`
+          `full sync with layer id = ${layerId} and geometry type = ${geometryType} already exists with id ${existingFullSyncId}`
         );
       }
     }
@@ -45,9 +60,11 @@ export class SyncManager {
   }
 
   public async updateSync(syncId: string, updatedSync: SyncUpdate): Promise<void> {
+    this.logger.info({ msg: 'updating sync', syncId });
     const currentSync = await this.syncRepository.findOneSync(syncId);
 
     if (!currentSync) {
+      this.logger.error({ msg: 'could not update sync due to sync not existing', syncId });
       throw new SyncNotFoundError(`sync = ${syncId} not found`);
     }
 
@@ -57,17 +74,28 @@ export class SyncManager {
   }
 
   public async rerunSyncIfNeeded(syncId: string, rerunId: string, startDate: Date): Promise<boolean> {
+    this.logger.info({ msg: 'attempting to create rerun sync', rerunId, baseSyncId: syncId, startDate });
+
     const rerunEntity = await this.syncRepository.findOneSync(rerunId);
     if (rerunEntity) {
+      this.logger.error({ msg: 'could not create rerun due to rerun with the same id already existing', rerunId, baseSyncId: syncId });
       throw new RerunAlreadyExistsError(`rerun = ${rerunId} already exists`);
     }
 
     const baseSyncWithLastRerun = await this.syncRepository.findOneSyncWithLastRerun(syncId);
     if (!baseSyncWithLastRerun) {
+      this.logger.error({ msg: 'could not create rerun due to base sync not existing' });
       throw new SyncNotFoundError(`sync = ${syncId} not found`);
     }
 
     if (baseSyncWithLastRerun.runNumber != 0 || baseSyncWithLastRerun.status != Status.FAILED) {
+      this.logger.error({
+        msg: 'could not create rerun due to given base sync id not being a failed base sync',
+        rerunId,
+        baseSyncId: syncId,
+        baseSyncRunNumber: baseSyncWithLastRerun.runNumber,
+        baseSyncStatus: baseSyncWithLastRerun.status,
+      });
       throw new InvalidSyncForRerunError(`could not rerun sync = ${syncId} due to it not being a failed base sync`);
     }
 
@@ -76,6 +104,14 @@ export class SyncManager {
     if (reruns.length > 0) {
       const latestRerun = reruns[0];
       if (latestRerun.status != Status.FAILED) {
+        this.logger.error({
+          msg: 'could not create rerun due to latest sync rerun not having failed status',
+          rerunId,
+          baseSyncId: syncId,
+          latestRerunId: latestRerun.id,
+          latestRerunStatus: latestRerun.status,
+          latestRerunRunNumber: latestRerun.runNumber,
+        });
         throw new InvalidSyncForRerunError(
           `could not rerun sync = ${syncId} due to an already existing ${latestRerun.status} rerun = ${latestRerun.id}`
         );

@@ -1,10 +1,13 @@
 import { DataSource, EntityManager, FindOptionsWhere } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
+import { Logger } from '@map-colonies/js-logger';
+import { v4 as uuidv4 } from 'uuid';
 import { GeometryType } from '../../common/enums';
 import { BaseSync, Sync, SyncUpdate, SyncWithReruns } from '../models/sync';
-import { isTransactionFailure, ReturningId, ReturningResult } from '../../common/db';
+import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
 import { TransactionFailureError } from '../../changeset/models/errors';
 import { getIsolationLevel } from '../../common/utils/db';
+import { SERVICES } from '../../common/constants';
 import { SyncDb } from './sync';
 
 // deletes a file who has no entities registered to it
@@ -158,31 +161,76 @@ const createSyncRepo = (dataSource: DataSource) => {
     },
 
     async createRerun(rerunSync: Sync, schema: string): Promise<boolean> {
+      const isolationLevel = getIsolationLevel();
+      const transaction = { transactionId: uuidv4(), transactionName: TransactionName.CREATE_RERUN, isolationLevel };
+
+      const { id: rerunId, baseSyncId } = rerunSync;
+
+      logger.debug({ msg: 'attempting to create rerun in multiple step transaction', rerunId, baseSyncId, transaction });
+
       try {
-        return await this.manager.connection.transaction(getIsolationLevel(), async (transactionalEntityManager: EntityManager) => {
-          const deletedFilesResult = await deleteEmptyFiles(rerunSync.baseSyncId as string, schema, transactionalEntityManager);
+        return await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager: EntityManager) => {
+          const deletedFilesResult = await deleteEmptyFiles(baseSyncId as string, schema, transactionalEntityManager);
+
+          logger.debug({
+            msg: 'deleted empty files on base sync resulted in',
+            deletedFilesResult,
+            rerunId,
+            baseSyncId,
+            transaction,
+          });
 
           // try closing the sync only if files were deleted
           if (deletedFilesResult[1] !== 0) {
-            const closedSync = await tryClosingSync(rerunSync.baseSyncId as string, schema, transactionalEntityManager);
+            const closedSync = await tryClosingSync(baseSyncId as string, schema, transactionalEntityManager);
+
+            logger.debug({
+              msg: 'trying to close base sync resulted in',
+              rerunId,
+              baseSyncId,
+              closeSyncResult: closedSync,
+              transaction,
+            });
 
             // if the sync was close just return false
             if (closedSync[1] !== 0) {
+              logger.debug({
+                msg: 'attempting to create rerun resulted in closing sync, no need to create rerun',
+                rerunId,
+                baseSyncId,
+                transaction,
+              });
               return false;
             }
           }
 
-          await createEntityHistory(rerunSync.baseSyncId as string, rerunSync.id, schema, transactionalEntityManager);
+          await createEntityHistory(baseSyncId as string, rerunId, schema, transactionalEntityManager);
 
-          await prepareIncompleteFiles(rerunSync.baseSyncId as string, schema, transactionalEntityManager);
+          logger.debug({ msg: 'created entity history', rerunId, baseSyncId, transaction });
 
-          await prepareIncompleteEntities(rerunSync.baseSyncId as string, schema, transactionalEntityManager);
+          await prepareIncompleteFiles(baseSyncId as string, schema, transactionalEntityManager);
+
+          logger.debug({ msg: 'prepared incomplete files', rerunId, baseSyncId, transaction });
+
+          await prepareIncompleteEntities(baseSyncId as string, schema, transactionalEntityManager);
+
+          logger.debug({ msg: 'prepared incomplete entities', rerunId, baseSyncId, transaction });
 
           await this.createSync(rerunSync);
+
+          logger.debug({ msg: 'created rerun sync', rerunId, baseSyncId, transaction });
 
           return true;
         });
       } catch (error) {
+        logger.error({
+          err: error,
+          msg: 'failure occurred while trying to create rerun in transaction',
+          rerunId,
+          baseSyncId,
+          transaction,
+        });
+
         if (isTransactionFailure(error)) {
           throw new TransactionFailureError(`rerun creation has failed due to read/write dependencies among transactions.`);
         }
@@ -192,9 +240,13 @@ const createSyncRepo = (dataSource: DataSource) => {
   });
 };
 
+let logger: Logger;
+
 export type SyncRepository = ReturnType<typeof createSyncRepo>;
 
 export const syncRepositoryFactory: FactoryFunction<SyncRepository> = (depContainer) => {
+  logger = depContainer.resolve<Logger>(SERVICES.LOGGER);
+
   return createSyncRepo(depContainer.resolve<DataSource>(DataSource));
 };
 

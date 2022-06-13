@@ -1,14 +1,17 @@
 import httpStatus, { StatusCodes } from 'http-status-codes';
-import { container, DependencyContainer } from 'tsyringe';
+import { DependencyContainer } from 'tsyringe';
 import { faker } from '@faker-js/faker';
 import { DataSource, QueryFailedError } from 'typeorm';
 import { getApp } from '../../../src/app';
-import { BEFORE_ALL_TIMEOUT, RERUN_TEST_TIMEOUT, getBaseRegisterOptions } from '../helpers';
+import { BEFORE_ALL_TIMEOUT, RERUN_TEST_TIMEOUT, getBaseRegisterOptions, DEFAULT_ISOLATION_LEVEL } from '../helpers';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/sync/DAL/syncRepository';
 import { FILE_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/file/DAL/fileRepository';
 import { EntityStatus, GeometryType, Status } from '../../../src/common/enums';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { FileRequestSender } from '../file/helpers/requestSender';
+import { TransactionFailureError } from '../../../src/changeset/models/errors';
+import { SERVICES } from '../../../src/common/constants';
+import { IApplication } from '../../../src/common/interfaces';
 import { EntityRequestSender } from '../entity/helpers/requestSender';
 import { ChangesetRequestSender } from '../changeset/helpers/requestSender';
 import { createStringifiedFakeEntity } from '../entity/helpers/generators';
@@ -1034,6 +1037,53 @@ describe('sync', function () {
 
         expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
         expect(response.body).toHaveProperty('message', 'failed');
+      });
+
+      it('should return 500 if transaction failure occurs on multiple retries', async function () {
+        const tryClosingFileMock = jest.fn().mockRejectedValue(new TransactionFailureError('transaction failure'));
+        const findOneSyncMock = jest.fn().mockResolvedValue(true);
+        const findOneFileMock = jest.fn().mockResolvedValue(true);
+        const updateFileMock = jest.fn();
+
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
+          provider: {
+            useValue: {
+              findOneSync: findOneSyncMock,
+            },
+          },
+        });
+
+        mockRegisterOptions.override.push({
+          token: FILE_CUSTOM_REPOSITORY_SYMBOL,
+          provider: {
+            useValue: {
+              findOneFile: findOneFileMock,
+              updateFile: updateFileMock,
+              tryClosingFile: tryClosingFileMock,
+            },
+          },
+        });
+
+        const retries = faker.datatype.number({ min: 1, max: 10 });
+        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
+        mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
+        const { app: mockApp } = await getApp(mockRegisterOptions);
+        const mockFileRequestSender = new FileRequestSender(mockApp);
+
+        const body = createStringifiedFakeChangeset();
+        expect(await changesetRequestSender.postChangeset(body)).toHaveStatus(StatusCodes.CREATED);
+
+        const { id } = createStringifiedFakeSync();
+        const { fileId, totalEntities } = createStringifiedFakeFile();
+
+        const response = await mockFileRequestSender.patchFile(id as string, fileId as string, { totalEntities });
+
+        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+        expect(tryClosingFileMock).toHaveBeenCalledTimes(retries + 1);
+        const message = (response.body as { message: string }).message;
+        expect(message).toContain(`exceeded the number of retries (${retries}).`);
       });
     });
   });

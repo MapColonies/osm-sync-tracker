@@ -255,7 +255,7 @@ describe('ChangesetManager', () => {
     it('resolves if closing changeset fails only once while retries is configured', async () => {
       const entity = createFakeChangeset();
 
-      tryClosingChangesets.mockRejectedValueOnce(new TransactionFailureError('transaction failure'));
+      tryClosingChangesets.mockRejectedValueOnce(new TransactionFailureError('transaction failure')).mockResolvedValueOnce([]);
 
       const repository = {
         createChangeset,

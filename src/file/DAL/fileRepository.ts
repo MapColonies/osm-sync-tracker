@@ -1,10 +1,13 @@
 import { EntityManager, DataSource, In } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
+import { Logger } from '@map-colonies/js-logger';
+import { v4 as uuidv4 } from 'uuid';
 import { TransactionFailureError } from '../../changeset/models/errors';
-import { isTransactionFailure, ReturningId, ReturningResult } from '../../common/db';
+import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
 import { File, FileUpdate } from '../models/file';
 import { SyncDb } from '../../sync/DAL/sync';
 import { Status } from '../../common/enums';
+import { SERVICES } from '../../common/constants';
 import { getIsolationLevel } from '../../common/utils/db';
 import { File as FileDb } from './file';
 
@@ -83,19 +86,35 @@ const createFileRepo = (dataSource: DataSource) => {
     },
 
     async tryClosingFile(fileId: string, schema: string): Promise<string[]> {
+      const isolationLevel = getIsolationLevel();
+      const transaction = { transactionId: uuidv4(), transactionName: TransactionName.TRY_CLOSING_FILE, isolationLevel };
+
+      logger.debug({ msg: 'attempting to close file and in turn its syncs in multiple step transaction', fileId, transaction });
+
       try {
-        return await this.manager.connection.transaction(getIsolationLevel(), async (transactionalEntityManager) => {
+        return await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager) => {
           let completedSyncIds: string[] = [];
           const completedFilesResult = await updateFileAsCompleted(fileId, schema, transactionalEntityManager);
-          // check if are there affected rows from the update
+
+          logger.debug({ msg: 'updated file as completed resulted in', completedFilesResult, fileId, transaction });
+
+          // check if there are any affected rows from the update
           if (completedFilesResult[1] !== 0) {
             const completedSyncsResult = await updateSyncAsCompleted(fileId, schema, transactionalEntityManager);
+
+            logger.debug({ msg: 'updated sync as completed resulted in', completedSyncsResult, fileId, transaction });
+
             completedSyncIds = completedSyncsResult[0].map((sync) => sync.id);
             await Promise.all(completedSyncIds.map(async (syncId) => updateLastRerunAsCompleted(syncId, transactionalEntityManager)));
+
+            logger.debug({ msg: 'updated the last rerun of each completed sync', completedSyncIds, fileId, transaction });
           }
+
           return completedSyncIds;
         });
       } catch (error) {
+        logger.error({ err: error, msg: 'failure occurred while trying to close file in transaction', fileId, transaction });
+
         if (isTransactionFailure(error)) {
           throw new TransactionFailureError(`closing file ${fileId} has failed due to read/write dependencies among transactions.`);
         }
@@ -105,9 +124,12 @@ const createFileRepo = (dataSource: DataSource) => {
   });
 };
 
+let logger: Logger;
+
 export type FileRepository = ReturnType<typeof createFileRepo>;
 
 export const fileRepositoryFactory: FactoryFunction<FileRepository> = (depContainer) => {
+  logger = depContainer.resolve<Logger>(SERVICES.LOGGER);
   return createFileRepo(depContainer.resolve<DataSource>(DataSource));
 };
 

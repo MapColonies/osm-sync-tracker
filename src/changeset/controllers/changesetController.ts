@@ -46,15 +46,16 @@ export class ChangesetController {
   };
 
   public putChangeset: PutChangesetHandler = async (req, res, next) => {
+    const { changesetId } = req.params;
     try {
-      await this.manager.closeChangeset(req.params.changesetId);
+      await this.manager.closeChangeset(changesetId);
       return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.OK));
     } catch (error) {
       if (error instanceof ChangesetNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
       if (error instanceof ExceededNumberOfRetriesError) {
-        this.logger.info(`could not close changeset ${req.params.changesetId} number of retries exceeded`);
+        this.logger.warn({ err: error, msg: 'could not close changeset, number of retries exceeded', changesetId });
       }
       return next(error);
     }
@@ -73,12 +74,13 @@ export class ChangesetController {
   };
 
   public putChangesets: PutChangesetsHandler = async (req, res, next) => {
+    const changesetIds = req.body;
     try {
       const completedSyncIds = await this.manager.closeChangesets(req.body);
       return res.status(httpStatus.OK).json(completedSyncIds);
     } catch (error) {
       if (error instanceof ExceededNumberOfRetriesError) {
-        this.logger.info(`could not close changesets number of retries exceeded`);
+        this.logger.warn({ err: error, msg: 'could not close changesets, number of retries exceeded', count: changesetIds.length, changesetIds });
       }
       return next(error);
     }

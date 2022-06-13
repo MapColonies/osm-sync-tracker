@@ -1,9 +1,12 @@
 import { EntityManager, DataSource } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
-import { isTransactionFailure, ReturningId, ReturningResult } from '../../common/db';
+import { Logger } from '@map-colonies/js-logger';
+import { v4 as uuidv4 } from 'uuid';
+import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
 import { EntityStatus, Status } from '../../common/enums';
 import { Entity } from '../../entity/DAL/entity';
 import { Changeset, UpdateChangeset } from '../models/changeset';
+import { SERVICES } from '../../common/constants';
 import { TransactionFailureError } from '../models/errors';
 import { SyncDb } from '../../sync/DAL/sync';
 import { getIsolationLevel } from '../../common/utils/db';
@@ -112,20 +115,45 @@ const createChangesetRepository = (dataSource: DataSource) => {
     },
 
     async tryClosingChangesets(changesetIds: string[], schema: string): Promise<string[]> {
+      const isolationLevel = getIsolationLevel();
+      const transaction = { transactionId: uuidv4(), transactionName: TransactionName.TRY_CLOSING_CHANGESETS, isolationLevel };
+      logger.debug({
+        msg: 'attempting to close changests in multiple step transaction',
+        changesetIds,
+        changesetsCount: changesetIds.length,
+        transaction,
+      });
+
       try {
-        return await this.manager.connection.transaction(getIsolationLevel(), async (transactionalEntityManager) => {
+        return await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager) => {
           let completedSyncIds: string[] = [];
           const completedFilesResult = await updateFileAsCompleted(changesetIds, schema, transactionalEntityManager);
+
+          logger.debug({ msg: 'updated file as completed resulted in', completedFilesResult, changesetIds, transaction });
+
           // check if there are any affected rows from the update
           if (completedFilesResult[1] !== 0) {
             const fileIds = completedFilesResult[0].map((file) => file.id);
             const completedSyncsResult = await updateSyncAsCompletedByFiles(fileIds, schema, transactionalEntityManager);
+
+            logger.debug({ msg: 'updated sync as completed resulted in', completedSyncsResult, changesetIds, transaction });
+
             completedSyncIds = completedSyncsResult[0].map((sync) => sync.id);
             await Promise.all(completedSyncIds.map(async (syncId) => updateLastRerunAsCompleted(syncId, transactionalEntityManager)));
+
+            logger.debug({ msg: 'updated the last rerun of each completed sync', completedSyncIds, transaction });
           }
+
           return completedSyncIds;
         });
       } catch (error) {
+        logger.error({
+          err: error,
+          msg: 'failure occurred while trying to close changeset in transaction',
+          changesetIds,
+          transaction,
+        });
+
         if (isTransactionFailure(error)) {
           throw new TransactionFailureError(`closing changesets has failed due to read/write dependencies among transactions.`);
         }
@@ -134,14 +162,33 @@ const createChangesetRepository = (dataSource: DataSource) => {
     },
 
     async tryClosingChangeset(changesetId: string, schema: string): Promise<void> {
+      const isolationLevel = getIsolationLevel();
+      const transaction = { transactionId: uuidv4(), transactionName: TransactionName.TRY_CLOSING_CHANGESET, isolationLevel };
+
+      logger.debug({ msg: 'attempting to close changest in multiple step transaction', changesetId, transaction });
+
       try {
-        await this.manager.connection.transaction(getIsolationLevel(), async (transactionalEntityManager) => {
+        await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager) => {
           await updateEntitiesOfChangesetAsCompletedInTransaction(changesetId, transactionalEntityManager);
+
+          logger.debug({ msg: 'updated entities of changeset as completed', changesetId, transaction });
+
           await updateFileAsCompleted([changesetId], schema, transactionalEntityManager);
 
+          logger.debug({ msg: 'tried to update files of changeset as completed', changesetId, transaction });
+
           await updateSyncAsCompleted([changesetId], schema, transactionalEntityManager);
+
+          logger.debug({ msg: 'tried to update sync affected by changeset as completed', changesetId, transaction });
         });
       } catch (error) {
+        logger.error({
+          err: error,
+          msg: 'failure occurred while trying to close changeset in transaction',
+          changesetId,
+          transaction,
+        });
+
         if (isTransactionFailure(error)) {
           throw new TransactionFailureError(`closing changeset ${changesetId} has failed due to read/write dependencies among transactions.`);
         }
@@ -159,9 +206,13 @@ const createChangesetRepository = (dataSource: DataSource) => {
   });
 };
 
+let logger: Logger;
+
 export type ChangesetRepository = ReturnType<typeof createChangesetRepository>;
 
 export const changesetRepositoryFactory: FactoryFunction<ChangesetRepository> = (depContainer) => {
+  logger = depContainer.resolve<Logger>(SERVICES.LOGGER);
+
   return createChangesetRepository(depContainer.resolve<DataSource>(DataSource));
 };
 

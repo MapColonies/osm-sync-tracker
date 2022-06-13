@@ -6,6 +6,8 @@ import { SyncRepository } from '../../../../src/sync/DAL/syncRepository';
 import { createFakeFile, createFakeSync, createFakeFiles, createFakeRerunSync } from '../../../helpers/helper';
 import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from '../../../../src/file/models/errors';
 import { SyncNotFoundError } from '../../../../src/sync/models/errors';
+import { DEFAULT_ISOLATION_LEVEL } from '../../../integration/helpers';
+import { ExceededNumberOfRetriesError, TransactionFailureError } from '../../../../src/changeset/models/errors';
 
 let fileRepository: FileRepository;
 let syncRepository: SyncRepository;
@@ -41,7 +43,13 @@ describe('FileManager', () => {
       createRerun,
     } as unknown as SyncRepository;
 
-    fileManager = new FileManager(fileRepository, syncRepository, jsLogger({ enabled: false }), 'public');
+    fileManager = new FileManager(
+      fileRepository,
+      syncRepository,
+      jsLogger({ enabled: false }),
+      { get: jest.fn(), has: jest.fn() },
+      { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
+    );
   });
 
   describe('#updateFile', () => {
@@ -60,19 +68,26 @@ describe('FileManager', () => {
       expect(updateFile).toHaveBeenCalled();
     });
 
-    it('resolves without errors for valid update file when retry policy is configured', async () => {
-      const fileManagerWithRetries = new FileManager(fileRepository, syncRepository, jsLogger({ enabled: false }), 'public');
-
+    it('resolves without errors for valid update file when retry policy is configured and transaction fails once', async () => {
       const sync = createFakeSync();
       const file = createFakeFile();
 
       findOneSync.mockResolvedValue(sync);
       findOneFile.mockResolvedValue(file);
+      updateFile.mockResolvedValue(undefined);
+      tryClosingFile.mockRejectedValueOnce(new TransactionFailureError('transaction failure')).mockResolvedValueOnce([]);
 
+      const fileManagerWithRetries = new FileManager(
+        fileRepository,
+        syncRepository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
+      );
       const updatePromise = fileManagerWithRetries.updateFile(sync.id, file.fileId, { totalEntities: 1 });
 
       await expect(updatePromise).resolves.not.toThrow();
-      expect(updateFile).toHaveBeenCalled();
+      expect(tryClosingFile).toHaveBeenCalledTimes(2);
     });
 
     it('rejects if a sync not found', async () => {
@@ -98,6 +113,53 @@ describe('FileManager', () => {
 
       await expect(updatePromise).rejects.toThrow(FileNotFoundError);
       expect(updateFile).not.toHaveBeenCalled();
+    });
+
+    it('rejects with exceeded number of retries error if closing file has failed when retries is configured', async () => {
+      const sync = createFakeSync();
+      const file = createFakeFile();
+
+      findOneSync.mockResolvedValue(sync);
+      findOneFile.mockResolvedValue(file);
+      updateFile.mockResolvedValue(undefined);
+      tryClosingFile.mockRejectedValue(new TransactionFailureError('transaction failure'));
+
+      const retries = faker.datatype.number({ min: 1, max: 10 });
+      const fileManagerWithRetries = new FileManager(
+        fileRepository,
+        syncRepository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
+      );
+
+      const updatePromise = fileManagerWithRetries.updateFile(sync.id, file.fileId, { totalEntities: 1 });
+
+      await expect(updatePromise).rejects.toThrow(ExceededNumberOfRetriesError);
+      expect(tryClosingFile).toHaveBeenCalledTimes(retries + 1);
+    });
+
+    it('rejects with transaction failure error if closing file fails', async () => {
+      const sync = createFakeSync();
+      const file = createFakeFile();
+
+      findOneSync.mockResolvedValue(sync);
+      findOneFile.mockResolvedValue(file);
+      updateFile.mockResolvedValue(undefined);
+      tryClosingFile.mockRejectedValue(new TransactionFailureError('transaction failure'));
+
+      const fileManagerWithRetries = new FileManager(
+        fileRepository,
+        syncRepository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
+      );
+
+      const closePromise = fileManagerWithRetries.updateFile(sync.id, file.fileId, { totalEntities: 1 });
+
+      await expect(closePromise).rejects.toThrow(TransactionFailureError);
+      expect(tryClosingFile).toHaveBeenCalledTimes(1);
     });
   });
 
