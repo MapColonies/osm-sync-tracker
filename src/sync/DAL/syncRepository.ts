@@ -1,7 +1,7 @@
 import { DataSource, EntityManager, FindOptionsWhere } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
-import { nanoid } from 'nanoid'
+import { nanoid } from 'nanoid';
 import { GeometryType } from '../../common/enums';
 import { BaseSync, Sync, SyncUpdate, SyncWithReruns } from '../models/sync';
 import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
