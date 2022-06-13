@@ -1,7 +1,7 @@
 import { EntityManager, DataSource, In } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
-import { v4 as uuidv4 } from 'uuid';
+import { nanoid } from 'nanoid';
 import { TransactionFailureError } from '../../changeset/models/errors';
 import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
 import { File, FileUpdate } from '../models/file';
@@ -87,7 +87,7 @@ const createFileRepo = (dataSource: DataSource) => {
 
     async tryClosingFile(fileId: string, schema: string): Promise<string[]> {
       const isolationLevel = getIsolationLevel();
-      const transaction = { transactionId: uuidv4(), transactionName: TransactionName.TRY_CLOSING_FILE, isolationLevel };
+      const transaction = { transactionId: nanoid(), transactionName: TransactionName.TRY_CLOSING_FILE, isolationLevel };
 
       logger.debug({ msg: 'attempting to close file and in turn its syncs in multiple step transaction', fileId, transaction });
 

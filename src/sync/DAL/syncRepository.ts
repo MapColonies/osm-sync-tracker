@@ -1,7 +1,7 @@
 import { DataSource, EntityManager, FindOptionsWhere } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
-import { v4 as uuidv4 } from 'uuid';
+import { nanoid } from 'nanoid'
 import { GeometryType } from '../../common/enums';
 import { BaseSync, Sync, SyncUpdate, SyncWithReruns } from '../models/sync';
 import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
@@ -162,7 +162,7 @@ const createSyncRepo = (dataSource: DataSource) => {
 
     async createRerun(rerunSync: Sync, schema: string): Promise<boolean> {
       const isolationLevel = getIsolationLevel();
-      const transaction = { transactionId: uuidv4(), transactionName: TransactionName.CREATE_RERUN, isolationLevel };
+      const transaction = { transactionId: nanoid(), transactionName: TransactionName.CREATE_RERUN, isolationLevel };
 
       const { id: rerunId, baseSyncId } = rerunSync;
 

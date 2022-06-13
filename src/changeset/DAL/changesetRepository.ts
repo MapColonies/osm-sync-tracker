@@ -1,7 +1,7 @@
 import { EntityManager, DataSource } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
-import { v4 as uuidv4 } from 'uuid';
+import { nanoid } from 'nanoid';
 import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
 import { EntityStatus, Status } from '../../common/enums';
 import { Entity } from '../../entity/DAL/entity';
@@ -116,7 +116,7 @@ const createChangesetRepository = (dataSource: DataSource) => {
 
     async tryClosingChangesets(changesetIds: string[], schema: string): Promise<string[]> {
       const isolationLevel = getIsolationLevel();
-      const transaction = { transactionId: uuidv4(), transactionName: TransactionName.TRY_CLOSING_CHANGESETS, isolationLevel };
+      const transaction = { transactionId: nanoid(), transactionName: TransactionName.TRY_CLOSING_CHANGESETS, isolationLevel };
       logger.debug({
         msg: 'attempting to close changests in multiple step transaction',
         changesetIds,
@@ -163,7 +163,7 @@ const createChangesetRepository = (dataSource: DataSource) => {
 
     async tryClosingChangeset(changesetId: string, schema: string): Promise<void> {
       const isolationLevel = getIsolationLevel();
-      const transaction = { transactionId: uuidv4(), transactionName: TransactionName.TRY_CLOSING_CHANGESET, isolationLevel };
+      const transaction = { transactionId: nanoid(), transactionName: TransactionName.TRY_CLOSING_CHANGESET, isolationLevel };
 
       logger.debug({ msg: 'attempting to close changest in multiple step transaction', changesetId, transaction });
 
