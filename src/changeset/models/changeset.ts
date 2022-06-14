@@ -1,4 +1,4 @@
-export type UpdateChangeset = Omit<Changeset, 'changesetId' | 'entities'>;
+export type UpdateChangeset = Omit<Changeset, 'changesetId'>;
 
 export interface Changeset {
   changesetId: string;

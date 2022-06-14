@@ -22,6 +22,13 @@ interface QueryFailedErrorWithCode extends QueryFailedError {
   code: string | undefined;
 }
 
+export enum TransactionName {
+  TRY_CLOSING_FILE = 'TryClosingFile',
+  CREATE_RERUN = 'CreateRerun',
+  TRY_CLOSING_CHANGESET = 'TryClosingChangeset',
+  TRY_CLOSING_CHANGESETS = 'TryClosingChangesets',
+}
+
 export const isTransactionFailure = (error: unknown): boolean => {
   if (error instanceof QueryFailedError) {
     const code = (error as QueryFailedErrorWithCode).code;

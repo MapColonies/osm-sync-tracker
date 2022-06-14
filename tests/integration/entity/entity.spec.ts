@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import { container, DependencyContainer } from 'tsyringe';
+import { DependencyContainer } from 'tsyringe';
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { DataSource, QueryFailedError } from 'typeorm';
 import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from '../sync/helpers/generators';

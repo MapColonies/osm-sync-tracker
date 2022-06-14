@@ -1,5 +1,5 @@
 import httpStatus, { StatusCodes } from 'http-status-codes';
-import { container, DependencyContainer } from 'tsyringe';
+import { DependencyContainer } from 'tsyringe';
 import { faker } from '@faker-js/faker';
 import { DataSource, QueryFailedError } from 'typeorm';
 import { getApp } from '../../../src/app';

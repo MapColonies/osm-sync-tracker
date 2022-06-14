@@ -257,7 +257,7 @@ describe('EntityManager', () => {
       findOneFile.mockResolvedValue(file);
       findOneEntity.mockResolvedValue(entity);
       updateEntity.mockResolvedValue(undefined);
-      tryClosingFile.mockResolvedValue(undefined);
+      tryClosingFile.mockResolvedValue([]);
 
       const updatePromise = entityManager.updateEntity(file.fileId, entity.entityId, entity);
 
@@ -271,7 +271,7 @@ describe('EntityManager', () => {
 
       findOneEntity.mockResolvedValue(entity);
       findOneFile.mockResolvedValue(file);
-      tryClosingFile.mockRejectedValueOnce(new TransactionFailureError('transaction failure'));
+      tryClosingFile.mockRejectedValueOnce(new TransactionFailureError('transaction failure')).mockReturnValueOnce([]);
       entityRepository = { ...entityRepository, findOneEntity } as unknown as EntityRepository;
       fileRepository = { ...fileRepository, findOneFile, tryClosingFile } as unknown as FileRepository;
       entityManagerWithRetries = new EntityManager(
