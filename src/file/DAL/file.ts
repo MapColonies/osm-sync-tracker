@@ -9,7 +9,7 @@ export class File implements IFile {
   @PrimaryColumn({ name: 'file_id', type: 'uuid' })
   public fileId!: string;
 
-  @ManyToOne(() => SyncDb, (sync) => sync.files)
+  @ManyToOne(() => SyncDb, (sync) => sync.files, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'sync_id' })
   public sync!: SyncDb;
 

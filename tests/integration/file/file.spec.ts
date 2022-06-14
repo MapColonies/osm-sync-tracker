@@ -54,7 +54,7 @@ describe('file', function () {
       it(
         'should return 201 status code for creating a file on a rerun while existing on its base',
         async function () {
-          const syncForRerun = createStringifiedFakeSync();
+          const syncForRerun = createStringifiedFakeSync({ totalFiles: 2 });
           const file = createStringifiedFakeFile();
           const rerunCreateBody = createStringifiedFakeRerunCreateBody();
 

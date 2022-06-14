@@ -9,14 +9,14 @@ export class Entity implements IEntity {
   @PrimaryColumn({ name: 'entity_id' })
   public entityId!: string;
 
-  @ManyToOne(() => File, (file) => file.entities)
+  @ManyToOne(() => File, (file) => file.entities, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'file_id' })
   public file!: File;
 
   @PrimaryColumn({ name: 'file_id', type: 'uuid' })
   public fileId!: string;
 
-  @ManyToOne(() => Changeset, (changeset) => changeset.entities, { nullable: true })
+  @ManyToOne(() => Changeset, (changeset) => changeset.entities, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'changeset_id' })
   public changeset!: Changeset | null;
 
