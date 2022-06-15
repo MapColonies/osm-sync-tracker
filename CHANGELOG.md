@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.2.0](https://github.com/MapColonies/osm-sync-tracker/compare/v3.1.0...v3.2.0) (2022-06-15)
+
+
+### Features
+
+* **entityHistory:** added base sync id to entity history ([#48](https://github.com/MapColonies/osm-sync-tracker/issues/48)) ([3f6f46f](https://github.com/MapColonies/osm-sync-tracker/commit/3f6f46ffd3cd95c56b10ce6f16bd05b8a4e5ca6b))
+
 ## [3.1.0](https://github.com/MapColonies/osm-sync-tracker/compare/v3.0.0...v3.1.0) (2022-06-03)
 
 
