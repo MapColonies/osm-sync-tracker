@@ -1,7 +1,7 @@
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { DependencyContainer } from 'tsyringe';
 import { faker } from '@faker-js/faker';
-import { DataSource, QueryFailedError } from 'typeorm';
+import { DataSource, In, QueryFailedError, Repository } from 'typeorm';
 import { EntityRepository, ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/entity/DAL/entityRepository';
 import { getApp } from '../../../src/app';
 import { BEFORE_ALL_TIMEOUT, RERUN_TEST_TIMEOUT, getBaseRegisterOptions, DEFAULT_ISOLATION_LEVEL } from '../helpers';
@@ -13,6 +13,7 @@ import { FileRequestSender } from '../file/helpers/requestSender';
 import { TransactionFailureError } from '../../../src/changeset/models/errors';
 import { SERVICES } from '../../../src/common/constants';
 import { IApplication } from '../../../src/common/interfaces';
+import { EntityHistory } from '../../../src/entity/DAL/entityHistory';
 import { EntityRequestSender } from '../entity/helpers/requestSender';
 import { ChangesetRequestSender } from '../changeset/helpers/requestSender';
 import { createStringifiedFakeEntity } from '../entity/helpers/generators';
@@ -27,6 +28,7 @@ describe('sync', function () {
   let changesetRequestSender: ChangesetRequestSender;
   let mockSyncRequestSender: SyncRequestSender;
   let entityRepository: EntityRepository;
+  let entityHistoryRepository: Repository<EntityHistory>;
 
   let depContainer: DependencyContainer;
 
@@ -38,6 +40,8 @@ describe('sync', function () {
     entityRequestSender = new EntityRequestSender(app);
     changesetRequestSender = new ChangesetRequestSender(app);
     entityRepository = depContainer.resolve<EntityRepository>(ENTITY_CUSTOM_REPOSITORY_SYMBOL);
+    const connection = depContainer.resolve(DataSource);
+    entityHistoryRepository = connection.getRepository(EntityHistory);
   }, BEFORE_ALL_TIMEOUT);
 
   afterAll(async function () {
@@ -126,6 +130,10 @@ describe('sync', function () {
 
           expect(response.status).toBe(StatusCodes.OK);
           expect(response.body).toMatchObject({ ...sync, status: Status.FAILED });
+
+          // validate entity history count
+          const entityHistoryCount = await entityHistoryRepository.countBy({ syncId: id });
+          expect(entityHistoryCount).toBe(0);
         },
         RERUN_TEST_TIMEOUT
       );
@@ -147,6 +155,10 @@ describe('sync', function () {
           const response = await syncRequestSender.rerunSync(id as string, rerunCreateBody);
 
           expect(response).toHaveProperty('status', StatusCodes.CREATED);
+
+          // validate entity history count
+          const entityHistoryCount = await entityHistoryRepository.countBy({ syncId: id });
+          expect(entityHistoryCount).toBe(0);
         },
         RERUN_TEST_TIMEOUT
       );
@@ -185,6 +197,10 @@ describe('sync', function () {
 
           const fetchedEntity = await entityRepository.findOneBy({ entityId: file1Entity[0].entityId });
           expect(fetchedEntity).toMatchObject({ ...file1Entity[0], status: EntityStatus.COMPLETED, fileId: file1.fileId, failReason: null });
+
+          // validate entity history count
+          const entityHistoryCount = await entityHistoryRepository.countBy({ syncId: id });
+          expect(entityHistoryCount).toBe(0);
         },
         RERUN_TEST_TIMEOUT
       );
@@ -203,11 +219,10 @@ describe('sync', function () {
           const changeset1 = createStringifiedFakeChangeset();
           expect(await changesetRequestSender.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
 
+          const entity1 = createStringifiedFakeEntity({ status: EntityStatus.COMPLETED, changesetId: changeset1.changesetId });
+          const entity2 = createStringifiedFakeEntity({ status: EntityStatus.FAILED });
           // post entities of the file and changeset, one entitiy failed
-          const file1Entities = [
-            createStringifiedFakeEntity({ status: EntityStatus.COMPLETED, changesetId: changeset1.changesetId }),
-            createStringifiedFakeEntity({ status: EntityStatus.FAILED }),
-          ];
+          const file1Entities = [entity1, entity2];
           expect(await entityRequestSender.postEntityBulk(file1.fileId as string, file1Entities)).toHaveStatus(StatusCodes.CREATED);
           expect(await changesetRequestSender.patchChangesetEntities(changeset1.changesetId as string)).toHaveStatus(StatusCodes.OK);
           expect(await changesetRequestSender.putChangesets([changeset1.changesetId as string])).toHaveStatus(StatusCodes.OK);
@@ -224,14 +239,35 @@ describe('sync', function () {
           const { rerunId } = rerunCreateBody;
           expect(await syncRequestSender.rerunSync(baseSyncId as string, rerunCreateBody)).toHaveStatus(httpStatus.CREATED);
 
+          // validate expected entity history
+          const entity1History = await entityHistoryRepository.findOneBy({ entityId: entity1.entityId, fileId: file1.fileId, syncId: baseSyncId });
+          expect(entity1History).toMatchObject({
+            ...entity1,
+            fileId: file1.fileId,
+            changesetId: changeset1.changesetId,
+            status: EntityStatus.COMPLETED,
+            syncId: baseSyncId,
+            baseSyncId: null,
+          });
+
+          const entity2History = await entityHistoryRepository.findOneBy({ entityId: entity2.entityId, fileId: file1.fileId, syncId: baseSyncId });
+          expect(entity2History).toMatchObject({
+            ...entity2,
+            fileId: file1.fileId,
+            changesetId: null,
+            status: EntityStatus.FAILED,
+            syncId: baseSyncId,
+            baseSyncId: null,
+          });
+
           // the completed entity should remain completed
-          const entity1 = await entityRepository.findOneBy({ entityId: file1Entities[0].entityId });
-          expect(entity1).toMatchObject({ ...file1Entities[0], status: EntityStatus.COMPLETED, fileId: file1.fileId, failReason: null });
+          const fetchedEntity1 = await entityRepository.findOneBy({ entityId: entity1.entityId });
+          expect(fetchedEntity1).toMatchObject({ ...entity1, status: EntityStatus.COMPLETED, fileId: file1.fileId, failReason: null });
 
           // the failed entity should reset
-          const entity2 = await entityRepository.findOneBy({ entityId: file1Entities[1].entityId });
-          expect(entity2).toMatchObject({
-            ...file1Entities[1],
+          const fetchedEntity2 = await entityRepository.findOneBy({ entityId: entity2.entityId });
+          expect(fetchedEntity2).toMatchObject({
+            ...entity2,
             fileId: file1.fileId,
             status: EntityStatus.IN_RERUN,
             changesetId: null,
@@ -271,6 +307,10 @@ describe('sync', function () {
           const latestSyncResponse = await syncRequestSender.getLatestSync(baseSync.layerId as number, baseSync.geometryType as GeometryType);
           expect(latestSyncResponse.status).toBe(httpStatus.OK);
           expect(latestSyncResponse.body).toMatchObject({ ...baseSync, status: Status.COMPLETED });
+
+          // validate entity history count
+          const entityHistoryCount = await entityHistoryRepository.countBy({ syncId: In([baseSyncId, rerunId]) });
+          expect(entityHistoryCount).toBe(2);
         },
         RERUN_TEST_TIMEOUT
       );
@@ -324,6 +364,47 @@ describe('sync', function () {
           expect(await syncRequestSender.patchSync(baseSyncId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
           expect(await syncRequestSender.rerunSync(baseSyncId as string, rerunCreateBody)).toHaveStatus(StatusCodes.CREATED);
 
+          // validate expected entity history
+          let entity1History = await entityHistoryRepository.findOneBy({ entityId: entity1.entityId, fileId: file1.fileId, syncId: baseSyncId });
+          expect(entity1History).toMatchObject({
+            ...entity1,
+            fileId: file1.fileId,
+            changesetId: changeset1.changesetId,
+            syncId: baseSyncId,
+            status: EntityStatus.COMPLETED,
+            baseSyncId: null,
+          });
+          let entity2History = await entityHistoryRepository.findOneBy({ entityId: entity2.entityId, fileId: file1.fileId, syncId: baseSyncId });
+          expect(entity2History).toMatchObject({
+            ...entity2,
+            changesetId: null,
+            fileId: file1.fileId,
+            syncId: baseSyncId,
+            status: EntityStatus.FAILED,
+            failReason: 'some reason',
+            baseSyncId: null,
+          });
+          let entity3History = await entityHistoryRepository.findOneBy({ entityId: entity3.entityId, fileId: file1.fileId, syncId: baseSyncId });
+          expect(entity3History).toMatchObject({
+            ...entity3,
+            changesetId: null,
+            fileId: file1.fileId,
+            syncId: baseSyncId,
+            status: EntityStatus.IN_PROGRESS,
+            failReason: null,
+            baseSyncId: null,
+          });
+          let entity4History = await entityHistoryRepository.findOneBy({ entityId: entity4.entityId, fileId: file2.fileId, syncId: baseSyncId });
+          expect(entity4History).toMatchObject({
+            ...entity4,
+            changesetId: null,
+            fileId: file2.fileId,
+            syncId: baseSyncId,
+            status: EntityStatus.NOT_SYNCED,
+            failReason: null,
+            baseSyncId: null,
+          });
+
           // the completed entity should remain completed
           let fetchedEntity1 = await entityRepository.findOneBy({ entityId: entity1.entityId });
           expect(fetchedEntity1).toMatchObject({ ...entity1, status: EntityStatus.COMPLETED, fileId: file1.fileId, failReason: null });
@@ -338,6 +419,7 @@ describe('sync', function () {
             action: null,
             failReason: null,
           });
+
           let fetchedEntity3 = await entityRepository.findOneBy({ entityId: entity3.entityId });
           expect(fetchedEntity3).toMatchObject({
             ...entity3,
@@ -396,11 +478,54 @@ describe('sync', function () {
 
           // rerunning the sync while rerun is still in progress results in a conflict
           const secondRerunCreateBody = createStringifiedFakeRerunCreateBody();
+          const { rerunId: secondRerunId } = secondRerunCreateBody;
           expect(await syncRequestSender.rerunSync(baseSyncId as string, secondRerunCreateBody)).toHaveStatus(StatusCodes.CONFLICT);
 
           // mark the first rerun sync as failure and rerun again
           expect(await syncRequestSender.patchSync(firstRerunId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
           expect(await syncRequestSender.rerunSync(baseSyncId as string, secondRerunCreateBody)).toHaveStatus(StatusCodes.CREATED);
+
+          // validate entity history
+          entity1History = await entityHistoryRepository.findOneBy({ entityId: entity1.entityId, syncId: firstRerunId });
+          expect(entity1History).toBeNull();
+          entity2History = await entityHistoryRepository.findOneBy({ entityId: entity2.entityId, fileId: file1.fileId, syncId: firstRerunId });
+          expect(entity2History).toMatchObject({
+            ...entity2,
+            changesetId: changeset2.changesetId,
+            fileId: file1.fileId,
+            syncId: firstRerunId,
+            status: EntityStatus.COMPLETED,
+            failReason: null,
+            baseSyncId: baseSyncId,
+          });
+          entity3History = await entityHistoryRepository.findOneBy({ entityId: entity3.entityId, fileId: file1.fileId, syncId: firstRerunId });
+          expect(entity3History).toMatchObject({
+            ...entity3,
+            changesetId: null,
+            fileId: file1.fileId,
+            syncId: firstRerunId,
+            status: EntityStatus.FAILED,
+            failReason: null,
+            baseSyncId: baseSyncId,
+          });
+          entity4History = await entityHistoryRepository.findOneBy({ entityId: entity4.entityId, fileId: file2.fileId, syncId: firstRerunId });
+          expect(entity4History).toMatchObject({
+            ...entity4,
+            fileId: file2.fileId,
+            syncId: firstRerunId,
+            changesetId: changeset2.changesetId,
+            status: EntityStatus.COMPLETED,
+            baseSyncId: baseSyncId,
+          });
+          const entity5History = await entityHistoryRepository.findOneBy({ entityId: entity5.entityId, fileId: file4.fileId, syncId: firstRerunId });
+          expect(entity5History).toMatchObject({
+            ...entity5,
+            fileId: file4.fileId,
+            changesetId: changeset2.changesetId,
+            syncId: firstRerunId,
+            status: EntityStatus.COMPLETED,
+            baseSyncId: baseSyncId,
+          });
 
           // the completed entities should remain completed
           fetchedEntity1 = await entityRepository.findOneBy({ entityId: entity1.entityId });
@@ -458,6 +583,10 @@ describe('sync', function () {
           // rerunning the sync when its completed will result in a conflict
           const thirdRerunCreateBody = createStringifiedFakeRerunCreateBody();
           expect(await syncRequestSender.rerunSync(baseSyncId as string, thirdRerunCreateBody)).toHaveStatus(StatusCodes.CONFLICT);
+
+          // validate entity history count
+          const entityHistoryCount = await entityHistoryRepository.countBy({ syncId: In([baseSyncId, firstRerunId, secondRerunId]) });
+          expect(entityHistoryCount).toBe(8);
         },
         RERUN_TEST_TIMEOUT
       );
@@ -476,15 +605,27 @@ describe('sync', function () {
           const { rerunId: rerunId1 } = rerunCreateBody1;
           expect(await syncRequestSender.rerunSync(baseSyncId as string, rerunCreateBody1)).toHaveStatus(httpStatus.CREATED);
 
+          // validate entity history count
+          let entityHistoryCount = await entityHistoryRepository.countBy({ syncId: baseSyncId });
+          expect(entityHistoryCount).toBe(0);
+
           expect(await syncRequestSender.patchSync(rerunId1 as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
           const rerunCreateBody2 = createStringifiedFakeRerunCreateBody();
           const { rerunId: rerunId2 } = rerunCreateBody2;
           expect(await syncRequestSender.rerunSync(baseSyncId as string, rerunCreateBody2)).toHaveStatus(httpStatus.CREATED);
 
+          // validate entity history count
+          entityHistoryCount = await entityHistoryRepository.countBy({ syncId: In([baseSyncId, rerunId1]) });
+          expect(entityHistoryCount).toBe(0);
+
           expect(await syncRequestSender.patchSync(rerunId2 as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
           const rerunCreateBody3 = createStringifiedFakeRerunCreateBody();
           const { rerunId: rerunId3 } = rerunCreateBody3;
           expect(await syncRequestSender.rerunSync(baseSyncId as string, rerunCreateBody3)).toHaveStatus(httpStatus.CREATED);
+
+          // validate entity history count
+          entityHistoryCount = await entityHistoryRepository.countBy({ syncId: In([baseSyncId, rerunId1, rerunId2]) });
+          expect(entityHistoryCount).toBe(0);
 
           const file = createStringifiedFakeFile({ totalEntities: 1 });
           expect(await fileRequestSender.postFile(rerunId3 as string, file)).toHaveStatus(StatusCodes.CREATED);
@@ -503,6 +644,9 @@ describe('sync', function () {
           const latestSyncResponse = await syncRequestSender.getLatestSync(baseSync.layerId as number, baseSync.geometryType as GeometryType);
           expect(latestSyncResponse.status).toBe(httpStatus.OK);
           expect(latestSyncResponse.body).toMatchObject({ ...baseSync, status: Status.COMPLETED });
+
+          entityHistoryCount = await entityHistoryRepository.countBy({ syncId: In([baseSyncId, rerunId1, rerunId2, rerunId3]) });
+          expect(entityHistoryCount).toBe(0);
         },
         RERUN_TEST_TIMEOUT
       );
@@ -540,7 +684,19 @@ describe('sync', function () {
           // mark the base sync as failure and rerun
           expect(await syncRequestSender.patchSync(baseSyncId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
           const firstRerunCreateBody = createStringifiedFakeRerunCreateBody();
+          const { rerunId: firstRerunId } = firstRerunCreateBody;
           expect(await syncRequestSender.rerunSync(baseSyncId as string, firstRerunCreateBody)).toHaveStatus(httpStatus.CREATED);
+
+          let entity1History = await entityHistoryRepository.findOneBy({ entityId: entity1.entityId, fileId: file1.fileId, syncId: baseSyncId });
+          expect(entity1History).toMatchObject({
+            ...entity1,
+            changesetId: null,
+            fileId: file1.fileId,
+            syncId: baseSyncId,
+            status: EntityStatus.NOT_SYNCED,
+            failReason: null,
+            baseSyncId: null,
+          });
 
           // the not synced entity should reset
           let fetchedEntity1 = await entityRepository.findOneBy({ entityId: entity1.entityId });
@@ -572,9 +728,24 @@ describe('sync', function () {
           );
 
           // mark the first rerun as failure and rerun again
-          expect(await syncRequestSender.patchSync(firstRerunCreateBody.rerunId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+          expect(await syncRequestSender.patchSync(firstRerunId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
           const secondRerunCreateBody = createStringifiedFakeRerunCreateBody();
+          const { rerunId: secondRerunId } = secondRerunCreateBody;
           expect(await syncRequestSender.rerunSync(baseSyncId as string, secondRerunCreateBody)).toHaveStatus(httpStatus.CREATED);
+
+          entity1History = await entityHistoryRepository.findOneBy({ entityId: entity1.entityId, syncId: firstRerunId });
+          expect(entity1History).toBeNull();
+
+          const entity2History = await entityHistoryRepository.findOneBy({ entityId: entity2.entityId, fileId: file2.fileId, syncId: firstRerunId });
+          expect(entity2History).toMatchObject({
+            ...entity2,
+            changesetId: changeset.changesetId,
+            fileId: file2.fileId,
+            syncId: firstRerunId,
+            status: EntityStatus.COMPLETED,
+            failReason: null,
+            baseSyncId: baseSyncId,
+          });
 
           // the failed entity should reset
           fetchedEntity1 = await entityRepository.findOneBy({ entityId: entity1.entityId });
@@ -598,6 +769,10 @@ describe('sync', function () {
 
           expect(patchEntityResponse).toHaveStatus(StatusCodes.OK);
           expect(patchEntityResponse.body).toMatchObject([baseSyncId]);
+
+          // validate entity history count
+          const entityHistoryCount = await entityHistoryRepository.countBy({ syncId: In([baseSyncId, firstRerunId, secondRerunId]) });
+          expect(entityHistoryCount).toBe(2);
         },
         RERUN_TEST_TIMEOUT
       );

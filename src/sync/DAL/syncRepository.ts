@@ -54,7 +54,8 @@ async function tryClosingSync(baseSyncId: string, schema: string, transactionalE
 // copies the entities who were affected on the current sync run into entity_history table
 async function createEntityHistory(
   baseSyncId: string,
-  rerunSyncId: string,
+  syncId: string,
+  entityHistoryBaseSyncId: string | null,
   schema: string,
   transactionalEntityManager: EntityManager
 ): Promise<void> {
@@ -81,11 +82,11 @@ async function createEntityHistory(
       AND h.status = 'completed'
   )
 
-  INSERT INTO ${schema}.entity_history (entity_id, file_id, sync_id, changeset_id, status, action, fail_reason)
-  SELECT entity_id, file_id, $2, changeset_id, status, action, fail_reason
+  INSERT INTO ${schema}.entity_history (entity_id, file_id, base_sync_id, sync_id, changeset_id, status, action, fail_reason)
+  SELECT entity_id, file_id, $3, $2, changeset_id, status, action, fail_reason
   FROM entities_for_history
   `,
-    [baseSyncId, rerunSyncId]
+    [baseSyncId, syncId, entityHistoryBaseSyncId]
   );
 }
 
@@ -204,7 +205,27 @@ const createSyncRepo = (dataSource: DataSource) => {
             }
           }
 
-          await createEntityHistory(baseSyncId as string, rerunId, schema, transactionalEntityManager);
+          let latestRerunOrSyncId = baseSyncId as string;
+          const latestSyncWithReruns = await this.findOneSyncWithLastRerun(baseSyncId as string);
+          if (latestSyncWithReruns && latestSyncWithReruns.reruns.length > 0) {
+            latestRerunOrSyncId = latestSyncWithReruns.reruns[0].id;
+          }
+
+          logger.debug({
+            msg: 'getting latest sync with rerun resulted in',
+            rerunId,
+            baseSyncId,
+            latestRerunOrSyncId,
+            transaction,
+          });
+
+          await createEntityHistory(
+            baseSyncId as string,
+            latestRerunOrSyncId,
+            latestRerunOrSyncId === baseSyncId ? null : baseSyncId,
+            schema,
+            transactionalEntityManager
+          );
 
           logger.debug({ msg: 'created entity history', rerunId, baseSyncId, transaction });
 
