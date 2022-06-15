@@ -9,7 +9,7 @@ export class EntityHistory implements IEntityHistory {
   @PrimaryColumn({ name: 'entity_id' })
   public entityId!: string;
 
-  @ManyToOne(() => File, (file) => file.entities)
+  @ManyToOne(() => File, (file) => file.entities, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'file_id' })
   public file!: File;
 
@@ -19,7 +19,7 @@ export class EntityHistory implements IEntityHistory {
   @PrimaryColumn({ name: 'sync_id', type: 'uuid' })
   public syncId!: string;
 
-  @ManyToOne(() => Changeset, (changeset) => changeset.entities, { nullable: true })
+  @ManyToOne(() => Changeset, (changeset) => changeset.entities, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'changeset_id' })
   public changeset!: Changeset | null;
 

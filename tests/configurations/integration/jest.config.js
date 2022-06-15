@@ -20,7 +20,7 @@ module.exports = {
   rootDir: '../../../.',
   testMatch: ['<rootDir>/tests/integration/**/*.spec.ts'],
   setupFiles: ['<rootDir>/tests/configurations/jest.setup.js'],
-  globalSetup: '<rootDir>/tests/configurations/jest.globalSetup.ts',
+  globalTeardown: '<rootDir>/tests/configurations/jest.globalTeardown.ts',
   reporters: [
     'default',
     [
