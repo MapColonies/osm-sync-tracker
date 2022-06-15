@@ -247,7 +247,7 @@ describe('sync', function () {
             changesetId: changeset1.changesetId,
             status: EntityStatus.COMPLETED,
             syncId: baseSyncId,
-            baseSyncId: null
+            baseSyncId: null,
           });
 
           const entity2History = await entityHistoryRepository.findOneBy({ entityId: entity2.entityId, fileId: file1.fileId, syncId: baseSyncId });
@@ -257,7 +257,7 @@ describe('sync', function () {
             changesetId: null,
             status: EntityStatus.FAILED,
             syncId: baseSyncId,
-            baseSyncId: null
+            baseSyncId: null,
           });
 
           // the completed entity should remain completed
@@ -309,7 +309,7 @@ describe('sync', function () {
           expect(latestSyncResponse.body).toMatchObject({ ...baseSync, status: Status.COMPLETED });
 
           // validate entity history count
-          const entityHistoryCount = await entityHistoryRepository.countBy({ syncId: In([baseSyncId, rerunId ]) });
+          const entityHistoryCount = await entityHistoryRepository.countBy({ syncId: In([baseSyncId, rerunId]) });
           expect(entityHistoryCount).toBe(2);
         },
         RERUN_TEST_TIMEOUT
@@ -372,7 +372,7 @@ describe('sync', function () {
             changesetId: changeset1.changesetId,
             syncId: baseSyncId,
             status: EntityStatus.COMPLETED,
-            baseSyncId: null
+            baseSyncId: null,
           });
           let entity2History = await entityHistoryRepository.findOneBy({ entityId: entity2.entityId, fileId: file1.fileId, syncId: baseSyncId });
           expect(entity2History).toMatchObject({
@@ -382,7 +382,7 @@ describe('sync', function () {
             syncId: baseSyncId,
             status: EntityStatus.FAILED,
             failReason: 'some reason',
-            baseSyncId: null
+            baseSyncId: null,
           });
           let entity3History = await entityHistoryRepository.findOneBy({ entityId: entity3.entityId, fileId: file1.fileId, syncId: baseSyncId });
           expect(entity3History).toMatchObject({
@@ -392,7 +392,7 @@ describe('sync', function () {
             syncId: baseSyncId,
             status: EntityStatus.IN_PROGRESS,
             failReason: null,
-            baseSyncId: null
+            baseSyncId: null,
           });
           let entity4History = await entityHistoryRepository.findOneBy({ entityId: entity4.entityId, fileId: file2.fileId, syncId: baseSyncId });
           expect(entity4History).toMatchObject({
@@ -402,7 +402,7 @@ describe('sync', function () {
             syncId: baseSyncId,
             status: EntityStatus.NOT_SYNCED,
             failReason: null,
-            baseSyncId: null
+            baseSyncId: null,
           });
 
           // the completed entity should remain completed
@@ -496,7 +496,7 @@ describe('sync', function () {
             syncId: firstRerunId,
             status: EntityStatus.COMPLETED,
             failReason: null,
-            baseSyncId: baseSyncId
+            baseSyncId: baseSyncId,
           });
           entity3History = await entityHistoryRepository.findOneBy({ entityId: entity3.entityId, fileId: file1.fileId, syncId: firstRerunId });
           expect(entity3History).toMatchObject({
@@ -506,7 +506,7 @@ describe('sync', function () {
             syncId: firstRerunId,
             status: EntityStatus.FAILED,
             failReason: null,
-            baseSyncId: baseSyncId
+            baseSyncId: baseSyncId,
           });
           entity4History = await entityHistoryRepository.findOneBy({ entityId: entity4.entityId, fileId: file2.fileId, syncId: firstRerunId });
           expect(entity4History).toMatchObject({
@@ -515,7 +515,7 @@ describe('sync', function () {
             syncId: firstRerunId,
             changesetId: changeset2.changesetId,
             status: EntityStatus.COMPLETED,
-            baseSyncId: baseSyncId
+            baseSyncId: baseSyncId,
           });
           const entity5History = await entityHistoryRepository.findOneBy({ entityId: entity5.entityId, fileId: file4.fileId, syncId: firstRerunId });
           expect(entity5History).toMatchObject({
@@ -524,7 +524,7 @@ describe('sync', function () {
             changesetId: changeset2.changesetId,
             syncId: firstRerunId,
             status: EntityStatus.COMPLETED,
-            baseSyncId: baseSyncId
+            baseSyncId: baseSyncId,
           });
 
           // the completed entities should remain completed
@@ -695,7 +695,7 @@ describe('sync', function () {
             syncId: baseSyncId,
             status: EntityStatus.NOT_SYNCED,
             failReason: null,
-            baseSyncId: null
+            baseSyncId: null,
           });
 
           // the not synced entity should reset
@@ -744,7 +744,7 @@ describe('sync', function () {
             syncId: firstRerunId,
             status: EntityStatus.COMPLETED,
             failReason: null,
-            baseSyncId: baseSyncId
+            baseSyncId: baseSyncId,
           });
 
           // the failed entity should reset
