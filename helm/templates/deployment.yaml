@@ -14,6 +14,10 @@ metadata:
     environment: {{ .Values.environment }}
     release: {{ $releaseName }}
     {{- include "osm-sync-tracker.labels" . | nindent 4 }}
+{{- with .Values.annotations }}
+  annotations:
+{{ toYaml . | indent 4 }}
+{{- end }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -30,6 +34,10 @@ spec:
         run: {{ $releaseName }}-{{ $chartName }}
         environment: {{ include "osm-sync-tracker.environment" . }}
         {{- include "osm-sync-tracker.selectorLabels" . | nindent 8 }}
+{{- with .Values.podAnnotations }}
+      annotations:
+{{ toYaml . | indent 8 }}
+{{- end }}
     spec:
       containers:
         - name: {{ $releaseName }}-{{ $chartName }}-deployment

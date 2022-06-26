@@ -1,6 +1,6 @@
 import { DependencyContainer } from 'tsyringe';
 import config from 'config';
-import { logMethod } from '@map-colonies/telemetry';
+import { getOtelMixin } from '@map-colonies/telemetry';
 import jsLogger, { LoggerOptions } from '@map-colonies/js-logger';
 import { DataSource } from 'typeorm';
 import { trace } from '@opentelemetry/api';
@@ -25,15 +25,13 @@ export interface RegisterOptions {
 
 export const registerExternalValues = async (options?: RegisterOptions): Promise<DependencyContainer> => {
   const loggerConfig = config.get<LoggerOptions>('telemetry.logger');
-  // @ts-expect-error the signature is wrong
-  const logger = jsLogger({ ...loggerConfig, hooks: { logMethod } });
+  const logger = jsLogger({ ...loggerConfig, mixin: getOtelMixin() });
 
   const appConfig = config.get<IApplication>('application');
 
   const dataSourceOptions = config.get<DbConfig>('db');
   const connection = await initDataSource(dataSourceOptions);
 
-  tracing.start();
   const tracer = trace.getTracer(SERVICE_NAME);
 
   const dependencies: InjectionObject<unknown>[] = [
