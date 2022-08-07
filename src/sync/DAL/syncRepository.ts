@@ -129,11 +129,26 @@ async function prepareIncompleteEntities(baseSyncId: string, schema: string, tra
 const createSyncRepo = (dataSource: DataSource) => {
   return dataSource.getRepository(SyncDb).extend({
     async getLatestSync(layerId: number, geometryType: GeometryType): Promise<BaseSync | null> {
-      return this.findOne({
-        where: { layerId, geometryType, runNumber: 0 },
-        order: { dumpDate: 'DESC' },
-        select: ['id', 'dumpDate', 'startDate', 'endDate', 'status', 'layerId', 'isFull', 'totalFiles', 'geometryType'],
-      });
+      return (
+        this.createQueryBuilder('sync')
+          .where('sync.layerId = :layerId', { layerId })
+          .andWhere('sync.geometryType = :geometryType', { geometryType })
+          .andWhere('sync.runNumber = :runNumber', { runNumber: 0 })
+          .select([
+            'sync.id',
+            'sync.dumpDate',
+            'sync.startDate',
+            'sync.endDate',
+            'sync.status',
+            'sync.layerId',
+            'sync.isFull',
+            'sync.totalFiles',
+            'sync.geometryType',
+          ])
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          .orderBy({ 'sync.dumpDate': 'DESC', 'sync.startDate': 'DESC' })
+          .getOne()
+      );
     },
 
     async createSync(sync: Sync): Promise<void> {
