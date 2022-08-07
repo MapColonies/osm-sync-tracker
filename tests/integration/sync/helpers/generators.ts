@@ -30,5 +30,6 @@ export const createStringifiedFakeRerunCreateBody = (params: FakeStringifiedReru
   return {
     rerunId: params.rerunId ?? faker.datatype.uuid(),
     startDate: params.startDate ?? faker.datatype.datetime().toISOString(),
+    shouldRerunNotSynced: params.shouldRerunNotSynced ?? faker.datatype.boolean(),
   };
 };

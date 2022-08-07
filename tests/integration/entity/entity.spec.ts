@@ -79,7 +79,7 @@ describe('entity', function () {
         async function () {
           const syncForRerun = createStringifiedFakeSync();
           const file = createStringifiedFakeFile();
-          const rerunCreateBody = createStringifiedFakeRerunCreateBody();
+          const rerunCreateBody = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
           const entity1 = createStringifiedFakeEntity({ status: EntityStatus.COMPLETED });
           const entity2 = createStringifiedFakeEntity();
 

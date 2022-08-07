@@ -54,9 +54,9 @@ describe('file', function () {
       it(
         'should return 201 status code for creating a file on a rerun while existing on its base',
         async function () {
-          const syncForRerun = createStringifiedFakeSync({ totalFiles: 2 });
+          const syncForRerun = createStringifiedFakeSync({ isFull: false, totalFiles: 2 });
           const file = createStringifiedFakeFile();
-          const rerunCreateBody = createStringifiedFakeRerunCreateBody();
+          const rerunCreateBody = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: false });
 
           expect(await syncRequestSender.postSync(syncForRerun)).toHaveStatus(StatusCodes.CREATED);
           expect(await fileRequestSender.postFile(syncForRerun.id as string, file)).toHaveStatus(StatusCodes.CREATED);
@@ -76,7 +76,7 @@ describe('file', function () {
         async function () {
           const syncForRerun = createStringifiedFakeSync();
           const file = createStringifiedFakeFile();
-          const rerunCreateBody = createStringifiedFakeRerunCreateBody();
+          const rerunCreateBody = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
 
           expect(await syncRequestSender.postSync(syncForRerun)).toHaveStatus(StatusCodes.CREATED);
           expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
@@ -144,7 +144,7 @@ describe('file', function () {
           const sync = createStringifiedFakeSync();
           const syncForRerun = createStringifiedFakeSync();
           const file = createStringifiedFakeFile();
-          const rerunCreateBody = createStringifiedFakeRerunCreateBody();
+          const rerunCreateBody = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
 
           expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
           expect(await fileRequestSender.postFile(sync.id as string, file)).toHaveStatus(StatusCodes.CREATED);
@@ -163,10 +163,10 @@ describe('file', function () {
       it(
         'should return 409 if on a rerun a file has conflicting total entities value with already existing file',
         async function () {
-          const syncForRerun = createStringifiedFakeSync();
+          const syncForRerun = createStringifiedFakeSync({ isFull: false });
           const file = createStringifiedFakeFile();
           const entity = createStringifiedFakeEntity();
-          const rerunCreateBody = createStringifiedFakeRerunCreateBody();
+          const rerunCreateBody = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
 
           expect(await syncRequestSender.postSync(syncForRerun)).toHaveStatus(StatusCodes.CREATED);
           expect(await fileRequestSender.postFile(syncForRerun.id as string, file)).toHaveStatus(StatusCodes.CREATED);
@@ -174,7 +174,10 @@ describe('file', function () {
           expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
           expect(await syncRequestSender.rerunSync(syncForRerun.id as string, rerunCreateBody)).toHaveStatus(StatusCodes.CREATED);
 
-          const response = await fileRequestSender.postFile(rerunCreateBody.rerunId as string, { ...file, totalEntities: faker.datatype.number() });
+          const response = await fileRequestSender.postFile(rerunCreateBody.rerunId as string, {
+            ...file,
+            totalEntities: (file.totalEntities as number) + 1,
+          });
 
           expect(response).toHaveProperty('status', StatusCodes.CONFLICT);
           expect(response.body).toHaveProperty('message', `rerun file = ${file.fileId as string} conflicting total entities`);
