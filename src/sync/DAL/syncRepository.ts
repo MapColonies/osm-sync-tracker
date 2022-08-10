@@ -131,7 +131,7 @@ const createSyncRepo = (dataSource: DataSource) => {
     async getLatestSync(layerId: number, geometryType: GeometryType): Promise<BaseSync | null> {
       return this.findOne({
         where: { layerId, geometryType, runNumber: 0 },
-        order: { dumpDate: 'DESC' },
+        order: { dumpDate: 'DESC', startDate: 'DESC' },
         select: ['id', 'dumpDate', 'startDate', 'endDate', 'status', 'layerId', 'isFull', 'totalFiles', 'geometryType'],
       });
     },

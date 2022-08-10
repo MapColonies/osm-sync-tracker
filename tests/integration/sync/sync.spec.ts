@@ -115,6 +115,30 @@ describe('sync', function () {
         expect(response.body).toMatchObject(laterSync);
       });
 
+      it('should return 200 status code and the sync with the later startDate for multiple syncs with same dumpDate', async function () {
+        const dumpDate = faker.date.past().toISOString();
+        const startDate = faker.date.past().toISOString();
+
+        const earlierStartDateSync = createStringifiedFakeSync({ dumpDate, startDate, geometryType: GeometryType.POLYGON, isFull: false });
+        const { layerId, geometryType } = earlierStartDateSync;
+
+        const laterStartDateSync = createStringifiedFakeSync({
+          dumpDate,
+          startDate: faker.date.between(startDate, new Date()).toISOString(),
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+
+        expect(await syncRequestSender.postSync(earlierStartDateSync)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(laterStartDateSync)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await syncRequestSender.getLatestSync(layerId as number, geometryType as GeometryType);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.body).toMatchObject(laterStartDateSync);
+      });
+
       it(
         'should return 200 status code and the latest sync even if it has a rerun',
         async function () {
