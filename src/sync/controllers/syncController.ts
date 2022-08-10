@@ -19,7 +19,7 @@ import { GeometryType } from '../../common/enums';
 type GetLatestSyncHandler = RequestHandler<undefined, BaseSync, undefined, { layerId: number; geometryType: GeometryType }>;
 type PostSyncHandler = RequestHandler<undefined, string, Sync>;
 type PatchSyncHandler = RequestHandler<{ syncId: string }, string, SyncUpdate>;
-type RerunSyncHandler = RequestHandler<{ syncId: string }, string, { rerunId: string; startDate: Date }>;
+type RerunSyncHandler = RequestHandler<{ syncId: string }, string, { rerunId: string; startDate: Date; shouldRerunNotSynced?: boolean }>;
 
 const txtplain = mime.contentType('text/plain') as string;
 
@@ -65,8 +65,9 @@ export class SyncController {
   };
 
   public rerunSync: RerunSyncHandler = async (req, res, next) => {
+    const { rerunId, startDate, shouldRerunNotSynced } = req.body;
     try {
-      const wasRerunCreated = await this.manager.rerunSyncIfNeeded(req.params.syncId, req.body.rerunId, req.body.startDate);
+      const wasRerunCreated = await this.manager.rerunSyncIfNeeded(req.params.syncId, rerunId, startDate, shouldRerunNotSynced);
       if (wasRerunCreated) {
         return res.status(httpStatus.CREATED).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
       }

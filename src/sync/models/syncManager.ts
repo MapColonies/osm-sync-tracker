@@ -5,7 +5,7 @@ import { GeometryType, Status } from '../../common/enums';
 import { IConfig } from '../../common/interfaces';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../DAL/syncRepository';
 import { FullSyncAlreadyExistsError, InvalidSyncForRerunError, RerunAlreadyExistsError, SyncAlreadyExistsError, SyncNotFoundError } from './errors';
-import { BaseSync, Sync, SyncUpdate } from './sync';
+import { BaseSync, CreateRerunRequest, Sync, SyncUpdate } from './sync';
 
 @injectable()
 export class SyncManager {
@@ -73,7 +73,7 @@ export class SyncManager {
     await this.syncRepository.updateSync(syncId, updatedEntity);
   }
 
-  public async rerunSyncIfNeeded(syncId: string, rerunId: string, startDate: Date): Promise<boolean> {
+  public async rerunSyncIfNeeded(syncId: string, rerunId: string, startDate: Date, shouldRerunNotSynced?: boolean): Promise<boolean> {
     this.logger.info({ msg: 'attempting to create rerun sync', rerunId, baseSyncId: syncId, startDate });
 
     const rerunEntity = await this.syncRepository.findOneSync(rerunId);
@@ -119,7 +119,7 @@ export class SyncManager {
       runNumber = latestRerun.runNumber + 1;
     }
 
-    const rerunSyncForCreation: Sync = {
+    const rerunSyncForCreation: CreateRerunRequest = {
       ...baseSyncBody,
       id: rerunId,
       baseSyncId: baseSyncWithLastRerun.id,
@@ -127,7 +127,9 @@ export class SyncManager {
       status: Status.IN_PROGRESS,
       startDate,
       endDate: null,
+      shouldRerunNotSynced: shouldRerunNotSynced ?? false,
     };
+
     return this.syncRepository.createRerun(rerunSyncForCreation, this.dbSchema);
   }
 }

@@ -29,3 +29,5 @@ export type BaseSync = Omit<Sync, 'baseSyncId' | 'runNumber'>;
 export type SyncUpdate = Omit<Partial<Sync>, 'id' | 'isFull'>;
 
 export type SyncWithReruns = Sync & { reruns: Sync[] };
+
+export type CreateRerunRequest = Sync & { shouldRerunNotSynced: boolean };

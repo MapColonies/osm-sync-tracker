@@ -2,8 +2,8 @@ import { DataSource, EntityManager, FindOptionsWhere } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
-import { GeometryType } from '../../common/enums';
-import { BaseSync, Sync, SyncUpdate, SyncWithReruns } from '../models/sync';
+import { EntityStatus, GeometryType } from '../../common/enums';
+import { BaseSync, CreateRerunRequest, Sync, SyncUpdate, SyncWithReruns } from '../models/sync';
 import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
 import { TransactionFailureError } from '../../changeset/models/errors';
 import { getIsolationLevel } from '../../common/utils/db';
@@ -90,7 +90,7 @@ async function createEntityHistory(
   );
 }
 
-// updates file's status as incomplete if it holds a not synced entity
+// updates file's status as inprogress if it holds a not synced entity
 async function prepareIncompleteFiles(baseSyncId: string, schema: string, transactionalEntityManager: EntityManager): Promise<void> {
   await transactionalEntityManager.query(
     `
@@ -109,7 +109,12 @@ async function prepareIncompleteFiles(baseSyncId: string, schema: string, transa
 }
 
 // updates entity's status as inrerun and resets it's changeset id and fail reason if its status is not completed or inrerun already
-async function prepareIncompleteEntities(baseSyncId: string, schema: string, transactionalEntityManager: EntityManager): Promise<void> {
+async function prepareIncompleteEntities(
+  baseSyncId: string,
+  entityStatusesForRerun: EntityStatus[],
+  schema: string,
+  transactionalEntityManager: EntityManager
+): Promise<void> {
   await transactionalEntityManager.query(
     `
   UPDATE ${schema}.entity AS entity_for_rerun
@@ -119,9 +124,28 @@ async function prepareIncompleteEntities(baseSyncId: string, schema: string, tra
     WHERE f.sync_id = $1
     AND e.file_id = entity_for_rerun.file_id
     AND e.entity_id = entity_for_rerun.entity_id
-    AND e.status IN ('inprogress', 'not_synced', 'failed')
+    AND e.status = ANY($2)
   `,
-    [baseSyncId]
+    [baseSyncId, entityStatusesForRerun]
+  );
+}
+
+async function updateDanglingFilesAsCompleted(syncId: string, schema: string, transactionalEntityManager: EntityManager): Promise<void> {
+  await transactionalEntityManager.query(
+    `WITH dangling_files AS (
+      SELECT file_id
+      FROM ${schema}.file
+      WHERE sync_id = $1 AND status = 'inprogress')
+
+    UPDATE ${schema}.file AS FILE SET status = 'completed', end_date = LOCALTIMESTAMP
+    FROM (
+      SELECT file_id, COUNT(*) AS CompletedEntities
+      FROM ${schema}.entity
+      WHERE file_id IN (SELECT * FROM dangling_files) AND (status = 'completed' or status = 'not_synced')
+      GROUP BY file_id) AS FILES_TO_UPDATE
+    WHERE FILE.file_id = FILES_TO_UPDATE.file_id AND FILES_TO_UPDATE.CompletedEntities = FILE.total_entities AND FILE.status != 'completed'
+    `,
+    [syncId]
   );
 }
 
@@ -161,13 +185,14 @@ const createSyncRepo = (dataSource: DataSource) => {
         .getOne();
     },
 
-    async createRerun(rerunSync: Sync, schema: string): Promise<boolean> {
+    async createRerun(rerunRequest: CreateRerunRequest, schema: string): Promise<boolean> {
       const isolationLevel = getIsolationLevel();
       const transaction = { transactionId: nanoid(), transactionName: TransactionName.CREATE_RERUN, isolationLevel };
 
+      const { shouldRerunNotSynced, ...rerunSync } = rerunRequest;
       const { id: rerunId, baseSyncId } = rerunSync;
 
-      logger.debug({ msg: 'attempting to create rerun in multiple step transaction', rerunId, baseSyncId, transaction });
+      logger.debug({ msg: 'attempting to create rerun in multiple step transaction', rerunId, baseSyncId, shouldRerunNotSynced, transaction });
 
       try {
         return await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager: EntityManager) => {
@@ -193,7 +218,7 @@ const createSyncRepo = (dataSource: DataSource) => {
               transaction,
             });
 
-            // if the sync was close just return false
+            // if the sync was closed just return false
             if (closedSync[1] !== 0) {
               logger.debug({
                 msg: 'attempting to create rerun resulted in closing sync, no need to create rerun',
@@ -229,17 +254,24 @@ const createSyncRepo = (dataSource: DataSource) => {
 
           logger.debug({ msg: 'created entity history', rerunId, baseSyncId, transaction });
 
-          await prepareIncompleteFiles(baseSyncId as string, schema, transactionalEntityManager);
+          if (shouldRerunNotSynced) {
+            await prepareIncompleteFiles(baseSyncId as string, schema, transactionalEntityManager);
+            logger.debug({ msg: 'prepared incomplete files', rerunId, baseSyncId, transaction });
+          } else {
+            await updateDanglingFilesAsCompleted(baseSyncId as string, schema, transactionalEntityManager);
+            logger.debug({ msg: 'updated dangling files as completed', rerunId, baseSyncId, transaction });
+          }
 
-          logger.debug({ msg: 'prepared incomplete files', rerunId, baseSyncId, transaction });
+          const entityStatusesForRerun = shouldRerunNotSynced
+            ? [EntityStatus.IN_PROGRESS, EntityStatus.NOT_SYNCED, EntityStatus.FAILED]
+            : [EntityStatus.IN_PROGRESS, EntityStatus.FAILED];
+          await prepareIncompleteEntities(baseSyncId as string, entityStatusesForRerun, schema, transactionalEntityManager);
 
-          await prepareIncompleteEntities(baseSyncId as string, schema, transactionalEntityManager);
-
-          logger.debug({ msg: 'prepared incomplete entities', rerunId, baseSyncId, transaction });
+          logger.debug({ msg: 'prepared incomplete entities', rerunId, baseSyncId, entityStatusesForRerun, transaction });
 
           await this.createSync(rerunSync);
 
-          logger.debug({ msg: 'created rerun sync', rerunId, baseSyncId, transaction });
+          logger.debug({ msg: 'created rerun sync', rerunId, baseSyncId, entityStatusesForRerun, transaction });
 
           return true;
         });

@@ -203,6 +203,8 @@ paths:
                 startDate:
                   type: string
                   format: date-time
+                shouldRerunNotSynced:
+                  type: boolean
               required:
                 - rerunId
                 - startDate
