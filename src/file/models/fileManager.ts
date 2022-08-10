@@ -72,8 +72,7 @@ export class FileManager {
       throw new SyncNotFoundError(`sync = ${syncId} not found`);
     }
 
-    const filesWithSyncId = files.map((file) => ({ ...file, syncId }));
-    const filesEntities = await this.fileRepository.findManyFiles(filesWithSyncId);
+    const filesEntities = await this.fileRepository.findManyFilesByIds(files);
 
     if (filesEntities) {
       const alreadyExistingFileIds = filesEntities.map((file) => file.fileId);
@@ -86,6 +85,7 @@ export class FileManager {
       throw new FileAlreadyExistsError(`files = [${alreadyExistingFileIds.toString()}] already exists`);
     }
 
+    const filesWithSyncId = files.map((file) => ({ ...file, syncId }));
     await this.fileRepository.createFiles(filesWithSyncId);
   }
 

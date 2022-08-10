@@ -74,6 +74,19 @@ describe('entity', function () {
         expect(response.body).toHaveProperty('previouslyCompleted', expectedBody.previouslyCompleted);
       });
 
+      it('should return 201 status code on entity bulk with same entityId on other fileId', async function () {
+        const entity1 = createStringifiedFakeEntity();
+        const entity2 = createStringifiedFakeEntity();
+        const file2 = createStringifiedFakeFile();
+        await fileRequestSender.postFile(sync.id as string, file2);
+
+        expect(await entityRequestSender.postEntityBulk(file.fileId as string, [entity1, entity2])).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await entityRequestSender.postEntityBulk(file2.fileId as string, [entity1, entity2]);
+
+        expect(response).toHaveProperty('status', httpStatus.CREATED);
+      });
+
       it(
         'should return 201 status code and body containing some entities as created and some as previously completed on a rerun',
         async function () {
@@ -452,12 +465,14 @@ describe('entity', function () {
       it('should return 500 if the db throws an error', async function () {
         const createEntitiesMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
         const findOneEntityMock = jest.fn().mockResolvedValue(false);
-        const findManyEntitiesMock = jest.fn().mockResolvedValue(false);
+        const findManyEntitiesByIdsMock = jest.fn().mockResolvedValue(false);
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
           token: ENTITY_CUSTOM_REPOSITORY_SYMBOL,
-          provider: { useValue: { createEntities: createEntitiesMock, findOneEntity: findOneEntityMock, findManyEntities: findManyEntitiesMock } },
+          provider: {
+            useValue: { createEntities: createEntitiesMock, findOneEntity: findOneEntityMock, findManyEntitiesByIds: findManyEntitiesByIdsMock },
+          },
         });
         const { app: mockApp } = await getApp(mockRegisterOptions);
         mockEntityRequestSender = new EntityRequestSender(mockApp);

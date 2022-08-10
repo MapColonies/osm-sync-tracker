@@ -25,7 +25,7 @@ describe('EntityManager', () => {
   const createEntities = jest.fn();
   const updateEntity = jest.fn();
   const findOneEntity = jest.fn();
-  const findManyEntities = jest.fn();
+  const findManyEntitiesByIds = jest.fn();
 
   const createFile = jest.fn();
   const createFiles = jest.fn();
@@ -53,7 +53,7 @@ describe('EntityManager', () => {
       updateFile,
       updateEntity,
       findOneEntity,
-      findManyEntities,
+      findManyEntitiesByIds,
       updateEntities,
       countEntitiesByIds,
     } as unknown as EntityRepository;
@@ -120,7 +120,7 @@ describe('EntityManager', () => {
       const file = createFakeFile();
 
       findOneFile.mockResolvedValue(file);
-      findManyEntities.mockResolvedValue(undefined);
+      findManyEntitiesByIds.mockResolvedValue(undefined);
       createEntities.mockResolvedValue(undefined);
       findSyncs.mockResolvedValue([]);
 
@@ -137,7 +137,7 @@ describe('EntityManager', () => {
       const rerun = createFakeRerunSync();
 
       findOneFile.mockResolvedValue(file);
-      findManyEntities.mockResolvedValue(undefined);
+      findManyEntitiesByIds.mockResolvedValue(undefined);
       findSyncs.mockResolvedValue([rerun]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
@@ -153,7 +153,7 @@ describe('EntityManager', () => {
       const rerun = createFakeRerunSync();
 
       findOneFile.mockResolvedValue(file);
-      findManyEntities.mockResolvedValue(entities);
+      findManyEntitiesByIds.mockResolvedValue(entities);
       findSyncs.mockResolvedValue([rerun]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
@@ -170,7 +170,7 @@ describe('EntityManager', () => {
       const rerun = createFakeRerunSync();
 
       findOneFile.mockResolvedValue(file);
-      findManyEntities.mockResolvedValue([entity]);
+      findManyEntitiesByIds.mockResolvedValue([entity]);
       findSyncs.mockResolvedValue([rerun]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, [...entities, entity]);
@@ -188,7 +188,7 @@ describe('EntityManager', () => {
       const rerun = createFakeRerunSync();
 
       findOneFile.mockResolvedValue(file);
-      findManyEntities.mockResolvedValue([{ entity2, status: EntityStatus.IN_RERUN }]);
+      findManyEntitiesByIds.mockResolvedValue([{ entity2, status: EntityStatus.IN_RERUN }]);
       findSyncs.mockResolvedValue([rerun]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
@@ -203,7 +203,7 @@ describe('EntityManager', () => {
       const file = createFakeFile();
 
       findOneFile.mockResolvedValue(file);
-      findManyEntities.mockResolvedValue(entities);
+      findManyEntitiesByIds.mockResolvedValue(entities);
       findSyncs.mockResolvedValue([]);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
@@ -217,7 +217,7 @@ describe('EntityManager', () => {
       const file = createFakeFile();
 
       findOneFile.mockResolvedValue(file);
-      findManyEntities.mockResolvedValue(entities);
+      findManyEntitiesByIds.mockResolvedValue(entities);
 
       const createBulkPromise = entityManager.createEntities(file.fileId, entities);
 

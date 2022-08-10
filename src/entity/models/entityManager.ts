@@ -79,7 +79,7 @@ export class EntityManager {
 
     let result: EntityBulkCreationResult = { created: entityIdsForCreation, previouslyCompleted: [] };
 
-    const existingEntities = await this.entityRepository.findManyEntities(entitiesWithFileId);
+    const existingEntities = await this.entityRepository.findManyEntitiesByIds(entitiesWithFileId);
 
     // check if the entities creation is done on a rerun or not
     const reruns = await this.syncRepository.findSyncs({ baseSyncId: fileEntity.syncId });

@@ -18,7 +18,7 @@ describe('FileManager', () => {
   const createFiles = jest.fn();
   const findOneFile = jest.fn();
   const updateFile = jest.fn();
-  const findManyFiles = jest.fn();
+  const findManyFilesByIds = jest.fn();
   const tryClosingFile = jest.fn();
 
   const getLatestSync = jest.fn();
@@ -32,7 +32,7 @@ describe('FileManager', () => {
   beforeEach(() => {
     jest.resetAllMocks();
 
-    fileRepository = { createFile, createFiles, findOneFile, findManyFiles, tryClosingFile, updateFile } as unknown as FileRepository;
+    fileRepository = { createFile, createFiles, findOneFile, findManyFilesByIds, tryClosingFile, updateFile } as unknown as FileRepository;
     syncRepository = {
       getLatestSync,
       createSync,
@@ -287,7 +287,7 @@ describe('FileManager', () => {
       const sync = createFakeSync();
 
       findOneSync.mockResolvedValue(sync);
-      findManyFiles.mockResolvedValue(undefined);
+      findManyFilesByIds.mockResolvedValue(undefined);
       createFiles.mockResolvedValue(undefined);
 
       const createBulkPromise = fileManager.createFiles(sync.id, files);
@@ -300,7 +300,7 @@ describe('FileManager', () => {
       const sync = createFakeSync();
 
       findOneSync.mockResolvedValue(sync);
-      findManyFiles.mockResolvedValue(files);
+      findManyFilesByIds.mockResolvedValue(files);
 
       const createBulkPromise = fileManager.createFiles(sync.id, files);
 
@@ -313,7 +313,7 @@ describe('FileManager', () => {
       const sync = createFakeSync();
 
       findOneSync.mockResolvedValue(sync);
-      findManyFiles.mockResolvedValue(files);
+      findManyFilesByIds.mockResolvedValue(files);
 
       const createBulkPromise = fileManager.createFiles(sync.id, files);
 

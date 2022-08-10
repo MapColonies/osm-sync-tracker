@@ -30,8 +30,8 @@ const createEntityRepository = (dataSource: DataSource) => {
       return entityEntity;
     },
 
-    async findManyEntities(entities: Entity[]): Promise<EntityDb[] | undefined> {
-      const entityEntities = await this.findBy({ entityId: In(entities.map((e) => e.entityId)) });
+    async findManyEntitiesByIds(entities: Entity[]): Promise<EntityDb[] | undefined> {
+      const entityEntities = await this.findBy({ entityId: In(entities.map((e) => e.entityId)), fileId: In(entities.map((e) => e.fileId)) });
       if (entityEntities.length === 0) {
         return undefined;
       }
