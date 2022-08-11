@@ -31,6 +31,7 @@ const createEntityRepository = (dataSource: DataSource) => {
     },
 
     async findManyEntitiesByIds(entities: Entity[]): Promise<EntityDb[] | undefined> {
+      // due to both entityId and fileId being unique uuids this operation is valid
       const entityEntities = await this.findBy({ entityId: In(entities.map((e) => e.entityId)), fileId: In(entities.map((e) => e.fileId)) });
       if (entityEntities.length === 0) {
         return undefined;
