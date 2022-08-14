@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.3.0](https://github.com/MapColonies/osm-sync-tracker/compare/v3.2.0...v3.3.0) (2022-08-14)
+
+
+### Features
+
+* **sync:** added option for rerunning not-synced entities on a rerun ([#53](https://github.com/MapColonies/osm-sync-tracker/issues/53)) ([7ce1c5d](https://github.com/MapColonies/osm-sync-tracker/commit/7ce1c5d834511602ffd6ccb6b4ba70ed45a90a31))
+* **sync:** get latest sync order by dump and start dates ([#52](https://github.com/MapColonies/osm-sync-tracker/issues/52)) ([970cbae](https://github.com/MapColonies/osm-sync-tracker/commit/970cbaee3d2c332f5e645c7db8e1e7ab311b820c))
+
+
+### Bug Fixes
+
+* **configurations:** helm changes ([#50](https://github.com/MapColonies/osm-sync-tracker/issues/50)) ([3975bfd](https://github.com/MapColonies/osm-sync-tracker/commit/3975bfd419a4686d6b898233e34754752818c570))
+* **entity:** findManyEntities findby both entityId and fileId ([#54](https://github.com/MapColonies/osm-sync-tracker/issues/54)) ([90502fe](https://github.com/MapColonies/osm-sync-tracker/commit/90502feaf3a4e26d09c2523560443d576a86877f))
+* helm changes ([0467e25](https://github.com/MapColonies/osm-sync-tracker/commit/0467e25c2b750185d09f2e36372fefb1bf1b4532))
+
 ## [3.2.0](https://github.com/MapColonies/osm-sync-tracker/compare/v3.1.0...v3.2.0) (2022-06-15)
 
 
