@@ -77,8 +77,8 @@ const createFileRepo = (dataSource: DataSource) => {
       return this.findOne({ where: { fileId } });
     },
 
-    async findManyFiles(files: File[]): Promise<FileDb[] | null> {
-      const filesEntities = await this.findBy({ fileId: In(files.map((e) => e.fileId)) });
+    async findManyFilesByIds(files: File[]): Promise<FileDb[] | null> {
+      const filesEntities = await this.findBy({ fileId: In(files.map((f) => f.fileId)) });
       if (filesEntities.length === 0) {
         return null;
       }

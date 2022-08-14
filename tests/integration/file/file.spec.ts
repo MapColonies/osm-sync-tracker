@@ -258,12 +258,12 @@ describe('file', function () {
     describe('POST /sync/:syncId/file/_bulk', function () {
       it('should return 500 if the db throws an error', async function () {
         const createFilesMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
-        const findManyFilesMock = jest.fn().mockResolvedValue(false);
+        const findManyFilesByIdsMock = jest.fn().mockResolvedValue(false);
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({
           token: FILE_CUSTOM_REPOSITORY_SYMBOL,
-          provider: { useValue: { createFiles: createFilesMock, findManyFiles: findManyFilesMock } },
+          provider: { useValue: { createFiles: createFilesMock, findManyFilesByIds: findManyFilesByIdsMock } },
         });
         const { app: mockApp } = await getApp(mockRegisterOptions);
         mockFileRequestSender = new FileRequestSender(mockApp);
