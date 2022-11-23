@@ -1,0 +1,748 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: osm-sync-tracker
+  description: Tracking the progress of osm-sync
+  links:
+  - url: https://mapcolonies.atlassian.net/wiki/spaces/MAPConflicResolution/pages/1353613504/Ingestion#Details-about-our-services
+    title: Confluence 
+    icon: article
+  annotations:
+    github.com/project-slug: MapColonies/osm-sync-tracker
+spec:
+  type: service
+  lifecycle: production
+  owner: vector-team
+  system: vector-ingestion
+  dependsOn:
+    - resource:default/osm-sync-db
+  providesApis:
+    - osm-sync-tracker-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: osm-sync-tracker-api
+  description: OSM sync tracker API 
+spec:
+  type: openapi
+  lifecycle: production
+  owner: vector-team
+  system: vector-ingestion
+  definition: |
+    openapi: 3.0.1
+    info:
+      title: osm sync tracker
+      description: Api to update on the progress of a cycle of entities sync
+      license:
+        name: MIT
+      version: 3.3.0
+    tags:
+      - name: sync
+      - name: file
+      - name: entity
+      - name: changeset
+    paths:
+      /sync:
+        post:
+          summary: Register a new sync
+          requestBody:
+            description: start tracking a new synchronization
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/sync'
+                    - type: object
+                      required:
+                        - id
+                        - startDate
+                        - layerId
+                        - isFull
+                        - dumpDate
+                        - geometryType
+            required: true
+          operationId: postSync
+          tags:
+            - sync
+          responses:
+            '201':
+              description: created
+            '400':
+              $ref: '#/components/responses/BadRequest'
+            '409':
+              $ref: '#/components/responses/Conflict'
+            5XX:
+              $ref: '#/components/responses/UnexpectedError'
+      /sync/latest:
+        get:
+          summary: Get the latest sync based on start date
+          parameters:
+            - in: query
+              name: layerId
+              schema:
+                $ref: '#/components/schemas/layerId'
+              required: true
+            - in: query
+              name: geometryType
+              schema:
+                $ref: '#/components/schemas/geometryType'
+              required: true
+          operationId: getLatestSync
+          tags:
+            - sync
+          responses:
+            '200':
+              description: the latest sync for the requsted layer and geometry
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/sync'
+            '400':
+              $ref: '#/components/responses/BadRequest'
+            '404':
+              $ref: '#/components/responses/NotFound'
+            5XX:
+              $ref: '#/components/responses/UnexpectedError'
+      /sync/{syncId}:
+        patch:
+          summary: Update the sync
+          parameters:
+            - $ref: '#/components/parameters/syncId'
+          requestBody:
+            description: the propeties to update in the sync
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/updateSync'
+            required: true
+          operationId: patchSync
+          tags:
+            - sync
+          responses:
+            '200':
+              description: OK
+            '400':
+              $ref: '#/components/responses/BadRequest'
+            '404':
+              $ref: '#/components/responses/NotFound'
+            5XX:
+              $ref: '#/components/responses/UnexpectedError'
+      /sync/{syncId}/file:
+        post:
+          summary: add a file to the sync
+          parameters:
+            - $ref: '#/components/parameters/syncId'
+          requestBody:
+            description: the file that is part of the mentioned sync
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/file'
+                    - type: object
+                      required:
+                        - startDate
+                        - fileId
+            required: true
+          operationId: postFile
+          tags:
+            - file
+          responses:
+            '201':
+              description: created
+            '400':
+              $ref: '#/components/responses/BadRequest'
+            '404':
+              $ref: '#/components/responses/NotFound'
+            5XX:
+              $ref: '#/components/responses/UnexpectedError'
+      /sync/{syncId}/file/_bulk:
+        post:
+          summary: add multiple files to the sync
+          parameters:
+            - $ref: '#/components/parameters/syncId'
+          requestBody:
+            description: the files that are part of the mentioned sync
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/file'
+            required: true
+          operationId: postFiles
+          tags:
+            - file
+          responses:
+            '201':
+              description: created
+            '400':
+              $ref: '#/components/responses/BadRequest'
+            '404':
+              $ref: '#/components/responses/NotFound'
+            5XX:
+              $ref: '#/components/responses/UnexpectedError'
+      /sync/{syncId}/file/{fileId}:
+        patch:
+          summary: patch a file of sync
+          parameters:
+            - $ref: '#/components/parameters/syncId'
+            - $ref: '#/components/parameters/fileId'
+          requestBody:
+            description: the file and the file's sync to patch
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/filePatch'
+                    - type: object
+                      required:
+                        - totalEntities
+            required: true
+          operationId: patchFile
+          tags:
+            - file
+          responses:
+            '200':
+              description: the possible sync id that was completed due to the request
+              content:
+                application/json:
+                  schema:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/uniqueId'
+            '400':
+              $ref: '#/components/responses/BadRequest'
+            '404':
+              $ref: '#/components/responses/NotFound'
+            5XX:
+              $ref: '#/components/responses/UnexpectedError'
+      /sync/{syncId}/rerun:
+        post:
+          summary: rerun a sync if needed
+          parameters:
+            - $ref: '#/components/parameters/syncId'
+          requestBody:
+            description: the rerun id to be created and its start date
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    rerunId:
+                      $ref: '#/components/schemas/uniqueId'
+                    startDate:
+                      type: string
+                      format: date-time
+                    shouldRerunNotSynced:
+                      type: boolean
+                  required:
+                    - rerunId
+                    - startDate
+          operationId: rerunSync
+          tags:
+            - sync
+          responses:
+            '200':
+              description: the rerun was not created due to the sync closing successfuly
+            '201':
+              description: created
+            '400':
+              $ref: '#/components/responses/BadRequest'
+            '404':
+              $ref: '#/components/responses/NotFound'
+            '409':
+              $ref: '#/components/responses/Conflict'
+            5XX:
+              $ref: '#/components/responses/UnexpectedError'
+      /file/{fileId}/entity:
+        post:
+          summary: add a new entity to the file
+          description: >-
+            add a entity that is part of the file, once all entities are completed
+            the file will be considered done
+          parameters:
+            - $ref: '#/components/parameters/fileId'
+          requestBody:
+            description: entity
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/entity'
+                    - type: object
+                      required:
+                        - status
+                        - entityId
+                        - action
+            required: true
+          operationId: postEntity
+          tags:
+            - entity
+          responses:
+            '201':
+              description: created
+            '400':
+              $ref: '#/components/responses/BadRequest'
+            '404':
+              $ref: '#/components/responses/NotFound'
+            5XX:
+              $ref: '#/components/responses/UnexpectedError'
+      /file/{fileId}/entity/_bulk:
+        post:
+          summary: add multiple entities to a file
+          description: >-
+            add multiple entities that are part of the file, once all entities are
+            completed the file will be considered done
+          parameters:
+            - $ref: '#/components/parameters/fileId'
+          requestBody:
+            description: entity
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/entity'
+            required: true
+          operationId: postEntities
+          tags:
+            - entity
+          responses:
+            '201':
+              description: >-
+                created result constiting the newly created and previously completed
+                entity ids
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      created:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/entityId'
+                      previouslyCompleted:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/entityId'
+            '400':
+              $ref: '#/components/responses/BadRequest'
+            '404':
+              $ref: '#/components/responses/NotFound'
+            5XX:
+              $ref: '#/components/responses/UnexpectedError'
+      /file/{fileId}/entity/{entityId}:
+        patch:
+          summary: Update the entity parameters
+          parameters:
+            - $ref: '#/components/parameters/fileId'
+            - $ref: '#/components/parameters/entityId'
+          requestBody:
+            description: the updated properties for the entity
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/entityWithoutId'
+            required: true
+          operationId: patchEntity
+          tags:
+            - entity
+          responses:
+            '200':
+              description: the sync ids that were completed due to the request
+              content:
+                application/json:
+                  schema:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/uniqueId'
+            '400':
+              $ref: '#/components/responses/BadRequest'
+            '404':
+              $ref: '#/components/responses/NotFound'
+            5XX:
+              $ref: '#/components/responses/UnexpectedError'
+      /entity/_bulk:
+        patch:
+          summary: edit multiple entities in a bulk operation
+          description: edit multiple entities from different files in one operation
+          requestBody:
+            description: partial entities
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    allOf:
+                      - $ref: '#/components/schemas/entityWithFileId'
+                      - type: object
+                        required:
+                          - entityId
+                          - fileId
+            required: true
+          operationId: patchEntities
+          tags:
+            - entity
+          responses:
+            '200':
+              description: OK
+            '400':
+              $ref: '#/components/responses/BadRequest'
+            '404':
+              $ref: '#/components/responses/NotFound'
+            5XX:
+              $ref: '#/components/responses/UnexpectedError'
+      /changeset:
+        post:
+          summary: add a new changeset
+          description: >-
+            add a new changeset. note that a changeset might contain entities from
+            multiple syncs
+          requestBody:
+            description: the changeset to add
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/changeset'
+                    - type: object
+                      required:
+                        - changesetId
+            required: true
+          operationId: postChangeset
+          tags:
+            - changeset
+          responses:
+            '201':
+              description: created
+            '400':
+              $ref: '#/components/responses/BadRequest'
+            '404':
+              $ref: '#/components/responses/NotFound'
+            5XX:
+              $ref: '#/components/responses/UnexpectedError'
+      /changeset/{changesetId}:
+        patch:
+          summary: Update the changeset properties
+          parameters:
+            - $ref: '#/components/parameters/changesetId'
+          requestBody:
+            description: the changeset properties to edit
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/changesetWithoutId'
+            required: true
+          operationId: patchChangeset
+          tags:
+            - changeset
+          responses:
+            '200':
+              description: OK
+            '400':
+              $ref: '#/components/responses/BadRequest'
+            '404':
+              $ref: '#/components/responses/NotFound'
+            5XX:
+              $ref: '#/components/responses/UnexpectedError'
+      /changeset/{changesetId}/close:
+        put:
+          summary: close the changeset
+          description: >-
+            closes the changeset, sets all its entities as done, and checks if the
+            sync is completed
+          parameters:
+            - $ref: '#/components/parameters/changesetId'
+          operationId: closeChangeset
+          tags:
+            - changeset
+          responses:
+            '200':
+              description: OK
+            '400':
+              $ref: '#/components/responses/BadRequest'
+            '404':
+              $ref: '#/components/responses/NotFound'
+            5XX:
+              $ref: '#/components/responses/UnexpectedError'
+      /changeset/{changesetId}/entities:
+        patch:
+          summary: close the entities of the changeset
+          description: closes the changeset, sets all its entities as done
+          parameters:
+            - $ref: '#/components/parameters/changesetId'
+          operationId: closeChangesetEntities
+          tags:
+            - changeset
+          responses:
+            '200':
+              description: OK
+            '400':
+              $ref: '#/components/responses/BadRequest'
+            '404':
+              $ref: '#/components/responses/NotFound'
+            5XX:
+              $ref: '#/components/responses/UnexpectedError'
+      /changeset/close/_bulk:
+        put:
+          summary: close the changeset file or sync if needed
+          description: checks if the file or sync are completed
+          requestBody:
+            description: the changeset ids to check for close
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/uniqueId'
+          operationId: closeChangesets
+          tags:
+            - changeset
+          responses:
+            '200':
+              description: the sync ids that were completed due to the request
+              content:
+                application/json:
+                  schema:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/uniqueId'
+            '400':
+              $ref: '#/components/responses/BadRequest'
+            5XX:
+              $ref: '#/components/responses/UnexpectedError'
+    components:
+      responses:
+        BadRequest:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        NotFound:
+          description: The specified resource was not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        Conflict:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        UnexpectedError:
+          description: Unexpected Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+        syncId:
+          in: path
+          name: syncId
+          schema:
+            $ref: '#/components/schemas/uniqueId'
+          required: true
+        changesetId:
+          in: path
+          name: changesetId
+          schema:
+            $ref: '#/components/schemas/uniqueId'
+          required: true
+        entityId:
+          in: path
+          name: entityId
+          schema:
+            $ref: '#/components/schemas/entityId'
+          required: true
+        fileId:
+          in: path
+          name: fileId
+          schema:
+            $ref: '#/components/schemas/uniqueId'
+          required: true
+      schemas:
+        status:
+          type: string
+          enum:
+            - inprogress
+            - completed
+            - failed
+        geometryType:
+          type: string
+          enum:
+            - point
+            - linestring
+            - polygon
+        Error:
+          type: object
+          properties:
+            message:
+              type: string
+        uniqueId:
+          type: string
+          format: uuid
+        entityId:
+          type: string
+          pattern: >-
+            {[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}}
+        layerId:
+          type: integer
+        sync:
+          type: object
+          properties:
+            id:
+              $ref: '#/components/schemas/uniqueId'
+            isFull:
+              type: boolean
+            startDate:
+              type: string
+              format: date-time
+            dumpDate:
+              type: string
+              format: date-time
+            endDate:
+              type: string
+              format: date-time
+            status:
+              $ref: '#/components/schemas/status'
+            layerId:
+              $ref: '#/components/schemas/layerId'
+            totalFiles:
+              type: integer
+            geometryType:
+              $ref: '#/components/schemas/geometryType'
+        updateSync:
+          type: object
+          additionalProperties: false
+          properties:
+            startDate:
+              type: string
+              format: date-time
+            dumpDate:
+              type: string
+              format: date-time
+            endDate:
+              type: string
+              format: date-time
+            status:
+              $ref: '#/components/schemas/status'
+            layerId:
+              $ref: '#/components/schemas/layerId'
+            totalFiles:
+              type: integer
+            geometryType:
+              $ref: '#/components/schemas/geometryType'
+        file:
+          type: object
+          properties:
+            fileId:
+              $ref: '#/components/schemas/uniqueId'
+            syncId:
+              allOf:
+                - $ref: '#/components/schemas/uniqueId'
+                - readOnly: true
+            totalEntities:
+              type: integer
+              format: int64
+            startDate:
+              type: string
+              format: date-time
+            endDate:
+              type: string
+              format: date-time
+            status:
+              $ref: '#/components/schemas/status'
+        filePatch:
+          type: object
+          properties:
+            totalEntities:
+              type: integer
+              format: int64
+        changesetWithoutId:
+          type: object
+          properties:
+            osmId:
+              type: integer
+              format: int64
+        changeset:
+          allOf:
+            - type: object
+              properties:
+                changesetId:
+                  type: string
+                  format: uuid
+            - $ref: '#/components/schemas/changesetWithoutId'
+        entityWithoutId:
+          type: object
+          properties:
+            fileId:
+              allOf:
+                - $ref: '#/components/schemas/uniqueId'
+                - readOnly: true
+            changesetId:
+              $ref: '#/components/schemas/uniqueId'
+            status:
+              type: string
+              enum:
+                - inprogress
+                - not_synced
+                - completed
+                - failed
+            action:
+              type: string
+              enum:
+                - create
+                - modify
+                - delete
+            failReason:
+              type: string
+              maxLength: 500
+        entity:
+          allOf:
+            - type: object
+              properties:
+                entityId:
+                  $ref: '#/components/schemas/entityId'
+            - $ref: '#/components/schemas/entityWithoutId'
+        entityWithFileId:
+          allOf:
+            - type: object
+              properties:
+                entityId:
+                  $ref: '#/components/schemas/entityId'
+                fileId:
+                  $ref: '#/components/schemas/uniqueId'
+                changesetId:
+                  $ref: '#/components/schemas/uniqueId'
+                status:
+                  type: string
+                  enum:
+                    - inprogress
+                    - not_synced
+                    - completed
+                    - failed
+                action:
+                  type: string
+                  enum:
+                    - create
+                    - modify
+                    - delete
+                failReason:
+                  type: string
+                  maxLength: 500
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: osm-sync-tracker-db
+  description: Stores entities details
+  labels:
+    db-type: postgres
+spec:
+  type: database
+  owner: vector-team
+  system: vector-ingestion
