@@ -12,6 +12,51 @@ tags:
   - name: changeset
 paths:
   /sync:
+    get:
+      operationId: getSyncs
+      tags:
+        - sync
+      summary: Get syncs by filter
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/status'
+        - in: query
+          name: geometry_type
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/geometryType'
+        - in: query
+          name: layer_id
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/layerId'
+        - in: query
+          name: is_full
+          schema:
+            type: boolean
+        - in: query
+          name: is_rerun
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: all the syncs matching provided filter
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/extendedSync'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        5XX:
+          $ref: '#/components/responses/UnexpectedError'
     post:
       summary: Register a new sync
       requestBody:
@@ -583,6 +628,16 @@ components:
           type: integer
         geometryType:
           $ref: '#/components/schemas/geometryType'
+    extendedSync:
+      allOf:
+        - $ref: '#/components/schemas/sync'
+        - type: object
+          properties:
+            baseSyncId:
+              $ref: '#/components/schemas/uniqueId'
+            runNumber:
+              type: integer
+        - additionalProperties: false
     updateSync:
       type: object
       additionalProperties: false

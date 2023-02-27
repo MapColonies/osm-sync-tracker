@@ -4,8 +4,8 @@ import { faker } from '@faker-js/faker';
 import { DataSource, In, QueryFailedError, Repository } from 'typeorm';
 import { EntityRepository, ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/entity/DAL/entityRepository';
 import { getApp } from '../../../src/app';
-import { BEFORE_ALL_TIMEOUT, RERUN_TEST_TIMEOUT, getBaseRegisterOptions, DEFAULT_ISOLATION_LEVEL } from '../helpers';
-import { SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/sync/DAL/syncRepository';
+import { BEFORE_ALL_TIMEOUT, RERUN_TEST_TIMEOUT, getBaseRegisterOptions, DEFAULT_ISOLATION_LEVEL, clearRepositories } from '../helpers';
+import { SyncRepository, SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/sync/DAL/syncRepository';
 import { FILE_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/file/DAL/fileRepository';
 import { EntityStatus, GeometryType, Status } from '../../../src/common/enums';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
@@ -28,6 +28,7 @@ describe('sync', function () {
   let changesetRequestSender: ChangesetRequestSender;
   let mockSyncRequestSender: SyncRequestSender;
   let entityRepository: EntityRepository;
+  let syncRepository: SyncRepository;
   let entityHistoryRepository: Repository<EntityHistory>;
 
   let depContainer: DependencyContainer;
@@ -40,6 +41,7 @@ describe('sync', function () {
     entityRequestSender = new EntityRequestSender(app);
     changesetRequestSender = new ChangesetRequestSender(app);
     entityRepository = depContainer.resolve<EntityRepository>(ENTITY_CUSTOM_REPOSITORY_SYMBOL);
+    syncRepository = depContainer.resolve<SyncRepository>(SYNC_CUSTOM_REPOSITORY_SYMBOL);
     const connection = depContainer.resolve(DataSource);
     entityHistoryRepository = connection.getRepository(EntityHistory);
   }, BEFORE_ALL_TIMEOUT);
@@ -83,6 +85,152 @@ describe('sync', function () {
 
         expect(response.status).toBe(httpStatus.OK);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
+      });
+    });
+
+    describe('GET /sync', function () {
+      it('should return 200 status code and the filtered syncs by status, layerId and geometry type', async function () {
+        const layerId = faker.datatype.number();
+        const inprogressSync = createStringifiedFakeSync({ status: Status.IN_PROGRESS, geometryType: GeometryType.POLYGON, layerId });
+        expect(await syncRequestSender.postSync(inprogressSync)).toHaveStatus(StatusCodes.CREATED);
+
+        const anotherInprogressSync = createStringifiedFakeSync({ status: Status.IN_PROGRESS, geometryType: GeometryType.LINESTRING, layerId });
+        expect(await syncRequestSender.postSync(anotherInprogressSync)).toHaveStatus(StatusCodes.CREATED);
+
+        const completedSync = createStringifiedFakeSync({
+          status: Status.COMPLETED,
+          geometryType: GeometryType.POLYGON,
+          layerId
+        });
+        expect(await syncRequestSender.postSync(completedSync)).toHaveStatus(StatusCodes.CREATED);
+
+        const differentGeometryTypeSync = createStringifiedFakeSync({
+          status: Status.IN_PROGRESS,
+          geometryType: GeometryType.POINT,
+          layerId
+        });
+        expect(await syncRequestSender.postSync(differentGeometryTypeSync)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await syncRequestSender.getSyncs({ status: [Status.IN_PROGRESS], geometryType: [GeometryType.POLYGON, GeometryType.LINESTRING], layerId: [layerId] });
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.body).toHaveLength(2);
+        expect(response).toHaveProperty('body', expect.arrayContaining([{ ...inprogressSync, baseSyncId: null, endDate: null, runNumber: 0 }, { ...anotherInprogressSync, baseSyncId: null, endDate: null, runNumber: 0 }]));
+      });
+
+      it('should return 200 status code and the filtered syncs by isFull and status', async function () {
+        const layerId = faker.datatype.number();
+        const sync1 = createStringifiedFakeSync({ status: Status.COMPLETED, isFull: true, geometryType: GeometryType.POLYGON, layerId });
+        expect(await syncRequestSender.postSync(sync1)).toHaveStatus(StatusCodes.CREATED);
+
+        const sync2 = createStringifiedFakeSync({ status: Status.IN_PROGRESS, isFull: true, geometryType: GeometryType.LINESTRING, layerId });
+        expect(await syncRequestSender.postSync(sync2)).toHaveStatus(StatusCodes.CREATED);
+
+        const sync3 = createStringifiedFakeSync({ status: Status.COMPLETED, isFull: true, geometryType: GeometryType.LINESTRING, layerId });
+        expect(await syncRequestSender.postSync(sync3)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await syncRequestSender.getSyncs({ status: [Status.COMPLETED], isFull: true, layerId: [layerId] });
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.body).toHaveLength(2);
+        expect(response).toHaveProperty('body', expect.arrayContaining([{ ...sync1, baseSyncId: null, endDate: null, runNumber: 0 }, { ...sync3, baseSyncId: null, endDate: null, runNumber: 0 }]));
+      });
+
+      it('should return 200 status code and the filtered syncs by isRerun, layerId and geometryType', async function () {
+        const layerId = faker.datatype.number()
+        // create the base sync
+        const sync1 = createStringifiedFakeSync({ layerId });
+        expect(await syncRequestSender.postSync(sync1)).toHaveStatus(StatusCodes.CREATED);
+        const { id: baseSyncId } = sync1;
+
+        // mark the base sync as failure and rerun
+        expect(await syncRequestSender.patchSync(baseSyncId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+        const rerunCreateBody = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
+        const { rerunId, startDate } = rerunCreateBody;
+        expect(await syncRequestSender.rerunSync(baseSyncId as string, rerunCreateBody)).toHaveStatus(httpStatus.CREATED);
+
+        const sync2 = createStringifiedFakeSync({ layerId, geometryType: GeometryType.POLYGON });
+        expect(await syncRequestSender.postSync(sync2)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await syncRequestSender.getSyncs({ isRerun: true, geometryType: [GeometryType.POLYGON], layerId: [layerId] });
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.body).toHaveLength(1);
+        expect(response).toHaveProperty('body', expect.arrayContaining([{ ...sync1, id: rerunId, baseSyncId: sync1.id as string, startDate: startDate as string, endDate: null, runNumber: 1 }]));
+      });
+
+      it('should return 200 status code and the filtered syncs by isRerun, isFull and status', async function () {
+        // create failed full rerun
+        const fullSync = createStringifiedFakeSync({ isFull: true });
+        expect(await syncRequestSender.postSync(fullSync)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.patchSync(fullSync.id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+        const fullRerunCreateBody1 = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
+        expect(await syncRequestSender.rerunSync(fullSync.id as string, fullRerunCreateBody1)).toHaveStatus(httpStatus.CREATED);
+        expect(await syncRequestSender.patchSync(fullRerunCreateBody1.rerunId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+
+        // create another rerun with the same base sync
+        const fullRerunCreateBody2 = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
+        expect(await syncRequestSender.rerunSync(fullSync.id as string, fullRerunCreateBody2)).toHaveStatus(httpStatus.CREATED);
+        expect(await syncRequestSender.patchSync(fullRerunCreateBody2.rerunId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+
+        // create another but inprogress
+        const fullRerunCreateBody3 = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
+        expect(await syncRequestSender.rerunSync(fullSync.id as string, fullRerunCreateBody3)).toHaveStatus(httpStatus.CREATED);
+
+        // create failed rerun but not full
+        const diffSync = createStringifiedFakeSync({ isFull: false });
+        expect(await syncRequestSender.postSync(diffSync)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.patchSync(diffSync.id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+        const diffRerunCreateBody = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
+        expect(await syncRequestSender.rerunSync(diffSync.id as string, diffRerunCreateBody)).toHaveStatus(httpStatus.CREATED);
+        expect(await syncRequestSender.patchSync(diffRerunCreateBody.rerunId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+
+        // create failed full sync but not rerun
+        const fullSync2 = createStringifiedFakeSync({ isFull: true, status: Status.FAILED });
+        expect(await syncRequestSender.postSync(fullSync2)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await syncRequestSender.getSyncs({ isRerun: true, isFull: true, status: [Status.FAILED] });
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.body).toHaveLength(2);
+        expect(response).toHaveProperty('body', expect.arrayContaining([{ ...fullSync, id: fullRerunCreateBody1.rerunId, baseSyncId: fullSync.id as string, startDate: fullRerunCreateBody1.startDate as string, endDate: null, runNumber: 1, status: Status.FAILED }, { ...fullSync, id: fullRerunCreateBody2.rerunId, baseSyncId: fullSync.id as string, startDate: fullRerunCreateBody2.startDate as string, endDate: null, runNumber: 2, status: Status.FAILED }]));
+      });
+
+      it('should return 200 status code and the filtered syncs by isRerun, isFull, geometryType, status and layerId', async function () {
+        const layerId1 = faker.datatype.number();
+        const layerId2 = faker.datatype.number();
+
+        // valid
+        const sync0 = createStringifiedFakeSync({ isFull: false, geometryType: GeometryType.POLYGON, status: Status.COMPLETED, layerId: layerId1 });
+        // another layerId
+        const sync1 = createStringifiedFakeSync({ isFull: false, geometryType: GeometryType.LINESTRING, status: Status.COMPLETED, layerId: layerId2 });
+        // bad layerId
+        const sync2 = createStringifiedFakeSync({ isFull: false, geometryType: GeometryType.POLYGON, status: Status.COMPLETED, layerId: layerId1 + 1 });
+        // bad isFull
+        const sync3 = createStringifiedFakeSync({ isFull: true, geometryType: GeometryType.POLYGON, status: Status.COMPLETED, layerId: layerId1 });
+        // another geometryType
+        const sync4 = createStringifiedFakeSync({ isFull: false, geometryType: GeometryType.LINESTRING, status: Status.COMPLETED, layerId: layerId1 });
+        // bad status
+        const sync5 = createStringifiedFakeSync({ isFull: false, geometryType: GeometryType.POLYGON, status: Status.IN_PROGRESS, layerId: layerId1 });
+        // another status
+        const sync6 = createStringifiedFakeSync({ isFull: false, geometryType: GeometryType.POLYGON, status: Status.FAILED, layerId: layerId1 });
+        // bad geometryType
+        const sync7 = createStringifiedFakeSync({ isFull: false, geometryType: GeometryType.POINT, status: Status.COMPLETED, layerId: layerId1 });
+
+        expect(await syncRequestSender.postSync(sync0)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(sync1)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(sync2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(sync3)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(sync4)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(sync5)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(sync6)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(sync7)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await syncRequestSender.getSyncs({ isRerun: false, isFull: false, status: [Status.COMPLETED, Status.FAILED], geometryType: [GeometryType.POLYGON, GeometryType.LINESTRING], layerId: [layerId1, layerId2] });
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.body).toHaveLength(4);
+        expect(response).toHaveProperty('body', expect.arrayContaining([{ ...sync0, endDate: null, baseSyncId: null, runNumber: 0 }, { ...sync1, endDate: null, baseSyncId: null, runNumber: 0 }, { ...sync4, endDate: null, baseSyncId: null, runNumber: 0 }, { ...sync6, endDate: null, baseSyncId: null, runNumber: 0 }]));
       });
     });
 
@@ -1453,6 +1601,22 @@ describe('sync', function () {
         const { id, isFull, ...body } = createStringifiedFakeSync();
 
         const response = await mockSyncRequestSender.patchSync(id as string, body);
+
+        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+        expect(response.body).toHaveProperty('message', 'failed');
+      });
+    });
+
+    describe('GET /sync', function () {
+      it('should return 500 if the db throws an error', async function () {
+        const filterSyncsMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
+
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({ token: SYNC_CUSTOM_REPOSITORY_SYMBOL, provider: { useValue: { filterSyncs: filterSyncsMock } } });
+        const { app: mockApp } = await getApp(mockRegisterOptions);
+        mockSyncRequestSender = new SyncRequestSender(mockApp);
+
+        const response = await mockSyncRequestSender.getSyncs({});
 
         expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
         expect(response.body).toHaveProperty('message', 'failed');

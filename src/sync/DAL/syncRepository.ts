@@ -1,9 +1,9 @@
-import { DataSource, EntityManager, FindOptionsWhere } from 'typeorm';
+import { DataSource, EntityManager, FindOptionsWhere, In, MoreThan } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
 import { EntityStatus, GeometryType } from '../../common/enums';
-import { BaseSync, CreateRerunRequest, Sync, SyncUpdate, SyncWithReruns } from '../models/sync';
+import { BaseSync, CreateRerunRequest, Sync, SyncsFilter, SyncUpdate, SyncWithReruns } from '../models/sync';
 import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
 import { TransactionFailureError } from '../../changeset/models/errors';
 import { getIsolationLevel } from '../../common/utils/db';
@@ -174,6 +174,32 @@ const createSyncRepo = (dataSource: DataSource) => {
 
     async findSyncs(filter: Partial<Sync>): Promise<Sync[]> {
       return this.find({ where: filter as FindOptionsWhere<Sync> });
+    },
+
+    async filterSyncs(filter: SyncsFilter): Promise<Sync[]> {
+      const { status, layerId, geometryType, isFull, isRerun } = filter;
+      const options: FindOptionsWhere<Sync> = {};
+      if (status) {
+        options.status = In(status);
+      }
+
+      if (layerId) {
+        options.layerId = In(layerId);
+      }
+
+      if (geometryType) {
+        options.geometryType = In(geometryType);
+      }
+
+      if (isFull !== undefined) {
+        options.isFull = isFull;
+      }
+
+      if (isRerun !== undefined) {
+        options.runNumber = isRerun ? MoreThan(0) : 0;
+      }
+
+      return this.find({ where: options });
     },
 
     async findOneSyncWithLastRerun(syncId: string): Promise<SyncWithReruns | null> {

@@ -5,7 +5,7 @@ import { GeometryType, Status } from '../../common/enums';
 import { IConfig } from '../../common/interfaces';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../DAL/syncRepository';
 import { FullSyncAlreadyExistsError, InvalidSyncForRerunError, RerunAlreadyExistsError, SyncAlreadyExistsError, SyncNotFoundError } from './errors';
-import { BaseSync, CreateRerunRequest, Sync, SyncUpdate } from './sync';
+import { BaseSync, CreateRerunRequest, Sync, SyncsFilter, SyncUpdate } from './sync';
 
 @injectable()
 export class SyncManager {
@@ -17,6 +17,12 @@ export class SyncManager {
     @inject(SERVICES.CONFIG) private readonly config: IConfig
   ) {
     this.dbSchema = this.config.get('db.schema');
+  }
+
+  public async getSyncs(filter: SyncsFilter): Promise<BaseSync[]> {
+    this.logger.info({ msg: 'getting syncs by filter', filter });
+
+    return this.syncRepository.filterSyncs(filter);
   }
 
   public async getLatestSync(layerId: number, geometryType: GeometryType): Promise<BaseSync> {

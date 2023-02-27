@@ -2,9 +2,10 @@ import { Logger } from '@map-colonies/js-logger';
 import { RequestHandler } from 'express';
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { injectable, inject } from 'tsyringe';
+import { SnakeCasedProperties } from 'type-fest';
 import mime from 'mime-types';
 import { SERVICES } from '../../common/constants';
-import { BaseSync, Sync, SyncUpdate } from '../models/sync';
+import { BaseSync, Sync, SyncsFilter, SyncUpdate } from '../models/sync';
 import { SyncManager } from '../models/syncManager';
 import { HttpError } from '../../common/errors';
 import {
@@ -15,7 +16,9 @@ import {
   SyncNotFoundError,
 } from '../models/errors';
 import { GeometryType } from '../../common/enums';
+import { convertObjectToCased } from '../../common/utils';
 
+type GetSyncsHandler = RequestHandler<undefined, BaseSync[], undefined, SnakeCasedProperties<SyncsFilter>>;
 type GetLatestSyncHandler = RequestHandler<undefined, BaseSync, undefined, { layerId: number; geometryType: GeometryType }>;
 type PostSyncHandler = RequestHandler<undefined, string, Sync>;
 type PatchSyncHandler = RequestHandler<{ syncId: string }, string, SyncUpdate>;
@@ -26,6 +29,16 @@ const txtplain = mime.contentType('text/plain') as string;
 @injectable()
 export class SyncController {
   public constructor(@inject(SERVICES.LOGGER) private readonly logger: Logger, private readonly manager: SyncManager) {}
+
+  public getSyncs: GetSyncsHandler = async (req, res, next) => {
+    try {
+      const filter = convertObjectToCased(req.query, 'camel');
+      const syncs = await this.manager.getSyncs(filter);
+      return res.status(httpStatus.OK).json(syncs);
+    } catch (error) {
+      return next(error);
+    }
+  };
 
   public getLatestSync: GetLatestSyncHandler = async (req, res, next) => {
     const { layerId, geometryType } = req.query;
