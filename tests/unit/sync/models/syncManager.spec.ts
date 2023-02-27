@@ -2,7 +2,7 @@ import jsLogger from '@map-colonies/js-logger';
 import { faker } from '@faker-js/faker';
 import { SyncManager } from '../../../../src/sync/models/syncManager';
 import { SyncRepository } from '../../../../src/sync/DAL/syncRepository';
-import { createFakeRerunSync, createFakeSync } from '../../../helpers/helper';
+import { createFakeRerunSync, createFakeSync, generateUniqueNumber } from '../../../helpers/helper';
 import {
   FullSyncAlreadyExistsError,
   InvalidSyncForRerunError,
@@ -51,7 +51,7 @@ describe('SyncManager', () => {
     it('resolves without errors if the filter is valid', async () => {
       const sync = createFakeSync();
 
-      const getSyncsPromise = syncManager.getSyncs({ status: [sync.status], layerId: [sync.layerId, faker.datatype.number()] });
+      const getSyncsPromise = syncManager.getSyncs({ status: [sync.status], layerId: [sync.layerId, generateUniqueNumber()] });
 
       await expect(getSyncsPromise).resolves.not.toThrow();
     });
