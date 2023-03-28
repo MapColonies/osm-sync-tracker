@@ -10,6 +10,7 @@ export const syncRouterFactory: FactoryFunction<Router> = (dependencyContainer) 
   const syncController = dependencyContainer.resolve(SyncController);
   const fileController = dependencyContainer.resolve(FileController);
 
+  router.get('/', syncController.getSyncs);
   router.post('/', syncController.postSync);
   router.get('/latest', syncController.getLatestSync);
   router.patch('/:syncId', syncController.patchSync);

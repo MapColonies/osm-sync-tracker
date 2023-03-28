@@ -62,7 +62,7 @@
     "pg": "^8.7.3",
     "reflect-metadata": "^0.1.13",
     "tsyringe": "^4.7.0",
-    "typeorm": "^0.3.6"
+    "typeorm": "^0.3.12"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.0.2",
@@ -100,6 +100,7 @@
     "supertest": "^6.2.3",
     "ts-jest": "^28.0.3",
     "ts-node": "^10.8.0",
+    "type-fest": "^3.6.1",
     "typescript": "^4.7.2"
   }
 }

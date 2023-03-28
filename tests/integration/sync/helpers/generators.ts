@@ -1,5 +1,6 @@
 import { faker } from '@faker-js/faker';
 import { GeometryType, Status } from '../../../../src/common/enums';
+import { generateUniqueNumber } from '../../../helpers/helper';
 import { StringifiedRerunCreateBody, StringifiedSync } from '../types';
 
 export type FakeStringifiedSyncParams = Partial<StringifiedSync>;
@@ -14,7 +15,7 @@ export const createStringifiedFakeSync = (params: FakeStringifiedSyncParams = {}
 
     status: params.status ?? Status.IN_PROGRESS,
 
-    layerId: params.layerId ?? faker.datatype.number(),
+    layerId: params.layerId ?? generateUniqueNumber(),
 
     isFull: params.isFull ?? faker.datatype.boolean(),
 

@@ -2,7 +2,7 @@ import jsLogger from '@map-colonies/js-logger';
 import { faker } from '@faker-js/faker';
 import { SyncManager } from '../../../../src/sync/models/syncManager';
 import { SyncRepository } from '../../../../src/sync/DAL/syncRepository';
-import { createFakeRerunSync, createFakeSync } from '../../../helpers/helper';
+import { createFakeRerunSync, createFakeSync, generateUniqueNumber } from '../../../helpers/helper';
 import {
   FullSyncAlreadyExistsError,
   InvalidSyncForRerunError,
@@ -16,6 +16,7 @@ import { CreateRerunRequest } from '../../../../src/sync/models/sync';
 let syncManager: SyncManager;
 
 describe('SyncManager', () => {
+  const filterSyncs = jest.fn();
   const createSync = jest.fn();
   const getLatestSync = jest.fn();
   const updateSync = jest.fn();
@@ -28,6 +29,7 @@ describe('SyncManager', () => {
     jest.resetAllMocks();
 
     const syncRepository = {
+      filterSyncs,
       getLatestSync,
       createSync,
       updateSync,
@@ -37,6 +39,22 @@ describe('SyncManager', () => {
       createRerun,
     } as unknown as SyncRepository;
     syncManager = new SyncManager(syncRepository, jsLogger({ enabled: false }), { get: jest.fn(), has: jest.fn() });
+  });
+
+  describe('#getSyncs', () => {
+    it('resolves without errors if the filter is empty', async () => {
+      const getSyncsPromise = syncManager.getSyncs({});
+
+      await expect(getSyncsPromise).resolves.not.toThrow();
+    });
+
+    it('resolves without errors if the filter is valid', async () => {
+      const sync = createFakeSync();
+
+      const getSyncsPromise = syncManager.getSyncs({ status: [sync.status], layerId: [sync.layerId, generateUniqueNumber()] });
+
+      await expect(getSyncsPromise).resolves.not.toThrow();
+    });
   });
 
   describe('#createSync', () => {

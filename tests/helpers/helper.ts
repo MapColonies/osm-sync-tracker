@@ -8,6 +8,19 @@ import { Changeset } from '../../src/changeset/models/changeset';
 const MAX_GENERATED_FAKES = 1000;
 const MIN_GENERATED_FAKES = 1;
 
+const previouslyGeneratedNumbers = new Set<number>();
+
+export const generateUniqueNumber = (): number => {
+  let number;
+  do {
+    number = faker.datatype.number();
+  } while (previouslyGeneratedNumbers.has(number));
+
+  previouslyGeneratedNumbers.add(number);
+
+  return number;
+};
+
 export type FakeSyncParams = Partial<Sync>;
 
 export const createFakeSync = (params: FakeSyncParams = {}): Sync => {
@@ -20,7 +33,7 @@ export const createFakeSync = (params: FakeSyncParams = {}): Sync => {
 
     status: params.status ?? Status.IN_PROGRESS,
 
-    layerId: params.layerId ?? faker.datatype.number(),
+    layerId: params.layerId ?? generateUniqueNumber(),
 
     isFull: params.isFull ?? faker.datatype.boolean(),
 
@@ -52,7 +65,7 @@ export const createFakeRerunSync = (params: FakeSyncParams = {}): Sync => {
 
     status: params.status ?? Status.IN_PROGRESS,
 
-    layerId: params.layerId ?? faker.datatype.number(),
+    layerId: params.layerId ?? generateUniqueNumber(),
 
     isFull: params.isFull ?? faker.datatype.boolean(),
 

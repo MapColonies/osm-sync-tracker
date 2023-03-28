@@ -31,3 +31,11 @@ export type SyncUpdate = Omit<Partial<Sync>, 'id' | 'isFull'>;
 export type SyncWithReruns = Sync & { reruns: Sync[] };
 
 export type CreateRerunRequest = Sync & { shouldRerunNotSynced: boolean };
+
+export interface SyncsFilter {
+  layerId?: number[];
+  status?: Status[];
+  geometryType?: GeometryType[];
+  isFull?: boolean;
+  isRerun?: boolean;
+}

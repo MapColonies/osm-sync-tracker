@@ -4,12 +4,12 @@ metadata:
   name: osm-sync-tracker
   description: Tracking the progress of all OSM ingestion flows and their state
   links:
-  - url: https://mapcolonies.atlassian.net/wiki/spaces/MAPConflicResolution/pages/1353613504/Ingestion#Details-about-our-services
-    title: Confluence 
-    icon: article
+    - url: https://mapcolonies.atlassian.net/wiki/spaces/MAPConflicResolution/pages/1353613504/Ingestion#Details-about-our-services
+      title: Confluence
+      icon: article
   annotations:
     github.com/project-slug: MapColonies/osm-sync-tracker
-  tags: 
+  tags:
     - nodejs
     - typescript
     - expressjs
@@ -27,7 +27,7 @@ apiVersion: backstage.io/v1alpha1
 kind: API
 metadata:
   name: osm-sync-tracker-api
-  description: OSM sync tracker API 
+  description: OSM sync tracker API
 spec:
   type: openapi
   lifecycle: production
@@ -745,7 +745,7 @@ metadata:
   name: osm-sync-tracker-db
   description: Stores entities details
   tags:
-   - postgresql
+    - postgresql
 spec:
   type: database
   owner: vector-team
