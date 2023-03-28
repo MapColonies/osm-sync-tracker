@@ -637,7 +637,6 @@ components:
               $ref: '#/components/schemas/uniqueId'
             runNumber:
               type: integer
-        - additionalProperties: false
     updateSync:
       type: object
       additionalProperties: false

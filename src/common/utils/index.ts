@@ -1,20 +1,20 @@
 import { CamelCasedProperties, SnakeCasedProperties } from 'type-fest';
-import { camelCase, snakeCase } from 'lodash';
+import { camelCase, snakeCase, transform } from 'lodash';
 
 type Cased<T> = SnakeCasedProperties<T> | CamelCasedProperties<T>;
 type CaseConvertFn = (input?: string) => string;
 type Case = 'snake' | 'camel';
 
 export const convertObjectToCased = <T extends Record<string, unknown>>(obj: T, caseType: Case): Cased<T> => {
-  const keyValues = Object.entries(obj);
-
-  let casedObject = {};
-
   const fn: CaseConvertFn = caseType === 'snake' ? snakeCase : camelCase;
 
-  for (const [key, value] of keyValues) {
-    casedObject = { ...casedObject, [fn(key)]: value };
-  }
+  const casedObject = transform(
+    obj,
+    (result: Record<string, unknown>, value: unknown, key: string) => {
+      result[fn(key)] = value;
+    },
+    {}
+  );
 
   return casedObject as Cased<T>;
 };
