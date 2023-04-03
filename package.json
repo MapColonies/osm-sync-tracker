@@ -1,6 +1,6 @@
 {
   "name": "osm-sync-tracker",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "description": "Api to update on the progress of a cycle of entities sync",
   "main": "./src/index.ts",
   "scripts": {

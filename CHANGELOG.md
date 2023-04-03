@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.4.0](https://github.com/MapColonies/osm-sync-tracker/compare/v3.3.0...v3.4.0) (2023-04-03)
+
+
+### Features
+
+* **sync:** get syncs by filter endpoint ([#55](https://github.com/MapColonies/osm-sync-tracker/issues/55)) ([688b5a4](https://github.com/MapColonies/osm-sync-tracker/commit/688b5a45af8efea2a2b583f57084e6379182b0ae))
+
 ## [3.3.0](https://github.com/MapColonies/osm-sync-tracker/compare/v3.2.0...v3.3.0) (2022-08-14)
 
 
