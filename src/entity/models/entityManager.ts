@@ -178,9 +178,8 @@ export class EntityManager {
     }
 
     const entityCount = await this.entityRepository.countEntitiesByIds(
-      entities.map((entity) => entity.entityId),
-      entities.map((entity) => entity.fileId)
-    );
+      entities.map((entity) => ({entityId: entity.entityId, fileId: entity.fileId})),
+    );    
 
     if (entityCount !== entities.length) {
       this.logger.error({
