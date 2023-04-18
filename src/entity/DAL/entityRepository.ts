@@ -40,7 +40,7 @@ const createEntityRepository = (dataSource: DataSource) => {
     },
 
     async countEntitiesByIds(ids: Pick<Entity, 'entityId' | 'fileId'>[]): Promise<number> {
-      return this.createQueryBuilder().whereInIds(ids).getCount()
+      return this.createQueryBuilder().whereInIds(ids).getCount();
     },
   });
 };
