@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [3.4.1](https://github.com/MapColonies/osm-sync-tracker/compare/v3.4.0...v3.4.1) (2023-05-17)
+
+
+### Bug Fixes
+
+* changed count method so it wont count duplicates ([#56](https://github.com/MapColonies/osm-sync-tracker/issues/56)) ([5ce9e06](https://github.com/MapColonies/osm-sync-tracker/commit/5ce9e065bf2998fc91d895de1aa3ec203c9d7d10))
+
 ## [3.4.0](https://github.com/MapColonies/osm-sync-tracker/compare/v3.3.0...v3.4.0) (2023-04-03)
 
 
