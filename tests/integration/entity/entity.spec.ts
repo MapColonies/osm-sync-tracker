@@ -217,6 +217,28 @@ describe('entity', function () {
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
       });
 
+      it('should return 200 status code and OK body if entity with same id exist in different file', async function () {
+        const newFile = createStringifiedFakeFile();
+
+        expect(await fileRequestSender.postFile(sync.id as string, newFile)).toHaveStatus(StatusCodes.CREATED);
+        const entities1 = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
+        const entities2 = [{ ...entities1[0] }];
+        expect(await entityRequestSender.postEntityBulk(file.fileId as string, entities1)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntityBulk(newFile.fileId as string, entities2)).toHaveStatus(StatusCodes.CREATED);
+
+        entities1[0].action = ActionType.MODIFY;
+        entities1[0].failReason = 'epic failure';
+        entities1[0].fileId = file.fileId;
+
+        entities1[1].failReason = 'epic failure';
+        entities1[1].fileId = file.fileId;
+
+        const response = await entityRequestSender.patchEntities(entities1);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
+      });
+
       it('should return 200 status code and OK body when closing transaction fails once while retries is configured', async function () {
         const tryClosingFileMock = jest.fn().mockRejectedValueOnce(new TransactionFailureError('transaction failure'));
 
