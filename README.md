@@ -20,6 +20,11 @@ The isolation level can be configured under `application.isolationLevel` with on
 ## API
 Checkout the OpenAPI spec [here](/openapi3.yaml)
 
+### Install Git Hooks
+```bash
+npx husky install
+```
+
 ## Run Locally
 
 Clone the project
