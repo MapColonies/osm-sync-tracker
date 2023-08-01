@@ -86,9 +86,10 @@ Returns the cloud provider docker registry url from global if exists or from the
 */}}
 {{- define "osm-sync-tracker.cloudProviderDockerRegistryUrl" -}}
 {{- if .Values.global.cloudProvider.dockerRegistryUrl }}
-    {{- .Values.global.cloudProvider.dockerRegistryUrl -}}
-{{- else if .Values.cloudProvider -}}
-    {{- .Values.cloudProvider.dockerRegistryUrl -}}
+    {{- printf "%s/" .Values.global.cloudProvider.dockerRegistryUrl -}}
+{{- else if .Values.cloudProvider.dockerRegistryUrl -}}
+    {{- printf "%s/" .Values.cloudProvider.dockerRegistryUrl -}}
+{{- else -}}
 {{- end -}}
 {{- end -}}
 
