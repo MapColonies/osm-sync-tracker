@@ -1,4 +1,5 @@
 import httpStatus, { StatusCodes } from 'http-status-codes';
+import httpStatusCodes from 'http-status-codes';
 import { faker } from '@faker-js/faker';
 import { DependencyContainer } from 'tsyringe';
 import { DataSource, QueryFailedError } from 'typeorm';
@@ -68,7 +69,7 @@ describe('changeset', function () {
       it('should return 200 status code and OK body', async function () {
         const body = createStringifiedFakeChangeset();
 
-        expect(await changesetRequestSender.postChangeset(body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(body)).toHaveProperty('status', httpStatusCodes.CREATED);
         const { changesetId, ...updateBody } = body;
 
         updateBody.osmId = faker.datatype.number();
@@ -84,7 +85,7 @@ describe('changeset', function () {
       it('should return 200 status code and OK body', async function () {
         const changeset = createStringifiedFakeChangeset();
 
-        expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(changeset)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await changesetRequestSender.patchChangesetEntities(changeset.changesetId as string);
 
@@ -128,7 +129,7 @@ describe('changeset', function () {
         const { app: mockApp } = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
         const body = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(body)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await mockChangesetRequestSender.putChangeset(body.changesetId as string);
 
@@ -142,8 +143,8 @@ describe('changeset', function () {
       it('should return 200 status code and empty array body', async function () {
         const changeset1 = createStringifiedFakeChangeset();
         const changeset2 = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
-        expect(await changesetRequestSender.postChangeset(changeset2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(changeset1)).toHaveProperty('status', httpStatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(changeset2)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await changesetRequestSender.putChangesets([changeset1.changesetId as string, changeset2.changesetId as string]);
 
@@ -154,8 +155,8 @@ describe('changeset', function () {
       it('should return 200 status code and empty array body when retries is configured', async function () {
         const changeset1 = createStringifiedFakeChangeset();
         const changeset2 = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
-        expect(await changesetRequestSender.postChangeset(changeset2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(changeset1)).toHaveProperty('status', httpStatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(changeset2)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await changesetRequestSenderWithRetries.putChangesets([changeset1.changesetId as string, changeset2.changesetId as string]);
 
@@ -177,7 +178,7 @@ describe('changeset', function () {
         const { app: mockApp } = await getApp(mockRegisterOptions);
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
         const changeset = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(changeset)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await mockChangesetRequestSender.putChangesets([changeset.changesetId as string]);
 
@@ -209,7 +210,7 @@ describe('changeset', function () {
 
       it('should return 409 if a chnageset already exists', async function () {
         const body = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(body)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await changesetRequestSender.postChangeset(body);
 
@@ -320,7 +321,7 @@ describe('changeset', function () {
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
         const body = createStringifiedFakeChangeset();
 
-        expect(await changesetRequestSender.postChangeset(body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(body)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const { changesetId, ...updateBody } = body;
         const response = await mockChangesetRequestSender.patchChangeset(changesetId as string, updateBody);
@@ -346,7 +347,7 @@ describe('changeset', function () {
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
         const changeset = createStringifiedFakeChangeset();
 
-        expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(changeset)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const { changesetId } = changeset;
         const response = await mockChangesetRequestSender.patchChangesetEntities(changesetId as string);
@@ -370,7 +371,7 @@ describe('changeset', function () {
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
         const body = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(body)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await mockChangesetRequestSender.putChangeset(body.changesetId as string);
 
@@ -393,7 +394,7 @@ describe('changeset', function () {
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
         const body = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(body)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await mockChangesetRequestSender.putChangeset(body.changesetId as string);
 
@@ -418,7 +419,7 @@ describe('changeset', function () {
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
         const body = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(body)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await mockChangesetRequestSender.putChangeset(body.changesetId as string);
 
@@ -444,7 +445,7 @@ describe('changeset', function () {
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
         const body = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(body)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await mockChangesetRequestSender.putChangeset(body.changesetId as string);
 
@@ -469,8 +470,8 @@ describe('changeset', function () {
 
         const changeset1 = createStringifiedFakeChangeset();
         const changeset2 = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
-        expect(await changesetRequestSender.postChangeset(changeset2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(changeset1)).toHaveProperty('status', httpStatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(changeset2)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await mockChangesetRequestSender.putChangesets([changeset1.changesetId as string, changeset2.changesetId as string]);
 
@@ -492,7 +493,7 @@ describe('changeset', function () {
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
         const changeset = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(changeset)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await mockChangesetRequestSender.putChangesets([changeset.changesetId as string]);
 
@@ -516,7 +517,7 @@ describe('changeset', function () {
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
         const changeset = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(changeset)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await mockChangesetRequestSender.putChangesets([changeset.changesetId as string]);
 
@@ -541,7 +542,7 @@ describe('changeset', function () {
         mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
         const changeset = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSender.postChangeset(changeset)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await mockChangesetRequestSender.putChangesets([changeset.changesetId as string]);
 
@@ -559,13 +560,13 @@ describe('changeset', function () {
       async function () {
         // create a sync
         const sync = createStringifiedFakeSync({ totalFiles: 2 });
-        expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(sync)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         // create two files with 6 entities overall
         const file1 = createStringifiedFakeFile({ totalEntities: 2 });
         const file2 = createStringifiedFakeFile({ totalEntities: 4 });
-        expect(await fileRequestSender.postFile(sync.id as string, file1)).toHaveStatus(StatusCodes.CREATED);
-        expect(await fileRequestSender.postFile(sync.id as string, file2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await fileRequestSender.postFile(sync.id as string, file1)).toHaveProperty('status', httpStatusCodes.CREATED);
+        expect(await fileRequestSender.postFile(sync.id as string, file2)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         // create the entities, one of them won't be synced
         const file1Entities = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
@@ -575,8 +576,15 @@ describe('changeset', function () {
           createStringifiedFakeEntity(),
           createStringifiedFakeEntity(),
         ];
-        expect(await entityRequestSenderWithRetries.postEntityBulk(file1.fileId as string, file1Entities)).toHaveStatus(StatusCodes.CREATED);
-        expect(await entityRequestSenderWithRetries.postEntityBulk(file2.fileId as string, file2Entities)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSenderWithRetries.postEntityBulk(file1.fileId as string, file1Entities)).toHaveProperty(
+          'status',
+          httpStatusCodes.CREATED
+        );
+        expect(await entityRequestSenderWithRetries.postEntityBulk(file2.fileId as string, file2Entities)).toHaveProperty(
+          'status',
+          httpStatusCodes.CREATED
+        );
+
         file1Entities.forEach((entity) => {
           entity.fileId = file1.fileId;
         });
@@ -589,14 +597,14 @@ describe('changeset', function () {
         // create 2 changesets
         const changeset1 = createStringifiedFakeChangeset();
         const changeset2 = createStringifiedFakeChangeset();
-        expect(await changesetRequestSenderWithRetries.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSenderWithRetries.postChangeset(changeset1)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
           'body.status',
           Status.IN_PROGRESS
         );
 
-        expect(await changesetRequestSenderWithRetries.postChangeset(changeset2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSenderWithRetries.postChangeset(changeset2)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         // patch all entities except the not synced one, the sync should not complete yet
         const patchBody = [...file1Entities, ...file2Entities].map((entity, index) => ({
@@ -604,15 +612,16 @@ describe('changeset', function () {
           fileId: entity.fileId,
           changesetId: index % 2 === 0 ? changeset1.changesetId : changeset2.changesetId,
         }));
-        expect(await entityRequestSenderWithRetries.patchEntities(patchBody)).toHaveStatus(StatusCodes.OK);
-        expect(await changesetRequestSenderWithRetries.putChangeset(changeset1.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await entityRequestSenderWithRetries.patchEntities(patchBody)).toHaveProperty('status', httpStatusCodes.OK);
+
+        expect(await changesetRequestSenderWithRetries.putChangeset(changeset1.changesetId as string)).toHaveProperty('status', httpStatusCodes.OK);
 
         expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
           'body.status',
           Status.IN_PROGRESS
         );
 
-        expect(await changesetRequestSenderWithRetries.putChangeset(changeset2.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.putChangeset(changeset2.changesetId as string)).toHaveProperty('status', httpStatusCodes.OK);
 
         expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
           'body.status',
@@ -627,12 +636,14 @@ describe('changeset', function () {
             status: EntityStatus.NOT_SYNCED,
           }
         );
-        expect(patchEntityResponse).toHaveStatus(StatusCodes.OK);
+        expect(patchEntityResponse).toHaveProperty('status', httpStatusCodes.OK);
+
         expect(patchEntityResponse.body).toMatchObject([sync.id]);
 
         const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType);
 
-        expect(latestSyncResponse).toHaveStatus(StatusCodes.OK);
+        expect(latestSyncResponse).toHaveProperty('status', httpStatusCodes.OK);
+
         expect(latestSyncResponse).toHaveProperty('body.status', Status.COMPLETED);
         expect(latestSyncResponse).toHaveProperty('body.endDate');
         expect((latestSyncResponse.body as Sync).endDate).not.toBeNull();
@@ -645,13 +656,13 @@ describe('changeset', function () {
       async function () {
         // create a sync
         const sync = createStringifiedFakeSync({ totalFiles: 2 });
-        expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(sync)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         // create two files with 6 entities overall
         const file1 = createStringifiedFakeFile({ totalEntities: 2 });
         const file2 = createStringifiedFakeFile({ totalEntities: 4 });
-        expect(await fileRequestSender.postFile(sync.id as string, file1)).toHaveStatus(StatusCodes.CREATED);
-        expect(await fileRequestSender.postFile(sync.id as string, file2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await fileRequestSender.postFile(sync.id as string, file1)).toHaveProperty('status', httpStatusCodes.CREATED);
+        expect(await fileRequestSender.postFile(sync.id as string, file2)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         // create the entities, one of them won't be synced
         const file1Entities = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
@@ -661,8 +672,15 @@ describe('changeset', function () {
           createStringifiedFakeEntity(),
           createStringifiedFakeEntity(),
         ];
-        expect(await entityRequestSenderWithRetries.postEntityBulk(file1.fileId as string, file1Entities)).toHaveStatus(StatusCodes.CREATED);
-        expect(await entityRequestSenderWithRetries.postEntityBulk(file2.fileId as string, file2Entities)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSenderWithRetries.postEntityBulk(file1.fileId as string, file1Entities)).toHaveProperty(
+          'status',
+          httpStatusCodes.CREATED
+        );
+        expect(await entityRequestSenderWithRetries.postEntityBulk(file2.fileId as string, file2Entities)).toHaveProperty(
+          'status',
+          httpStatusCodes.CREATED
+        );
+
         file1Entities.forEach((entity) => {
           entity.fileId = file1.fileId;
         });
@@ -675,14 +693,14 @@ describe('changeset', function () {
         // create 2 changesets
         const changeset1 = createStringifiedFakeChangeset();
         const changeset2 = createStringifiedFakeChangeset();
-        expect(await changesetRequestSenderWithRetries.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSenderWithRetries.postChangeset(changeset1)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
           'body.status',
           Status.IN_PROGRESS
         );
 
-        expect(await changesetRequestSenderWithRetries.postChangeset(changeset2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSenderWithRetries.postChangeset(changeset2)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         // patch all entities except the not synced one, the sync should not complete yet
         const patchBody = [...file1Entities, ...file2Entities].map((entity, index) => ({
@@ -690,13 +708,13 @@ describe('changeset', function () {
           fileId: entity.fileId,
           changesetId: index % 2 === 0 ? changeset1.changesetId : changeset2.changesetId,
         }));
-        expect(await entityRequestSenderWithRetries.patchEntities(patchBody)).toHaveStatus(StatusCodes.OK);
+        expect(await entityRequestSenderWithRetries.patchEntities(patchBody)).toHaveProperty('status', httpStatusCodes.OK);
 
         let putChangesetsResponse = await changesetRequestSenderWithRetries.putChangesets([
           changeset1.changesetId as string,
           changeset2.changesetId as string,
         ]);
-        expect(putChangesetsResponse).toHaveStatus(StatusCodes.OK);
+        expect(putChangesetsResponse).toHaveProperty('status', httpStatusCodes.OK);
         expect(putChangesetsResponse.body).toMatchObject([]);
 
         expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
@@ -712,15 +730,21 @@ describe('changeset', function () {
             status: EntityStatus.NOT_SYNCED,
           }
         );
-        expect(patchEntityResponse).toHaveStatus(StatusCodes.OK);
+        expect(patchEntityResponse).toHaveProperty('status', httpStatusCodes.OK);
         expect(patchEntityResponse.body).toMatchObject([]);
 
-        expect(await changesetRequestSenderWithRetries.patchChangesetEntities(changeset1.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.patchChangesetEntities(changeset1.changesetId as string)).toHaveProperty(
+          'status',
+          httpStatusCodes.OK
+        );
         expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
           'body.status',
           Status.IN_PROGRESS
         );
-        expect(await changesetRequestSenderWithRetries.patchChangesetEntities(changeset2.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.patchChangesetEntities(changeset2.changesetId as string)).toHaveProperty(
+          'status',
+          httpStatusCodes.OK
+        );
         expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
           'body.status',
           Status.IN_PROGRESS
@@ -729,12 +753,12 @@ describe('changeset', function () {
           changeset1.changesetId as string,
           changeset2.changesetId as string,
         ]);
-        expect(putChangesetsResponse).toHaveStatus(StatusCodes.OK);
+        expect(putChangesetsResponse).toHaveProperty('status', httpStatusCodes.OK);
         expect(putChangesetsResponse.body).toMatchObject([sync.id]);
 
         const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType);
 
-        expect(latestSyncResponse).toHaveStatus(StatusCodes.OK);
+        expect(latestSyncResponse).toHaveProperty('status', httpStatusCodes.OK);
         expect(latestSyncResponse).toHaveProperty('body.status', Status.COMPLETED);
         expect(latestSyncResponse).toHaveProperty('body.endDate');
         expect((latestSyncResponse.body as Sync).endDate).not.toBeNull();
@@ -749,15 +773,18 @@ describe('changeset', function () {
       async function () {
         // create sync
         const sync = createStringifiedFakeSync({ totalFiles: 1 });
-        expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(sync)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         // create file with 2 entities
         const file = createStringifiedFakeFile({ totalEntities: 2 });
-        expect(await fileRequestSender.postFile(sync.id as string, file)).toHaveStatus(StatusCodes.CREATED);
+        expect(await fileRequestSender.postFile(sync.id as string, file)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         // create entities, one will be synced the other won't
         const fileEntities = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
-        expect(await entityRequestSenderWithRetries.postEntityBulk(file.fileId as string, fileEntities)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSenderWithRetries.postEntityBulk(file.fileId as string, fileEntities)).toHaveProperty(
+          'status',
+          httpStatusCodes.CREATED
+        );
 
         fileEntities.forEach((entity) => {
           entity.fileId = file.fileId;
@@ -767,7 +794,7 @@ describe('changeset', function () {
 
         // create changeset
         const changeset = createStringifiedFakeChangeset();
-        expect(await changesetRequestSenderWithRetries.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSenderWithRetries.postChangeset(changeset)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         // patch the first entity, the sync shouldn't complete
         const patchSyncedEntityResponse = await entityRequestSenderWithRetries.patchEntity(
@@ -777,9 +804,9 @@ describe('changeset', function () {
             changesetId: changeset.changesetId as string,
           }
         );
-        expect(patchSyncedEntityResponse).toHaveStatus(StatusCodes.OK);
+        expect(patchSyncedEntityResponse).toHaveProperty('status', httpStatusCodes.OK);
         expect(patchSyncedEntityResponse.body).toMatchObject([]);
-        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveProperty('status', httpStatusCodes.OK);
 
         expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
           'body.status',
@@ -794,12 +821,12 @@ describe('changeset', function () {
             status: EntityStatus.NOT_SYNCED,
           }
         );
-        expect(patchNotSyncedEntityResponse).toHaveStatus(StatusCodes.OK);
+        expect(patchNotSyncedEntityResponse).toHaveProperty('status', httpStatusCodes.OK);
         expect(patchNotSyncedEntityResponse.body).toMatchObject([sync.id]);
 
         const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType);
 
-        expect(latestSyncResponse).toHaveStatus(StatusCodes.OK);
+        expect(latestSyncResponse).toHaveProperty('status', httpStatusCodes.OK);
         expect(latestSyncResponse).toHaveProperty('body.status', Status.COMPLETED);
         expect(latestSyncResponse).toHaveProperty('body.endDate');
         expect((latestSyncResponse.body as Sync).endDate).not.toBeNull();
@@ -812,15 +839,18 @@ describe('changeset', function () {
       async function () {
         // create sync
         const sync = createStringifiedFakeSync({ totalFiles: 1 });
-        expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(sync)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         // create file with 2 entities
         const file = createStringifiedFakeFile({ totalEntities: 2 });
-        expect(await fileRequestSender.postFile(sync.id as string, file)).toHaveStatus(StatusCodes.CREATED);
+        expect(await fileRequestSender.postFile(sync.id as string, file)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         // create entities, one will be synced the other won't
         const fileEntities = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
-        expect(await entityRequestSenderWithRetries.postEntityBulk(file.fileId as string, fileEntities)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSenderWithRetries.postEntityBulk(file.fileId as string, fileEntities)).toHaveProperty(
+          'status',
+          httpStatusCodes.CREATED
+        );
 
         fileEntities.forEach((entity) => {
           entity.fileId = file.fileId;
@@ -830,15 +860,15 @@ describe('changeset', function () {
 
         // create changeset
         const changeset = createStringifiedFakeChangeset();
-        expect(await changesetRequestSenderWithRetries.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSenderWithRetries.postChangeset(changeset)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         // patch the first not synced entity, the sync shouldn't complete
         let patchEntityResponse = await entityRequestSenderWithRetries.patchEntity(file.fileId as string, notSyncedEntity.entityId as string, {
           status: EntityStatus.NOT_SYNCED,
         });
-        expect(patchEntityResponse).toHaveStatus(StatusCodes.OK);
+        expect(patchEntityResponse).toHaveProperty('status', httpStatusCodes.OK);
         expect(patchEntityResponse.body).toMatchObject([]);
-        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveProperty('status', httpStatusCodes.OK);
 
         expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
           'body.status',
@@ -849,13 +879,13 @@ describe('changeset', function () {
         patchEntityResponse = await entityRequestSenderWithRetries.patchEntity(syncedEntity.fileId as string, syncedEntity.entityId as string, {
           changesetId: changeset.changesetId as string,
         });
-        expect(patchEntityResponse).toHaveStatus(StatusCodes.OK);
+        expect(patchEntityResponse).toHaveProperty('status', httpStatusCodes.OK);
         expect(patchEntityResponse.body).toMatchObject([]);
-        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveProperty('status', httpStatusCodes.OK);
 
         const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType);
 
-        expect(latestSyncResponse).toHaveStatus(StatusCodes.OK);
+        expect(latestSyncResponse).toHaveProperty('status', httpStatusCodes.OK);
         expect(latestSyncResponse).toHaveProperty('body.status', Status.COMPLETED);
         expect(latestSyncResponse).toHaveProperty('body.endDate');
         expect((latestSyncResponse.body as Sync).endDate).not.toBeNull();
@@ -869,21 +899,27 @@ describe('changeset', function () {
         // create sync
         const sync = createStringifiedFakeSync({ totalFiles: 2 });
 
-        expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(sync)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         // create 2 files
         const file1 = createStringifiedFakeFile({ totalEntities: 2 });
         const file2 = createStringifiedFakeFile({ totalEntities: 1 });
 
-        expect(await fileRequestSender.postFile(sync.id as string, file1)).toHaveStatus(StatusCodes.CREATED);
-        expect(await fileRequestSender.postFile(sync.id as string, file2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await fileRequestSender.postFile(sync.id as string, file1)).toHaveProperty('status', httpStatusCodes.CREATED);
+        expect(await fileRequestSender.postFile(sync.id as string, file2)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         // create 3 entities, file 1 entities will be synced and not synced, file2 entity will be synced last
         const file1Entities = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
         const file2Entity = createStringifiedFakeEntity();
 
-        expect(await entityRequestSenderWithRetries.postEntityBulk(file1.fileId as string, file1Entities)).toHaveStatus(StatusCodes.CREATED);
-        expect(await entityRequestSenderWithRetries.postEntity(file2.fileId as string, file2Entity)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSenderWithRetries.postEntityBulk(file1.fileId as string, file1Entities)).toHaveProperty(
+          'status',
+          httpStatusCodes.CREATED
+        );
+        expect(await entityRequestSenderWithRetries.postEntity(file2.fileId as string, file2Entity)).toHaveProperty(
+          'status',
+          httpStatusCodes.CREATED
+        );
 
         file1Entities.forEach((entity) => {
           entity.fileId = file1.fileId;
@@ -894,15 +930,15 @@ describe('changeset', function () {
         // create changeset
         const changeset = createStringifiedFakeChangeset();
 
-        expect(await changesetRequestSenderWithRetries.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+        expect(await changesetRequestSenderWithRetries.postChangeset(changeset)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         // patch first synced entity of file1
         let patchEntityResponse = await entityRequestSenderWithRetries.patchEntity(syncedEntity.fileId as string, syncedEntity.entityId as string, {
           changesetId: changeset.changesetId as string,
         });
-        expect(patchEntityResponse).toHaveStatus(StatusCodes.OK);
+        expect(patchEntityResponse).toHaveProperty('status', httpStatusCodes.OK);
         expect(patchEntityResponse.body).toMatchObject([]);
-        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveProperty('status', httpStatusCodes.OK);
 
         expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
           'body.status',
@@ -913,9 +949,9 @@ describe('changeset', function () {
         patchEntityResponse = await entityRequestSenderWithRetries.patchEntity(notSyncedEntity.fileId as string, notSyncedEntity.entityId as string, {
           status: EntityStatus.NOT_SYNCED,
         });
-        expect(patchEntityResponse).toHaveStatus(StatusCodes.OK);
+        expect(patchEntityResponse).toHaveProperty('status', httpStatusCodes.OK);
         expect(patchEntityResponse.body).toMatchObject([]);
-        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveProperty('status', httpStatusCodes.OK);
 
         expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
           'body.status',
@@ -926,9 +962,9 @@ describe('changeset', function () {
         patchEntityResponse = await entityRequestSenderWithRetries.patchEntity(file2.fileId as string, file2Entity.entityId as string, {
           changesetId: changeset.changesetId as string,
         });
-        expect(patchEntityResponse).toHaveStatus(StatusCodes.OK);
+        expect(patchEntityResponse).toHaveProperty('status', httpStatusCodes.OK);
         expect(patchEntityResponse.body).toMatchObject([]);
-        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
+        expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveProperty('status', httpStatusCodes.OK);
 
         const latestSyncResponse = await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType);
 
@@ -948,22 +984,25 @@ describe('changeset', function () {
       const sync1 = createStringifiedFakeSync({ totalFiles: 1, isFull: false });
       const sync2 = createStringifiedFakeSync({ totalFiles: 1, isFull: false });
 
-      expect(await syncRequestSender.postSync(sync1)).toHaveStatus(StatusCodes.CREATED);
-      expect(await syncRequestSender.postSync(sync2)).toHaveStatus(StatusCodes.CREATED);
+      expect(await syncRequestSender.postSync(sync1)).toHaveProperty('status', httpStatusCodes.CREATED);
+      expect(await syncRequestSender.postSync(sync2)).toHaveProperty('status', httpStatusCodes.CREATED);
 
       // create 2 files
       const file1 = createStringifiedFakeFile({ totalEntities: 2 });
       const file2 = createStringifiedFakeFile({ totalEntities: 1 });
 
-      expect(await fileRequestSender.postFile(sync1.id as string, file1)).toHaveStatus(StatusCodes.CREATED);
-      expect(await fileRequestSender.postFile(sync2.id as string, file2)).toHaveStatus(StatusCodes.CREATED);
+      expect(await fileRequestSender.postFile(sync1.id as string, file1)).toHaveProperty('status', httpStatusCodes.CREATED);
+      expect(await fileRequestSender.postFile(sync2.id as string, file2)).toHaveProperty('status', httpStatusCodes.CREATED);
 
       // create 3 entities
       const file1Entities = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
       const file2Entity = createStringifiedFakeEntity();
 
-      expect(await entityRequestSenderWithRetries.postEntityBulk(file1.fileId as string, file1Entities)).toHaveStatus(StatusCodes.CREATED);
-      expect(await entityRequestSenderWithRetries.postEntity(file2.fileId as string, file2Entity)).toHaveStatus(StatusCodes.CREATED);
+      expect(await entityRequestSenderWithRetries.postEntityBulk(file1.fileId as string, file1Entities)).toHaveProperty(
+        'status',
+        httpStatusCodes.CREATED
+      );
+      expect(await entityRequestSenderWithRetries.postEntity(file2.fileId as string, file2Entity)).toHaveProperty('status', httpStatusCodes.CREATED);
 
       file1Entities[0].fileId = file1.fileId;
       file1Entities[1].fileId = file1.fileId;
@@ -971,7 +1010,7 @@ describe('changeset', function () {
 
       // create changeset
       const changeset = createStringifiedFakeChangeset();
-      expect(await changesetRequestSenderWithRetries.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
+      expect(await changesetRequestSenderWithRetries.postChangeset(changeset)).toHaveProperty('status', httpStatusCodes.CREATED);
 
       // patch all entities of both syncs to have the same changeset
       const patchBody = [...file1Entities, file2Entity].map((entity) => ({
@@ -979,10 +1018,12 @@ describe('changeset', function () {
         fileId: entity.fileId,
         changesetId: changeset.changesetId,
       }));
-      expect(await entityRequestSenderWithRetries.patchEntities(patchBody)).toHaveStatus(StatusCodes.OK);
+      expect(await entityRequestSenderWithRetries.patchEntities(patchBody)).toHaveProperty('status', httpStatusCodes.OK);
 
-      // expect(await changesetRequestSenderWithRetries.putChangeset(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
-      expect(await changesetRequestSenderWithRetries.patchChangesetEntities(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
+      expect(await changesetRequestSenderWithRetries.patchChangesetEntities(changeset.changesetId as string)).toHaveProperty(
+        'status',
+        httpStatusCodes.OK
+      );
 
       expect(await syncRequestSender.getLatestSync(sync1.layerId as number, sync1.geometryType as GeometryType)).toHaveProperty(
         'body.status',
@@ -995,7 +1036,7 @@ describe('changeset', function () {
 
       // try closing the changeset which will close the files and the syncs
       const putChangesetsResponse = await changesetRequestSenderWithRetries.putChangesets([changeset.changesetId as string]);
-      expect(putChangesetsResponse).toHaveStatus(StatusCodes.OK);
+      expect(putChangesetsResponse).toHaveProperty('status', httpStatusCodes.OK);
       expect(putChangesetsResponse.body).toEqual(expect.arrayContaining([sync1.id, sync2.id]));
 
       const latestSyncLayer1Response = await syncRequestSender.getLatestSync(sync1.layerId as number, sync1.geometryType as GeometryType);
