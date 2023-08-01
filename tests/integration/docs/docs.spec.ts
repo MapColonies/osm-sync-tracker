@@ -1,11 +1,9 @@
 import { DependencyContainer } from 'tsyringe';
 import { DataSource } from 'typeorm';
-import { createStringifiedFakeSync } from '../sync/helpers/generators';
 import { StringifiedSync } from '../sync/types';
 import { SyncRequestSender } from '../sync/helpers/requestSender';
 import { FileRequestSender } from '../file/helpers/requestSender';
 import { EntityRequestSender } from '../entity/helpers/requestSender';
-import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { StringifiedFile } from '../file/types';
 import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions } from '../helpers';
 import httpStatusCodes from 'http-status-codes';
@@ -14,12 +12,6 @@ import { DocsRequestSender } from './helpers/docsRequestSender';
 
 describe('docs', function () {
   let requestSender: DocsRequestSender;
-  let entityRequestSender: EntityRequestSender;
-  let fileRequestSender: FileRequestSender;
-  let syncRequestSender: SyncRequestSender;
-
-  let sync: StringifiedSync;
-  let file: StringifiedFile;
 
   let depContainer: DependencyContainer;
 
@@ -41,6 +33,15 @@ describe('docs', function () {
 
       expect(response.status).toBe(httpStatusCodes.OK);
       expect(response.type).toBe('text/html');
+    });
+
+    it('should return 200 status code and the json spec', async function () {
+      const response = await requestSender.getDocsJson();
+
+      expect(response.status).toBe(httpStatusCodes.OK);
+
+      expect(response.type).toBe('application/json');
+      expect(response.body).toHaveProperty('openapi');
     });
   });
 });

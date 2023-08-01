@@ -6,4 +6,8 @@ export class DocsRequestSender {
   public async getDocs(): Promise<supertest.Response> {
     return supertest.agent(this.app).get('/docs/api/');
   }
+
+  public async getDocsJson(): Promise<supertest.Response> {
+    return supertest.agent(this.app).get('/docs/api.json');
+  }
 }
