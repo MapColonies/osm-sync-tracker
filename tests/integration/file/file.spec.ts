@@ -61,7 +61,10 @@ describe('file', function () {
 
           expect(await syncRequestSender.postSync(syncForRerun)).toHaveProperty('status', httpStatusCodes.CREATED);
           expect(await fileRequestSender.postFile(syncForRerun.id as string, file)).toHaveProperty('status', httpStatusCodes.CREATED);
-          expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveProperty('status', httpStatusCodes.OK);
+          expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveProperty(
+            'status',
+            httpStatusCodes.OK
+          );
           expect(await syncRequestSender.rerunSync(syncForRerun.id as string, rerunCreateBody)).toHaveProperty('status', httpStatusCodes.CREATED);
 
           const response = await fileRequestSender.postFile(rerunCreateBody.rerunId as string, file);
@@ -80,7 +83,10 @@ describe('file', function () {
           const rerunCreateBody = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
 
           expect(await syncRequestSender.postSync(syncForRerun)).toHaveProperty('status', httpStatusCodes.CREATED);
-          expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveProperty('status', httpStatusCodes.OK);
+          expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveProperty(
+            'status',
+            httpStatusCodes.OK
+          );
           expect(await syncRequestSender.rerunSync(syncForRerun.id as string, rerunCreateBody)).toHaveProperty('status', httpStatusCodes.CREATED);
 
           const response = await fileRequestSender.postFile(rerunCreateBody.rerunId as string, file);
@@ -150,7 +156,10 @@ describe('file', function () {
           expect(await syncRequestSender.postSync(sync)).toHaveProperty('status', httpStatusCodes.CREATED);
           expect(await fileRequestSender.postFile(sync.id as string, file)).toHaveProperty('status', httpStatusCodes.CREATED);
           expect(await syncRequestSender.postSync(syncForRerun)).toHaveProperty('status', httpStatusCodes.CREATED);
-          expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveProperty('status', httpStatusCodes.OK);
+          expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveProperty(
+            'status',
+            httpStatusCodes.OK
+          );
           expect(await syncRequestSender.rerunSync(syncForRerun.id as string, rerunCreateBody)).toHaveProperty('status', httpStatusCodes.CREATED);
 
           const response = await fileRequestSender.postFile(rerunCreateBody.rerunId as string, file);
@@ -172,7 +181,10 @@ describe('file', function () {
           expect(await syncRequestSender.postSync(syncForRerun)).toHaveProperty('status', httpStatusCodes.CREATED);
           expect(await fileRequestSender.postFile(syncForRerun.id as string, file)).toHaveProperty('status', httpStatusCodes.CREATED);
           expect(await entityRequestSender.postEntityBulk(file.fileId as string, [entity])).toHaveProperty('status', httpStatusCodes.CREATED);
-          expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveProperty('status', httpStatusCodes.OK);
+          expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveProperty(
+            'status',
+            httpStatusCodes.OK
+          );
           expect(await syncRequestSender.rerunSync(syncForRerun.id as string, rerunCreateBody)).toHaveProperty('status', httpStatusCodes.CREATED);
 
           const response = await fileRequestSender.postFile(rerunCreateBody.rerunId as string, {
