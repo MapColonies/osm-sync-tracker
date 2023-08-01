@@ -41,4 +41,5 @@ data:
   {{- else }}
   DB_ENABLE_SSL_AUTH: "false"
   {{- end }}
+  npm_config_cache: /tmp/
 {{- end }}
