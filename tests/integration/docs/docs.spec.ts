@@ -1,10 +1,5 @@
 import { DependencyContainer } from 'tsyringe';
 import { DataSource } from 'typeorm';
-import { StringifiedSync } from '../sync/types';
-import { SyncRequestSender } from '../sync/helpers/requestSender';
-import { FileRequestSender } from '../file/helpers/requestSender';
-import { EntityRequestSender } from '../entity/helpers/requestSender';
-import { StringifiedFile } from '../file/types';
 import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions } from '../helpers';
 import httpStatusCodes from 'http-status-codes';
 import { getApp } from '../../../src/app';
