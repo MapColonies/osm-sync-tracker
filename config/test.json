@@ -1,0 +1,16 @@
+{
+  "application": {
+    "isolationLevel": "SERIALIZABLE",
+    "transactionRetryPolicy": {
+      "enabled": false
+    }
+  },
+  "db": {
+    "host": "postgres",
+    "schema": "osm_sync_tracker",
+    "username": "postgres",
+    "password": "1234",
+    "database": "postgres",
+    "enableSslAuth": false
+  }
+}

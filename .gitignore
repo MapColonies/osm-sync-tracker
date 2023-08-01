@@ -113,7 +113,3 @@ dist
 # Jest
 jest_html_reporters.html
 reports
-
-# Temporary gitignore
-config/default.json
-config/test.json
