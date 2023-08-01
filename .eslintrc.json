@@ -1,6 +1,17 @@
 {
-  "ignorePatterns": ["**/*.js", "dist", "db/migrations/*.ts"],
-  "extends": ["@map-colonies/eslint-config/jest", "@map-colonies/eslint-config/ts-base"],
+  "ignorePatterns": [
+    "**/*.js",
+    "dist",
+    "db/migrations/*.ts",
+    "helm",
+    "coverage",
+    "reports",
+    ".husky"
+  ],
+  "extends": [
+    "@map-colonies/eslint-config/jest",
+    "@map-colonies/eslint-config/ts-base"
+  ],
   "parserOptions": {
     "project": "./tsconfig.lint.json"
   }
