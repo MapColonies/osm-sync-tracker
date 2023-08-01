@@ -2,6 +2,7 @@
 {{- $chartName := include "osm-sync-tracker.name" . -}}
 {{- $cloudProviderFlavor := include "osm-sync-tracker.cloudProviderFlavor" . -}}
 {{- $cloudProviderDockerRegistryUrl := include "osm-sync-tracker.cloudProviderDockerRegistryUrl" . -}}
+{{- $cloudProviderImagePullSecretName := include "osm-sync-tracker.cloudProviderImagePullSecretName" . -}}
 {{- $tag := include "osm-sync-tracker.tag" . -}}
 {{- if .Values.enabled -}}
 apiVersion: apps/v1
@@ -39,9 +40,9 @@ spec:
 {{ toYaml . | indent 8 }}
 {{- end }}
     spec:
-    {{- if .Values.cloudProvider.imagePullSecretName }}
+    {{- if $cloudProviderImagePullSecretName }}
       imagePullSecrets:
-        - name: {{ .Values.cloudProvider.imagePullSecretName | quote }}
+        - name: {{ $cloudProviderImagePullSecretName | quote }}
     {{- end }}
       containers:
         - name: {{ $releaseName }}-{{ $chartName }}-deployment
