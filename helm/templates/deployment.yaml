@@ -35,6 +35,10 @@ spec:
         run: {{ $releaseName }}-{{ $chartName }}
         environment: {{ include "osm-sync-tracker.environment" . }}
         {{- include "osm-sync-tracker.selectorLabels" . | nindent 8 }}
+      {{- if .Values.resetOnConfigChange }}
+      annotations:
+        checksum/configmap: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      {{- end }}
 {{- with .Values.podAnnotations }}
       annotations:
 {{ toYaml . | indent 8 }}

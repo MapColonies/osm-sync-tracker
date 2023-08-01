@@ -14,6 +14,7 @@ replicaCount: 1
 enabled: true
 initialDelaySeconds: 600
 environment: development
+resetOnConfigChange: true
 nodeSelector: {}
 tolerations: []
 affinity: {}
