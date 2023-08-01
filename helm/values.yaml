@@ -23,6 +23,9 @@ cloudProvider:
   imagePullSecretName: 'my-registry-secret'
   dockerRegistryUrl: my-registry.io
 
+caSecretName: ''
+caKey: 'ca.crt'
+
 image:
   repository: osm-sync-tracker
   # Overrides the image tag whose default is the chart appVersion.
