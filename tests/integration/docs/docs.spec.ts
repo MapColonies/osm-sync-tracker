@@ -1,7 +1,7 @@
 import { DependencyContainer } from 'tsyringe';
 import { DataSource } from 'typeorm';
-import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions } from '../helpers';
 import httpStatusCodes from 'http-status-codes';
+import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions } from '../helpers';
 import { getApp } from '../../../src/app';
 import { DocsRequestSender } from './helpers/docsRequestSender';
 
