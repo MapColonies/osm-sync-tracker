@@ -7,7 +7,7 @@ import { SERVICES } from '../../src/common/constants';
 import { RegisterOptions } from '../../src/containerConfig';
 import { SyncDb } from '../../src/sync/DAL/sync';
 
-export const BEFORE_ALL_TIMEOUT = 30000;
+export const BEFORE_ALL_TIMEOUT = 15000;
 
 export const FLOW_TEST_TIMEOUT = 20000;
 
