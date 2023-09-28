@@ -1,14 +1,15 @@
 import express, { Router } from 'express';
 import bodyParser from 'body-parser';
 import compression from 'compression';
+import { Registry } from 'prom-client';
 import { OpenapiViewerRouter, OpenapiRouterConfig } from '@map-colonies/openapi-express-viewer';
 import { getErrorHandlerMiddleware } from '@map-colonies/error-express-handler';
 import { middleware as OpenApiMiddleware } from 'express-openapi-validator';
 import { inject, injectable } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import httpLogger from '@map-colonies/express-access-log-middleware';
-import { defaultMetricsMiddleware, getTraceContexHeaderMiddleware } from '@map-colonies/telemetry';
-import { SERVICES } from './common/constants';
+import { defaultMetricsMiddleware, getTraceContexHeaderMiddleware, metricsMiddleware } from '@map-colonies/telemetry';
+import { SERVICES, METRICS_REGISTRY } from './common/constants';
 import { IConfig } from './common/interfaces';
 import { fileRouterSymbol } from './file/routes/fileRouter';
 import { syncRouterSymbol } from './sync/routes/syncRouter';
@@ -25,7 +26,8 @@ export class ServerBuilder {
     @inject(fileRouterSymbol) private readonly fileRouter: Router,
     @inject(syncRouterSymbol) private readonly syncRouter: Router,
     @inject(entityRouterSymbol) private readonly entityRouter: Router,
-    @inject(changesetRouterSymbol) private readonly changesetRouter: Router
+    @inject(changesetRouterSymbol) private readonly changesetRouter: Router,
+    @inject(METRICS_REGISTRY) private readonly metricsRegistry?: Registry
   ) {
     this.serverInstance = express();
   }
@@ -56,7 +58,9 @@ export class ServerBuilder {
   }
 
   private registerPreRoutesMiddleware(): void {
-    this.serverInstance.use('/metrics', defaultMetricsMiddleware());
+    if (this.metricsRegistry) {
+      this.serverInstance.use('/metrics', metricsMiddleware(this.metricsRegistry));
+    }
     this.serverInstance.use(httpLogger({ logger: this.logger }));
 
     if (this.config.get<boolean>('server.response.compression.enabled')) {

@@ -1,3 +1,4 @@
+import client from 'prom-client';
 import { EntityManager, DataSource } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
@@ -114,7 +115,11 @@ const createChangesetRepository = (dataSource: DataSource) => {
         .execute();
     },
 
-    async tryClosingChangesets(changesetIds: string[], schema: string): Promise<string[]> {
+    async tryClosingChangesets(
+      changesetIds: string[],
+      schema: string,
+      changesetCounter: client.Counter<'status' | 'changesetid'>
+    ): Promise<string[]> {
       const isolationLevel = getIsolationLevel();
       const transaction = { transactionId: nanoid(), transactionName: TransactionName.TRY_CLOSING_CHANGESETS, isolationLevel };
       logger.debug({
@@ -143,7 +148,7 @@ const createChangesetRepository = (dataSource: DataSource) => {
 
             logger.debug({ msg: 'updated the last rerun of each completed sync', completedSyncIds, transaction });
           }
-
+          countCompletedChangesets(changesetIds, changesetCounter);
           return completedSyncIds;
         });
       } catch (error) {
@@ -157,11 +162,12 @@ const createChangesetRepository = (dataSource: DataSource) => {
         if (isTransactionFailure(error)) {
           throw new TransactionFailureError(`closing changesets has failed due to read/write dependencies among transactions.`);
         }
+        changesetCounter.inc({ status: 'failed', changesetid: undefined });
         throw error;
       }
     },
 
-    async tryClosingChangeset(changesetId: string, schema: string): Promise<void> {
+    async tryClosingChangeset(changesetId: string, schema: string, changesetCounter: client.Counter<'status' | 'changesetid'>): Promise<void> {
       const isolationLevel = getIsolationLevel();
       const transaction = { transactionId: nanoid(), transactionName: TransactionName.TRY_CLOSING_CHANGESET, isolationLevel };
 
@@ -180,6 +186,9 @@ const createChangesetRepository = (dataSource: DataSource) => {
           await updateSyncAsCompleted([changesetId], schema, transactionalEntityManager);
 
           logger.debug({ msg: 'tried to update sync affected by changeset as completed', changesetId, transaction });
+
+          changesetCounter.inc({ status: 'closed', changesetid: changesetId });
+          changesetCounter.remove({ status: 'overall', changesetid: changesetId });
         });
       } catch (error) {
         logger.error({
@@ -192,6 +201,7 @@ const createChangesetRepository = (dataSource: DataSource) => {
         if (isTransactionFailure(error)) {
           throw new TransactionFailureError(`closing changeset ${changesetId} has failed due to read/write dependencies among transactions.`);
         }
+        changesetCounter.inc({ status: 'failed', changesetid: undefined });
         throw error;
       }
     },
@@ -217,3 +227,10 @@ export const changesetRepositoryFactory: FactoryFunction<ChangesetRepository> = 
 };
 
 export const CHANGESET_CUSTOM_REPOSITORY_SYMBOL = Symbol('CHANGESET_CUSTOM_REPOSITORY_SYMBOL');
+
+function countCompletedChangesets(changesetIds: string[], changesetCounter: client.Counter<'status' | 'changesetid'>): void {
+  for (let i = 0; i < changesetIds.length; i++) {
+    changesetCounter.inc({ status: 'closed', changesetid: changesetIds[i] });
+    changesetCounter.remove({ status: 'overall', changesetid: changesetIds[i] });
+  }
+}

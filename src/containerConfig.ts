@@ -1,10 +1,11 @@
-import { DependencyContainer } from 'tsyringe';
-import config from 'config';
+import { DependencyContainer, instancePerContainerCachingFactory } from 'tsyringe';
+import client from 'prom-client';
+import config, { IConfig } from 'config';
 import { getOtelMixin } from '@map-colonies/telemetry';
 import jsLogger, { LoggerOptions } from '@map-colonies/js-logger';
 import { DataSource } from 'typeorm';
 import { trace } from '@opentelemetry/api';
-import { DB_SCHEMA, HEALTHCHECK, ON_SIGNAL, SERVICES, SERVICE_NAME } from './common/constants';
+import { DB_SCHEMA, HEALTHCHECK, ON_SIGNAL, SERVICES, SERVICE_NAME, METRICS_REGISTRY } from './common/constants';
 import { DbConfig, IApplication } from './common/interfaces';
 import { getDbHealthCheckFunction, initDataSource } from './common/db';
 import { tracing } from './common/tracing';
@@ -50,6 +51,17 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
     { token: entityRouterSymbol, provider: { useFactory: entityRouterFactory } },
     { token: changesetRouterSymbol, provider: { useFactory: changesetRouterFactory } },
     { token: HEALTHCHECK, provider: { useFactory: (container): unknown => getDbHealthCheckFunction(container.resolve<DataSource>(DataSource)) } },
+    {
+      token: METRICS_REGISTRY,
+      provider: {
+        useFactory: instancePerContainerCachingFactory((container) => {
+          const config = container.resolve<IConfig>(SERVICES.CONFIG);
+
+          client.register.setDefaultLabels({ project: config.get<string>('app.projectName') });
+          return client.register;
+        }),
+      },
+    },
     {
       token: ON_SIGNAL,
       provider: {

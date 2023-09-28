@@ -1,9 +1,10 @@
+import client from 'prom-client';
 import jsLogger from '@map-colonies/js-logger';
 import { trace } from '@opentelemetry/api';
 import { DataSource } from 'typeorm';
 import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { Changeset } from '../../src/changeset/DAL/changeset';
-import { SERVICES } from '../../src/common/constants';
+import { SERVICES, METRICS_REGISTRY } from '../../src/common/constants';
 import { RegisterOptions } from '../../src/containerConfig';
 import { SyncDb } from '../../src/sync/DAL/sync';
 
@@ -20,6 +21,7 @@ export const getBaseRegisterOptions = (): Required<RegisterOptions> => {
     override: [
       { token: SERVICES.LOGGER, provider: { useValue: jsLogger({ enabled: false }) } },
       { token: SERVICES.TRACER, provider: { useValue: trace.getTracer('testTracer') } },
+      { token: METRICS_REGISTRY, provider: { useValue: new client.Registry() } },
     ],
     useChild: true,
   };
