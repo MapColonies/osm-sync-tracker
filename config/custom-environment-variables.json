@@ -41,9 +41,6 @@
           "__format": "boolean"
         }
       }
-    },
-    "app": {
-      "projectName": "APP_PROJECT_NAME"
     }
   },
   "application": {
