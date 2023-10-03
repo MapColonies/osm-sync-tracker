@@ -14,13 +14,19 @@ replicaCount: 1
 enabled: true
 initialDelaySeconds: 600
 environment: development
+resetOnConfigChange: true
 nodeSelector: {}
 tolerations: []
 affinity: {}
 
 cloudProvider:
   flavor: openshift
+  imagePullSecretName: 'my-registry-secret'
   dockerRegistryUrl: my-registry.io
+
+caSecretName: ''
+caPath: '/usr/local/share/ca-certificates'
+caKey: 'ca.crt'
 
 image:
   repository: osm-sync-tracker
@@ -29,7 +35,7 @@ image:
   pullPolicy: Always
 
 resources:
-  enabled: false
+  enabled: true
   value:
     limits:
       cpu: 100m
@@ -43,6 +49,7 @@ env:
   targetPort: 8080
   protocol: TCP
   logLevel: info
+  projectName: default
   requestPayloadLimit: 1mb
   responseCompressionEnabled: true
   tracing:

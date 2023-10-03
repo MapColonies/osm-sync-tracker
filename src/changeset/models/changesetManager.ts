@@ -1,9 +1,11 @@
 import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
-import { SERVICES } from '../../common/constants';
+import client from 'prom-client';
+import { SERVICES, METRICS_REGISTRY } from '../../common/constants';
 import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
 import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
 import { ChangesetRepository, CHANGESET_CUSTOM_REPOSITORY_SYMBOL } from '../DAL/changesetRepository';
+import { initMetricCounters, changesetCounter } from '../../common/metrics';
 import { Changeset, UpdateChangeset } from './changeset';
 import { ChangesetAlreadyExistsError, ChangesetNotFoundError, TransactionFailureError } from './errors';
 
@@ -16,10 +18,12 @@ export class ChangesetManager {
     @inject(CHANGESET_CUSTOM_REPOSITORY_SYMBOL) private readonly changesetRepository: ChangesetRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
     @inject(SERVICES.CONFIG) private readonly config: IConfig,
-    @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication
+    @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication,
+    @inject(METRICS_REGISTRY) registry: client.Registry
   ) {
     this.dbSchema = this.config.get('db.schema');
     this.transactionRetryPolicy = this.appConfig.transactionRetryPolicy;
+    initMetricCounters(registry);
   }
 
   public async createChangeset(changeset: Changeset): Promise<void> {
@@ -29,10 +33,13 @@ export class ChangesetManager {
     const changesetEntity = await this.changesetRepository.findOneChangeset(changesetId);
     if (changesetEntity) {
       this.logger.error({ msg: 'could not create changeset, changeset already exists', changesetId, osmId });
+      changesetCounter.inc({ status: 'failed', changesetid: changesetId });
       throw new ChangesetAlreadyExistsError(`changeset = ${changesetId} already exists`);
     }
 
     await this.changesetRepository.createChangeset(changeset);
+    changesetCounter.inc({ status: 'create', changesetid: changesetId });
+    changesetCounter.inc({ status: 'overall', changesetid: changesetId });
   }
 
   public async updateChangeset(changesetId: string, changesetUpdate: UpdateChangeset): Promise<void> {
@@ -41,10 +48,12 @@ export class ChangesetManager {
     const changesetEntity = await this.changesetRepository.findOneChangeset(changesetId);
     if (!changesetEntity) {
       this.logger.error({ msg: 'could not update changeset, changeset does not exist', changesetId });
+      changesetCounter.inc({ status: 'failed', changesetid: changesetId });
       throw new ChangesetNotFoundError(`changeset = ${changesetId} not found`);
     }
 
     await this.changesetRepository.updateChangeset(changesetId, changesetUpdate);
+    changesetCounter.inc({ status: 'update', changesetid: changesetId });
   }
 
   public async updateChangesetEntities(changesetId: string): Promise<void> {
@@ -53,6 +62,7 @@ export class ChangesetManager {
     const changesetEntity = await this.changesetRepository.findOneChangeset(changesetId);
     if (!changesetEntity) {
       this.logger.error({ msg: 'could not update changeset entities, changeset does not exist', changesetId });
+      changesetCounter.inc({ status: 'failed', changesetid: changesetId });
       throw new ChangesetNotFoundError(`changeset = ${changesetId} not found`);
     }
 
@@ -86,6 +96,7 @@ export class ChangesetManager {
     const changesetEntity = await this.changesetRepository.findOneChangeset(changesetId);
     if (!changesetEntity) {
       this.logger.error({ msg: 'could not close changeset, changeset does not exist', changesetId });
+      changesetCounter.inc({ status: 'failed', changesetid: changesetId });
       throw new ChangesetNotFoundError(`changeset = ${changesetId} not found`);
     }
 

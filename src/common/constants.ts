@@ -21,3 +21,4 @@ export const SERVICES: Record<string, symbol> = {
 export const ON_SIGNAL = Symbol('onSignal');
 export const HEALTHCHECK = Symbol('healthcheck');
 export const DB_SCHEMA = Symbol('db.schema');
+export const METRICS_REGISTRY = Symbol('MetricsRegistry');

@@ -1,11 +1,12 @@
-import { DependencyContainer } from 'tsyringe';
+import { DependencyContainer, instancePerContainerCachingFactory } from 'tsyringe';
+import client from 'prom-client';
 import config from 'config';
 import { getOtelMixin } from '@map-colonies/telemetry';
 import jsLogger, { LoggerOptions } from '@map-colonies/js-logger';
 import { DataSource } from 'typeorm';
 import { trace } from '@opentelemetry/api';
-import { DB_SCHEMA, HEALTHCHECK, ON_SIGNAL, SERVICES, SERVICE_NAME } from './common/constants';
-import { DbConfig, IApplication } from './common/interfaces';
+import { DB_SCHEMA, HEALTHCHECK, ON_SIGNAL, SERVICES, SERVICE_NAME, METRICS_REGISTRY } from './common/constants';
+import { DbConfig, IApplication, IConfig } from './common/interfaces';
 import { getDbHealthCheckFunction, initDataSource } from './common/db';
 import { tracing } from './common/tracing';
 import { syncRepositoryFactory, SYNC_CUSTOM_REPOSITORY_SYMBOL } from './sync/DAL/syncRepository';
@@ -39,6 +40,18 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
     { token: DB_SCHEMA, provider: { useValue: config.get('db.schema') } },
     { token: SERVICES.LOGGER, provider: { useValue: logger } },
     { token: SERVICES.TRACER, provider: { useValue: tracer } },
+    {
+      token: METRICS_REGISTRY,
+      provider: {
+        useFactory: instancePerContainerCachingFactory((container) => {
+          const config = container.resolve<IConfig>(SERVICES.CONFIG);
+
+          if (config.get<boolean>('telemetry.metrics.enabled')) {
+            return client.register;
+          }
+        }),
+      },
+    },
     { token: SERVICES.APPLICATION, provider: { useValue: appConfig } },
     { token: DataSource, provider: { useValue: connection } },
     { token: FILE_CUSTOM_REPOSITORY_SYMBOL, provider: { useFactory: fileRepositoryFactory } },

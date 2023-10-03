@@ -8,6 +8,7 @@ import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } f
 import { TransactionFailureError } from '../../changeset/models/errors';
 import { getIsolationLevel } from '../../common/utils/db';
 import { SERVICES } from '../../common/constants';
+import { syncCounter } from '../../common/metrics';
 import { SyncDb } from './sync';
 
 // deletes a file who has no entities registered to it
@@ -235,6 +236,7 @@ const createSyncRepo = (dataSource: DataSource) => {
           // try closing the sync only if files were deleted
           if (deletedFilesResult[1] !== 0) {
             const closedSync = await tryClosingSync(baseSyncId as string, schema, transactionalEntityManager);
+            syncCounter.remove({ status: 'overall', syncid: baseSyncId as string });
 
             logger.debug({
               msg: 'trying to close base sync resulted in',
@@ -296,6 +298,7 @@ const createSyncRepo = (dataSource: DataSource) => {
           logger.debug({ msg: 'prepared incomplete entities', rerunId, baseSyncId, entityStatusesForRerun, transaction });
 
           await this.createSync(rerunSync);
+          syncCounter.inc({ status: 'create', syncid: rerunId });
 
           logger.debug({ msg: 'created rerun sync', rerunId, baseSyncId, entityStatusesForRerun, transaction });
 
@@ -313,6 +316,7 @@ const createSyncRepo = (dataSource: DataSource) => {
         if (isTransactionFailure(error)) {
           throw new TransactionFailureError(`rerun creation has failed due to read/write dependencies among transactions.`);
         }
+        syncCounter.inc({ status: 'failed', syncid: rerunId });
         throw error;
       }
     },

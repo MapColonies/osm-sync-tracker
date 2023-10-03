@@ -1,6 +1,7 @@
 import jsLogger from '@map-colonies/js-logger';
 import { faker } from '@faker-js/faker';
 import { QueryFailedError } from 'typeorm';
+import client from 'prom-client';
 import { ChangesetManager } from '../../../../src/changeset/models/changesetManager';
 import { ChangesetRepository } from '../../../../src/changeset/DAL/changesetRepository';
 import { createFakeChangeset } from '../../../helpers/helper';
@@ -41,7 +42,8 @@ describe('ChangesetManager', () => {
       {
         transactionRetryPolicy: { enabled: false },
         isolationLevel: DEFAULT_ISOLATION_LEVEL,
-      }
+      },
+      new client.Registry()
     );
   });
 
@@ -147,7 +149,8 @@ describe('ChangesetManager', () => {
         {
           transactionRetryPolicy: { enabled: true, numRetries: 1 },
           isolationLevel: DEFAULT_ISOLATION_LEVEL,
-        }
+        },
+        new client.Registry()
       );
 
       const closePromise = changesetManagerWithRetries.closeChangeset(entity.changesetId);
@@ -189,7 +192,8 @@ describe('ChangesetManager', () => {
         {
           transactionRetryPolicy: { enabled: true, numRetries: retries },
           isolationLevel: DEFAULT_ISOLATION_LEVEL,
-        }
+        },
+        new client.Registry()
       );
 
       const closePromise = changesetManagerWithRetries.closeChangeset(entity.changesetId);
@@ -220,7 +224,8 @@ describe('ChangesetManager', () => {
         {
           transactionRetryPolicy: { enabled: true, numRetries: retries },
           isolationLevel: DEFAULT_ISOLATION_LEVEL,
-        }
+        },
+        new client.Registry()
       );
 
       const closePromise = changesetManagerWithRetries.closeChangeset(entity.changesetId);
@@ -272,7 +277,8 @@ describe('ChangesetManager', () => {
         {
           transactionRetryPolicy: { enabled: true, numRetries: 1 },
           isolationLevel: DEFAULT_ISOLATION_LEVEL,
-        }
+        },
+        new client.Registry()
       );
 
       const closePromise = changesetManagerWithRetries.closeChangesets([entity.changesetId]);
@@ -314,7 +320,8 @@ describe('ChangesetManager', () => {
         {
           transactionRetryPolicy: { enabled: true, numRetries: retries },
           isolationLevel: DEFAULT_ISOLATION_LEVEL,
-        }
+        },
+        new client.Registry()
       );
 
       const closePromise = changesetManagerWithRetries.closeChangesets([entity1.changesetId, entity2.changesetId]);
@@ -344,7 +351,8 @@ describe('ChangesetManager', () => {
         {
           transactionRetryPolicy: { enabled: true, numRetries: retries },
           isolationLevel: DEFAULT_ISOLATION_LEVEL,
-        }
+        },
+        new client.Registry()
       );
 
       const closePromise = changesetManagerWithRetries.closeChangesets([entity.changesetId]);

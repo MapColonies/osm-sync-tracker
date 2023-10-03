@@ -1,9 +1,11 @@
 import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
-import { SERVICES } from '../../common/constants';
+import client from 'prom-client';
+import { SERVICES, METRICS_REGISTRY } from '../../common/constants';
 import { GeometryType, Status } from '../../common/enums';
 import { IConfig } from '../../common/interfaces';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../DAL/syncRepository';
+import { initMetricCounters, syncCounter } from '../../common/metrics';
 import { FullSyncAlreadyExistsError, InvalidSyncForRerunError, RerunAlreadyExistsError, SyncAlreadyExistsError, SyncNotFoundError } from './errors';
 import { BaseSync, CreateRerunRequest, Sync, SyncsFilter, SyncUpdate } from './sync';
 
@@ -14,9 +16,11 @@ export class SyncManager {
   public constructor(
     @inject(SYNC_CUSTOM_REPOSITORY_SYMBOL) private readonly syncRepository: SyncRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
-    @inject(SERVICES.CONFIG) private readonly config: IConfig
+    @inject(SERVICES.CONFIG) private readonly config: IConfig,
+    @inject(METRICS_REGISTRY) registry: client.Registry
   ) {
     this.dbSchema = this.config.get('db.schema');
+    initMetricCounters(registry);
   }
 
   public async getSyncs(filter: SyncsFilter): Promise<BaseSync[]> {
@@ -42,6 +46,7 @@ export class SyncManager {
     const syncEntity = await this.syncRepository.findOneSync(sync.id);
     if (syncEntity) {
       this.logger.error({ msg: 'could not create sync due to sync with the same id already existing', syncId: syncEntity.id });
+      syncCounter.inc({ status: 'failed', syncid: syncEntity.id });
       throw new SyncAlreadyExistsError(`sync = ${syncEntity.id} already exists`);
     }
 
@@ -56,13 +61,15 @@ export class SyncManager {
           geometryType,
           existingFullSyncId,
         });
-
+        syncCounter.inc({ status: 'failed', syncid: existingFullSyncId });
         throw new FullSyncAlreadyExistsError(
           `full sync with layer id = ${layerId} and geometry type = ${geometryType} already exists with id ${existingFullSyncId}`
         );
       }
     }
     await this.syncRepository.createSync(sync);
+    syncCounter.inc({ status: 'create', syncid: sync.id });
+    syncCounter.inc({ status: 'overall', syncid: sync.id });
   }
 
   public async updateSync(syncId: string, updatedSync: SyncUpdate): Promise<void> {
@@ -71,12 +78,14 @@ export class SyncManager {
 
     if (!currentSync) {
       this.logger.error({ msg: 'could not update sync due to sync not existing', syncId });
+      syncCounter.inc({ status: 'failed', syncid: syncId });
       throw new SyncNotFoundError(`sync = ${syncId} not found`);
     }
 
     const { isFull } = currentSync;
     const updatedEntity = { isFull, ...updatedSync };
     await this.syncRepository.updateSync(syncId, updatedEntity);
+    syncCounter.inc({ status: 'update', syncid: syncId });
   }
 
   public async rerunSyncIfNeeded(syncId: string, rerunId: string, startDate: Date, shouldRerunNotSynced?: boolean): Promise<boolean> {
@@ -85,12 +94,14 @@ export class SyncManager {
     const rerunEntity = await this.syncRepository.findOneSync(rerunId);
     if (rerunEntity) {
       this.logger.error({ msg: 'could not create rerun due to rerun with the same id already existing', rerunId, baseSyncId: syncId });
+      syncCounter.inc({ status: 'failed', syncid: rerunId });
       throw new RerunAlreadyExistsError(`rerun = ${rerunId} already exists`);
     }
 
     const baseSyncWithLastRerun = await this.syncRepository.findOneSyncWithLastRerun(syncId);
     if (!baseSyncWithLastRerun) {
       this.logger.error({ msg: 'could not create rerun due to base sync not existing' });
+      syncCounter.inc({ status: 'failed', syncid: syncId });
       throw new SyncNotFoundError(`sync = ${syncId} not found`);
     }
 
@@ -102,6 +113,7 @@ export class SyncManager {
         baseSyncRunNumber: baseSyncWithLastRerun.runNumber,
         baseSyncStatus: baseSyncWithLastRerun.status,
       });
+      syncCounter.inc({ status: 'failed', syncid: syncId });
       throw new InvalidSyncForRerunError(`could not rerun sync = ${syncId} due to it not being a failed base sync`);
     }
 
@@ -118,6 +130,7 @@ export class SyncManager {
           latestRerunStatus: latestRerun.status,
           latestRerunRunNumber: latestRerun.runNumber,
         });
+        syncCounter.inc({ status: 'failed', syncid: latestRerun.id });
         throw new InvalidSyncForRerunError(
           `could not rerun sync = ${syncId} due to an already existing ${latestRerun.status} rerun = ${latestRerun.id}`
         );

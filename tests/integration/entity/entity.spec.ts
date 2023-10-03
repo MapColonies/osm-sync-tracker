@@ -1,6 +1,7 @@
 import { faker } from '@faker-js/faker';
 import { DependencyContainer } from 'tsyringe';
 import httpStatus, { StatusCodes } from 'http-status-codes';
+import httpStatusCodes from 'http-status-codes';
 import { DataSource, QueryFailedError } from 'typeorm';
 import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from '../sync/helpers/generators';
 import { StringifiedSync } from '../sync/types';
@@ -80,7 +81,7 @@ describe('entity', function () {
         const file2 = createStringifiedFakeFile();
         await fileRequestSender.postFile(sync.id as string, file2);
 
-        expect(await entityRequestSender.postEntityBulk(file.fileId as string, [entity1, entity2])).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntityBulk(file.fileId as string, [entity1, entity2])).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await entityRequestSender.postEntityBulk(file2.fileId as string, [entity1, entity2]);
 
@@ -96,11 +97,16 @@ describe('entity', function () {
           const entity1 = createStringifiedFakeEntity({ status: EntityStatus.COMPLETED });
           const entity2 = createStringifiedFakeEntity();
 
-          expect(await syncRequestSender.postSync(syncForRerun)).toHaveStatus(StatusCodes.CREATED);
-          expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
-          expect(await syncRequestSender.rerunSync(syncForRerun.id as string, rerunCreateBody)).toHaveStatus(StatusCodes.CREATED);
+          expect(await syncRequestSender.postSync(syncForRerun)).toHaveProperty('status', httpStatusCodes.CREATED);
 
-          expect(await fileRequestSender.postFile(syncForRerun.id as string, file)).toHaveStatus(StatusCodes.CREATED);
+          expect(await syncRequestSender.patchSync(syncForRerun.id as string, { status: Status.FAILED })).toHaveProperty(
+            'status',
+            httpStatusCodes.OK
+          );
+
+          expect(await syncRequestSender.rerunSync(syncForRerun.id as string, rerunCreateBody)).toHaveProperty('status', httpStatusCodes.CREATED);
+
+          expect(await fileRequestSender.postFile(syncForRerun.id as string, file)).toHaveProperty('status', httpStatusCodes.CREATED);
 
           const firstExpectedBody: EntityBulkCreationResult = { created: [entity1.entityId as string], previouslyCompleted: [] };
 
@@ -128,7 +134,8 @@ describe('entity', function () {
     describe('PATCH /file/:fileId/entity/:entityId', function () {
       it('should return 200 status code and empty array body', async function () {
         const body = createStringifiedFakeEntity();
-        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveProperty('status', httpStatusCodes.CREATED);
+
         const { entityId, ...updateBody } = body;
 
         updateBody.action = ActionType.MODIFY;
@@ -151,7 +158,8 @@ describe('entity', function () {
         const entityRequestSenderWithRetries = new EntityRequestSender(appWithRetries);
 
         const body = createStringifiedFakeEntity();
-        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveProperty('status', httpStatusCodes.CREATED);
+
         const { entityId, ...updateBody } = body;
 
         updateBody.action = ActionType.MODIFY;
@@ -186,7 +194,8 @@ describe('entity', function () {
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const body = createStringifiedFakeEntity();
-        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveProperty('status', httpStatusCodes.CREATED);
+
         const { entityId, ...updateBody } = body;
         updateBody.action = ActionType.MODIFY;
         updateBody.status = EntityStatus.NOT_SYNCED;
@@ -202,7 +211,7 @@ describe('entity', function () {
     describe('PATCH /entity/_bulk', function () {
       it('should return 200 status code and OK body', async function () {
         const body = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
-        expect(await entityRequestSender.postEntityBulk(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntityBulk(file.fileId as string, body)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         body[0].action = ActionType.MODIFY;
         body[0].failReason = 'epic failure';
@@ -220,11 +229,12 @@ describe('entity', function () {
       it('should return 200 status code and OK body if entity with same id exist in different file', async function () {
         const newFile = createStringifiedFakeFile();
 
-        expect(await fileRequestSender.postFile(sync.id as string, newFile)).toHaveStatus(StatusCodes.CREATED);
+        expect(await fileRequestSender.postFile(sync.id as string, newFile)).toHaveProperty('status', httpStatusCodes.CREATED);
+
         const entities1 = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
         const entities2 = [{ ...entities1[0] }];
-        expect(await entityRequestSender.postEntityBulk(file.fileId as string, entities1)).toHaveStatus(StatusCodes.CREATED);
-        expect(await entityRequestSender.postEntityBulk(newFile.fileId as string, entities2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntityBulk(file.fileId as string, entities1)).toHaveProperty('status', httpStatusCodes.CREATED);
+        expect(await entityRequestSender.postEntityBulk(newFile.fileId as string, entities2)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         entities1[0].action = ActionType.MODIFY;
         entities1[0].failReason = 'epic failure';
@@ -250,7 +260,7 @@ describe('entity', function () {
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const body = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
-        expect(await entityRequestSender.postEntityBulk(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntityBulk(file.fileId as string, body)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         body[0].action = ActionType.MODIFY;
         body[0].failReason = 'epic failure';
@@ -300,7 +310,7 @@ describe('entity', function () {
 
       it('should return 409 if a entity already exists', async function () {
         const entity = createStringifiedFakeEntity();
-        expect(await entityRequestSender.postEntity(file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntity(file.fileId as string, entity)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await entityRequestSender.postEntity(file.fileId as string, entity);
 
@@ -354,7 +364,7 @@ describe('entity', function () {
         const entity = createStringifiedFakeEntity();
         const entity2 = createStringifiedFakeEntity();
 
-        expect(await entityRequestSender.postEntity(file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntity(file.fileId as string, entity)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const response = await entityRequestSender.postEntityBulk(file.fileId as string, [entity, entity2]);
 
@@ -427,7 +437,7 @@ describe('entity', function () {
 
       it('should return 404 if no entity with the specified file id was found', async function () {
         const entity = createStringifiedFakeEntity();
-        expect(await entityRequestSender.postEntity(file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntity(file.fileId as string, entity)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const entities = [{ ...entity, status: EntityStatus.FAILED, failReason: faker.random.word(), fileId: faker.datatype.uuid() }];
 
@@ -439,7 +449,7 @@ describe('entity', function () {
       it('should return 404 if one of the entity does not exist in the db', async function () {
         const entity = createStringifiedFakeEntity();
 
-        expect(await entityRequestSender.postEntity(file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntity(file.fileId as string, entity)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         const entities = [
           { ...entity, status: EntityStatus.FAILED, failReason: faker.random.word(), fileId: file.fileId },
@@ -551,7 +561,8 @@ describe('entity', function () {
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const body = createStringifiedFakeEntity();
-        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveProperty('status', httpStatusCodes.CREATED);
+
         const { entityId, ...updateBody } = body;
         updateBody.action = ActionType.MODIFY;
         updateBody.status = EntityStatus.NOT_SYNCED;
@@ -587,7 +598,8 @@ describe('entity', function () {
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const body = createStringifiedFakeEntity();
-        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveProperty('status', httpStatusCodes.CREATED);
+
         const { entityId, ...updateBody } = body;
         updateBody.action = ActionType.MODIFY;
         updateBody.status = EntityStatus.NOT_SYNCED;
@@ -624,7 +636,8 @@ describe('entity', function () {
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const body = createStringifiedFakeEntity();
-        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntity(file.fileId as string, body)).toHaveProperty('status', httpStatusCodes.CREATED);
+
         const { entityId, ...updateBody } = body;
         updateBody.action = ActionType.MODIFY;
         updateBody.status = EntityStatus.NOT_SYNCED;
@@ -668,7 +681,7 @@ describe('entity', function () {
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const body = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
-        expect(await entityRequestSender.postEntityBulk(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntityBulk(file.fileId as string, body)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         body[0].action = ActionType.MODIFY;
         body[0].failReason = 'epic failure';
@@ -697,7 +710,7 @@ describe('entity', function () {
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const body = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
-        expect(await entityRequestSender.postEntityBulk(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntityBulk(file.fileId as string, body)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         body[0].action = ActionType.MODIFY;
         body[0].failReason = 'epic failure';
@@ -727,7 +740,7 @@ describe('entity', function () {
         mockEntityRequestSender = new EntityRequestSender(mockApp);
 
         const body = [createStringifiedFakeEntity(), createStringifiedFakeEntity()];
-        expect(await entityRequestSender.postEntityBulk(file.fileId as string, body)).toHaveStatus(StatusCodes.CREATED);
+        expect(await entityRequestSender.postEntityBulk(file.fileId as string, body)).toHaveProperty('status', httpStatusCodes.CREATED);
 
         body[0].action = ActionType.MODIFY;
         body[0].failReason = 'epic failure';
