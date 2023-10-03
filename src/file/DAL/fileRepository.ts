@@ -9,6 +9,7 @@ import { SyncDb } from '../../sync/DAL/sync';
 import { Status } from '../../common/enums';
 import { SERVICES } from '../../common/constants';
 import { getIsolationLevel } from '../../common/utils/db';
+import { fileCounter, syncCounter } from '../../common/metrics';
 import { File as FileDb } from './file';
 
 async function updateFileAsCompleted(
@@ -100,6 +101,9 @@ const createFileRepo = (dataSource: DataSource) => {
 
           // check if there are any affected rows from the update
           if (completedFilesResult[1] !== 0) {
+            const fileIds = completedFilesResult[0].map((file) => file.id);
+            countCompletedFiles(fileIds);
+
             const completedSyncsResult = await updateSyncAsCompleted(fileId, schema, transactionalEntityManager);
 
             logger.debug({ msg: 'updated sync as completed resulted in', completedSyncsResult, fileId, transaction });
@@ -109,7 +113,7 @@ const createFileRepo = (dataSource: DataSource) => {
 
             logger.debug({ msg: 'updated the last rerun of each completed sync', completedSyncIds, fileId, transaction });
           }
-
+          countCompletedSyncs(completedSyncIds);
           return completedSyncIds;
         });
       } catch (error) {
@@ -118,11 +122,26 @@ const createFileRepo = (dataSource: DataSource) => {
         if (isTransactionFailure(error)) {
           throw new TransactionFailureError(`closing file ${fileId} has failed due to read/write dependencies among transactions.`);
         }
+        fileCounter.inc({ status: 'failed', fileid: fileId });
         throw error;
       }
     },
   });
 };
+
+function countCompletedFiles(fileIds: string[]): void {
+  for (let i = 0; i < fileIds.length; i++) {
+    fileCounter.inc({ status: 'closed', fileid: fileIds[i] });
+    fileCounter.remove({ status: 'overall', fileid: fileIds[i] });
+  }
+}
+
+function countCompletedSyncs(syncIds: string[]): void {
+  for (let i = 0; i < syncIds.length; i++) {
+    syncCounter.inc({ status: 'closed', syncid: syncIds[i] });
+    syncCounter.remove({ status: 'overall', syncid: syncIds[i] });
+  }
+}
 
 let logger: Logger;
 

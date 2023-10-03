@@ -1,4 +1,3 @@
-import client from 'prom-client';
 import { EntityManager, DataSource } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
@@ -11,6 +10,7 @@ import { SERVICES } from '../../common/constants';
 import { TransactionFailureError } from '../models/errors';
 import { SyncDb } from '../../sync/DAL/sync';
 import { getIsolationLevel } from '../../common/utils/db';
+import { changesetCounter, fileCounter, syncCounter } from '../../common/metrics';
 import { Changeset as ChangesetDb } from './changeset';
 
 async function updateLastRerunAsCompleted(syncId: string, transactionalEntityManager: EntityManager): Promise<void> {
@@ -115,11 +115,7 @@ const createChangesetRepository = (dataSource: DataSource) => {
         .execute();
     },
 
-    async tryClosingChangesets(
-      changesetIds: string[],
-      schema: string,
-      changesetCounter: client.Counter<'status' | 'changesetid'>
-    ): Promise<string[]> {
+    async tryClosingChangesets(changesetIds: string[], schema: string): Promise<string[]> {
       const isolationLevel = getIsolationLevel();
       const transaction = { transactionId: nanoid(), transactionName: TransactionName.TRY_CLOSING_CHANGESETS, isolationLevel };
       logger.debug({
@@ -139,16 +135,18 @@ const createChangesetRepository = (dataSource: DataSource) => {
           // check if there are any affected rows from the update
           if (completedFilesResult[1] !== 0) {
             const fileIds = completedFilesResult[0].map((file) => file.id);
+            countCompletedFiles(fileIds);
             const completedSyncsResult = await updateSyncAsCompletedByFiles(fileIds, schema, transactionalEntityManager);
 
             logger.debug({ msg: 'updated sync as completed resulted in', completedSyncsResult, changesetIds, transaction });
 
             completedSyncIds = completedSyncsResult[0].map((sync) => sync.id);
             await Promise.all(completedSyncIds.map(async (syncId) => updateLastRerunAsCompleted(syncId, transactionalEntityManager)));
+            countCompletedSyncs(completedSyncIds);
 
             logger.debug({ msg: 'updated the last rerun of each completed sync', completedSyncIds, transaction });
           }
-          countCompletedChangesets(changesetIds, changesetCounter);
+          countCompletedChangesets(changesetIds);
           return completedSyncIds;
         });
       } catch (error) {
@@ -167,7 +165,7 @@ const createChangesetRepository = (dataSource: DataSource) => {
       }
     },
 
-    async tryClosingChangeset(changesetId: string, schema: string, changesetCounter: client.Counter<'status' | 'changesetid'>): Promise<void> {
+    async tryClosingChangeset(changesetId: string, schema: string): Promise<void> {
       const isolationLevel = getIsolationLevel();
       const transaction = { transactionId: nanoid(), transactionName: TransactionName.TRY_CLOSING_CHANGESET, isolationLevel };
 
@@ -179,7 +177,11 @@ const createChangesetRepository = (dataSource: DataSource) => {
 
           logger.debug({ msg: 'updated entities of changeset as completed', changesetId, transaction });
 
-          await updateFileAsCompleted([changesetId], schema, transactionalEntityManager);
+          const completedFileResult = await updateFileAsCompleted([changesetId], schema, transactionalEntityManager);
+          if (completedFileResult[1] !== 0) {
+            const fileIds = completedFileResult[0].map((file) => file.id);
+            countCompletedFiles(fileIds);
+          }
 
           logger.debug({ msg: 'tried to update files of changeset as completed', changesetId, transaction });
 
@@ -216,10 +218,22 @@ const createChangesetRepository = (dataSource: DataSource) => {
   });
 };
 
-function countCompletedChangesets(changesetIds: string[], changesetCounter: client.Counter<'status' | 'changesetid'>): void {
+function countCompletedChangesets(changesetIds: string[]): void {
   for (let i = 0; i < changesetIds.length; i++) {
     changesetCounter.inc({ status: 'closed', changesetid: changesetIds[i] });
     changesetCounter.remove({ status: 'overall', changesetid: changesetIds[i] });
+  }
+}
+function countCompletedFiles(fileIds: string[]): void {
+  for (let i = 0; i < fileIds.length; i++) {
+    fileCounter.inc({ status: 'closed', fileid: fileIds[i] });
+    fileCounter.remove({ status: 'overall', fileid: fileIds[i] });
+  }
+}
+function countCompletedSyncs(syncIds: string[]): void {
+  for (let i = 0; i < syncIds.length; i++) {
+    syncCounter.inc({ status: 'closed', syncid: syncIds[i] });
+    syncCounter.remove({ status: 'overall', syncid: syncIds[i] });
   }
 }
 
