@@ -1,7 +1,8 @@
 import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
+import client from 'prom-client';
 import lodash from 'lodash';
-import { SERVICES } from '../../common/constants';
+import { METRICS_REGISTRY, SERVICES } from '../../common/constants';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../../sync/DAL/syncRepository';
 import { SyncNotFoundError } from '../../sync/models/errors';
 import { FILE_CUSTOM_REPOSITORY_SYMBOL, FileRepository } from '../DAL/fileRepository';
@@ -9,6 +10,7 @@ import { Sync } from '../../sync/models/sync';
 import { TransactionFailureError } from '../../changeset/models/errors';
 import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
 import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
+import { Status } from '../../common/enums';
 import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from './errors';
 import { File, FileUpdate } from './file';
 
@@ -16,16 +18,24 @@ import { File, FileUpdate } from './file';
 export class FileManager {
   private readonly dbSchema: string;
   private readonly transactionRetryPolicy: TransactionRetryPolicy;
+  private readonly fileCounter: client.Counter<'status' | 'fileid'>;
 
   public constructor(
     @inject(FILE_CUSTOM_REPOSITORY_SYMBOL) private readonly fileRepository: FileRepository,
     @inject(SYNC_CUSTOM_REPOSITORY_SYMBOL) private readonly syncRepository: SyncRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
     @inject(SERVICES.CONFIG) private readonly config: IConfig,
-    @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication
+    @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication,
+    @inject(METRICS_REGISTRY) registry: client.Registry
   ) {
     this.dbSchema = this.config.get('db.schema');
     this.transactionRetryPolicy = this.appConfig.transactionRetryPolicy;
+    this.fileCounter = new client.Counter({
+      name: 'file_count',
+      help: 'The overall file stats',
+      labelNames: ['status', 'fileid'] as const,
+      registers: [registry],
+    });
   }
 
   public async createFile(syncId: string, file: File): Promise<void> {
@@ -35,10 +45,12 @@ export class FileManager {
 
     if (!syncEntity) {
       this.logger.error({ msg: 'could not create file on sync due to sync not existing', syncId, fileId: file.fileId });
+      this.fileCounter.inc({ status: 'failed', fileid: file.fileId });
       throw new SyncNotFoundError(`sync = ${syncId} not found`);
     }
 
     if (syncEntity.baseSyncId != null) {
+      this.fileCounter.inc({ status: 'rerun', fileid: file.fileId });
       return this.createRerunFile(syncEntity, file);
     }
 
@@ -46,10 +58,13 @@ export class FileManager {
 
     if (fileEntity) {
       this.logger.error({ msg: 'could not create file due to file with the same id already existing', syncId, fileId: file.fileId });
+      this.fileCounter.inc({ status: 'failed', fileid: file.fileId });
       throw new FileAlreadyExistsError(`file = ${file.fileId} already exists`);
     }
 
     await this.fileRepository.createFile({ ...file, syncId });
+    this.fileCounter.inc({ status: 'create', fileid: file.fileId });
+    this.fileCounter.inc({ status: 'overall', fileid: file.fileId });
   }
 
   public async createFiles(syncId: string, files: File[]): Promise<void> {
@@ -62,6 +77,7 @@ export class FileManager {
         uniqueFileIdCount: uniqueFileIds.length,
         syncId,
       });
+      this.countfiles('failed', files);
       throw new DuplicateFilesError(`files = [${uniqueFileIds.map((file) => file.fileId).toString()}] are duplicate`);
     }
 
@@ -82,10 +98,12 @@ export class FileManager {
         alreadyExistingFilesCount: filesEntities.length,
         alreadyExistingFileIds,
       });
+      this.fileCounter.inc({ status: 'failed', fileid: alreadyExistingFileIds.toString() });
       throw new FileAlreadyExistsError(`files = [${alreadyExistingFileIds.toString()}] already exists`);
     }
 
     const filesWithSyncId = files.map((file) => ({ ...file, syncId }));
+    this.countfiles('create', files);
     await this.fileRepository.createFiles(filesWithSyncId);
   }
 
@@ -103,10 +121,12 @@ export class FileManager {
 
     if (!fileEntity) {
       this.logger.error({ msg: 'could not update file on sync due to file not existing', syncId, fileId });
+      this.fileCounter.inc({ status: 'failed', fileid: fileId });
       throw new FileNotFoundError(`file = ${fileId} not found`);
     }
 
     await this.fileRepository.updateFile(fileId, fileUpdate);
+    this.fileCounter.inc({ status: 'update', fileid: fileId });
 
     // try closing the file which in turn if if succeeded will try compliting the sync
     const completedSyncIds = await this.closeFile(fileId);
@@ -144,6 +164,7 @@ export class FileManager {
         fileId: rerunFile.fileId,
         existingFileSyncId: fileEntity.syncId,
       });
+      this.fileCounter.inc({ status: 'failed', fileid: rerunFile.fileId });
       throw new ConflictingRerunFileError(`rerun file = ${rerunFile.fileId} conflicting sync id`);
     }
 
@@ -157,6 +178,7 @@ export class FileManager {
         rerunFileTotalEntities,
         existingFileTotalEntities,
       });
+      this.fileCounter.inc({ status: 'failed', fileid: rerunFile.fileId });
       throw new ConflictingRerunFileError(`rerun file = ${rerunFile.fileId} conflicting total entities`);
     }
   }
@@ -171,5 +193,17 @@ export class FileManager {
     const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
     const functionRef = this.fileRepository.tryClosingFile.bind(this.fileRepository);
     return retryFunctionWrapper(retryOptions, functionRef, fileId, this.dbSchema);
+  }
+
+  private countfiles(fileAction: string, files: File[]): void {
+    for (let i = 0; i < files.length; i++) {
+      if (fileAction === 'create') {
+        this.fileCounter.inc({ status: 'overall', fileid: files[i].fileId });
+      }
+      if (files[i].status === Status.COMPLETED) {
+        this.fileCounter.remove({ status: 'overall', fileid: files[i].fileId });
+      }
+      this.fileCounter.inc({ status: fileAction, fileid: files[i].fileId });
+    }
   }
 }

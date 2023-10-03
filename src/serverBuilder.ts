@@ -8,7 +8,7 @@ import { middleware as OpenApiMiddleware } from 'express-openapi-validator';
 import { inject, injectable } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import httpLogger from '@map-colonies/express-access-log-middleware';
-import { defaultMetricsMiddleware, getTraceContexHeaderMiddleware, metricsMiddleware } from '@map-colonies/telemetry';
+import { getTraceContexHeaderMiddleware, metricsMiddleware } from '@map-colonies/telemetry';
 import { SERVICES, METRICS_REGISTRY } from './common/constants';
 import { IConfig } from './common/interfaces';
 import { fileRouterSymbol } from './file/routes/fileRouter';

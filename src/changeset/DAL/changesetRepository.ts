@@ -216,6 +216,13 @@ const createChangesetRepository = (dataSource: DataSource) => {
   });
 };
 
+function countCompletedChangesets(changesetIds: string[], changesetCounter: client.Counter<'status' | 'changesetid'>): void {
+  for (let i = 0; i < changesetIds.length; i++) {
+    changesetCounter.inc({ status: 'closed', changesetid: changesetIds[i] });
+    changesetCounter.remove({ status: 'overall', changesetid: changesetIds[i] });
+  }
+}
+
 let logger: Logger;
 
 export type ChangesetRepository = ReturnType<typeof createChangesetRepository>;
@@ -227,10 +234,3 @@ export const changesetRepositoryFactory: FactoryFunction<ChangesetRepository> = 
 };
 
 export const CHANGESET_CUSTOM_REPOSITORY_SYMBOL = Symbol('CHANGESET_CUSTOM_REPOSITORY_SYMBOL');
-
-function countCompletedChangesets(changesetIds: string[], changesetCounter: client.Counter<'status' | 'changesetid'>): void {
-  for (let i = 0; i < changesetIds.length; i++) {
-    changesetCounter.inc({ status: 'closed', changesetid: changesetIds[i] });
-    changesetCounter.remove({ status: 'overall', changesetid: changesetIds[i] });
-  }
-}

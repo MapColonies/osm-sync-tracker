@@ -23,7 +23,7 @@ export interface EntityBulkCreationResult {
 export class EntityManager {
   private readonly dbSchema: string;
   private readonly transactionRetryPolicy: TransactionRetryPolicy;
-  // private readonly entityCounter: client.Counter<'status' | 'entityid'>;
+  private readonly entityCounter?: client.Counter<'status' | 'entityid'>;
 
   public constructor(
     @inject(ENTITY_CUSTOM_REPOSITORY_SYMBOL) private readonly entityRepository: EntityRepository,
@@ -32,16 +32,20 @@ export class EntityManager {
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
     @inject(SERVICES.CONFIG) private readonly config: IConfig,
     @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication,
-    // @inject(METRICS_REGISTRY) registry: client.Registry
+    @inject(METRICS_REGISTRY) registry: client.Registry
   ) {
     this.dbSchema = this.config.get('db.schema');
     this.transactionRetryPolicy = this.appConfig.transactionRetryPolicy;
-    // // this.entityCounter = new client.Counter({
-    //   name: 'ent_count',
-    //   help: 'The overall entity stats',
-    //   labelNames: ['status', 'entityid'] as const,
-    //   registers: [registry],
-    // });
+    try {
+      this.entityCounter = new client.Counter({
+        name: 'entity_count',
+        help: 'The overall entity stats',
+        labelNames: ['status', 'entityid'] as const,
+        registers: [registry],
+      });
+    } catch (error) {
+      this.logger.info({ msg: 'entity_count metric has already been created' });
+    }
   }
 
   public async createEntity(fileId: string, entity: Entity): Promise<void> {
@@ -52,20 +56,20 @@ export class EntityManager {
 
     if (!fileEntity) {
       this.logger.error({ msg: 'could not create entity due to file not existing', fileId, entityId: entity.entityId });
-      // // this.entityCounter.inc({ status: 'failed', entityid: entity.entityId });
+      this.entityCounter?.inc({ status: 'failed', entityid: entity.entityId });
       throw new FileNotFoundError(`file = ${fileId} not found`);
     }
 
     const entityEntity = await this.entityRepository.findOneEntity(entity.entityId, fileId);
     if (entityEntity) {
       this.logger.error({ msg: 'could not create entity due to entity with the same id already existing', fileId, entityId: entity.entityId });
-      // this.entityCounter.inc({ status: 'failed', entityid: entity.entityId });
+      this.entityCounter?.inc({ status: 'failed', entityid: entity.entityId });
       throw new EntityAlreadyExistsError(`entity = ${entity.entityId} already exists`);
     }
 
     await this.entityRepository.createEntity(entityWithFileId);
-    // this.entityCounter.inc({ status: 'create', entityid: entity.entityId });
-    // this.entityCounter.inc({ status: 'overall', entityid: entity.entityId });
+    this.entityCounter?.inc({ status: 'create', entityid: entity.entityId });
+    this.entityCounter?.inc({ status: 'overall', entityid: entity.entityId });
   }
 
   public async createEntities(fileId: string, entitiesForCreation: Entity[]): Promise<EntityBulkCreationResult> {
@@ -75,7 +79,7 @@ export class EntityManager {
 
     if (!fileEntity) {
       this.logger.error({ msg: 'could not bulk create entities on file due to file not existing', fileId, entityCount: entitiesForCreation.length });
-      // this.entityCounter.inc({ status: 'failed' });
+      this.entityCounter?.inc({ status: 'failed' });
       throw new FileNotFoundError(`file = ${fileId} not found`);
     }
 
@@ -88,7 +92,7 @@ export class EntityManager {
         duplicateEntities,
         duplicateEntitiesCount: duplicateEntities.length,
       });
-      // this.entityCounter.inc({ status: 'failed' });
+      this.entityCounter?.inc({ status: 'failed' });
       throw new DuplicateEntityError(`entites = [${duplicateEntities.toString()}] are duplicate`);
     }
 
@@ -110,7 +114,7 @@ export class EntityManager {
           existingEntitiesCount: existingEntities.length,
           existingEntityIds,
         });
-        // this.entityCounter.inc({ status: 'failed' });
+        this.entityCounter?.inc({ status: 'failed' });
         throw new EntityAlreadyExistsError(`entities = [${existingEntityIds.toString()}] already exists`);
       }
 
@@ -154,19 +158,19 @@ export class EntityManager {
     const fileEntity = await this.fileRepository.findOneFile(fileId);
     if (!fileEntity) {
       this.logger.error({ msg: 'could not create entity on file due to file not existing', fileId, entityId });
-      // this.entityCounter.inc({ status: 'failed', entityid: entityId });
+      this.entityCounter?.inc({ status: 'failed', entityid: entityId });
       throw new FileNotFoundError(`file = ${fileId} not found`);
     }
 
     const entityEntity = await this.entityRepository.findOneEntity(entityId, fileId);
     if (!entityEntity) {
       this.logger.error({ msg: 'could not create entity due to entity with the same id already existing', fileId, entityId });
-      // this.entityCounter.inc({ status: 'failed', entityid: entityId });
+      this.entityCounter?.inc({ status: 'failed', entityid: entityId });
       throw new EntityNotFoundError(`entity = ${entityId} not found`);
     }
 
     await this.entityRepository.updateEntity(entityId, fileId, entity);
-    // this.entityCounter.inc({ status: 'update', entityid: entityId });
+    this.entityCounter?.inc({ status: 'update', entityid: entityId });
 
     let completedSyncIds: string[] = [];
     if (entity.status === EntityStatus.NOT_SYNCED) {
@@ -195,7 +199,7 @@ export class EntityManager {
         entitiesCount: entities.length,
         uniqueEntitiesCount: uniqueEntityIds.length,
       });
-      // this.entityCounter.inc({ status: 'failed' });
+      this.entityCounter?.inc({ status: 'failed' });
       throw new DuplicateEntityError(`entites = [${uniqueEntityIds.map((entity) => entity.entityId).toString()}] are duplicate`);
     }
 
@@ -209,7 +213,7 @@ export class EntityManager {
         existingCount: entityCount,
         requestedCount: entities.length,
       });
-      // this.entityCounter.inc({ status: 'failed' });
+      this.entityCounter?.inc({ status: 'failed' });
       throw new EntityNotFoundError(`One of the entities was not found`);
     }
 
@@ -231,13 +235,13 @@ export class EntityManager {
 
   private countEntities(entityAction: string, entities: Entity[] | UpdateEntities): void {
     for (let i = 0; i < entities.length; i++) {
-      if(entityAction === 'create'){
-        // this.entityCounter.inc({ status: 'overall', entityid: entities[i].entityId });
+      if (entityAction === 'create') {
+        this.entityCounter?.inc({ status: 'overall', entityid: entities[i].entityId });
       }
-      if(entities[i].status === EntityStatus.COMPLETED){
-        // this.entityCounter.remove({ status: 'overall', entityid: entities[i].entityId });
+      if (entities[i].status === EntityStatus.COMPLETED) {
+        this.entityCounter?.remove({ status: 'overall', entityid: entities[i].entityId });
       }
-      // this.entityCounter.inc({ status: entityAction, entityid: entities[i].entityId });
+      this.entityCounter?.inc({ status: entityAction, entityid: entities[i].entityId });
     }
   }
 }

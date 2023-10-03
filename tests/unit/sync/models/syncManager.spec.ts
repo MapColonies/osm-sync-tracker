@@ -1,5 +1,6 @@
 import jsLogger from '@map-colonies/js-logger';
 import { faker } from '@faker-js/faker';
+import client from 'prom-client';
 import { SyncManager } from '../../../../src/sync/models/syncManager';
 import { SyncRepository } from '../../../../src/sync/DAL/syncRepository';
 import { createFakeRerunSync, createFakeSync, generateUniqueNumber } from '../../../helpers/helper';
@@ -38,7 +39,7 @@ describe('SyncManager', () => {
       findOneSyncWithLastRerun,
       createRerun,
     } as unknown as SyncRepository;
-    syncManager = new SyncManager(syncRepository, jsLogger({ enabled: false }), { get: jest.fn(), has: jest.fn() });
+    syncManager = new SyncManager(syncRepository, jsLogger({ enabled: false }), { get: jest.fn(), has: jest.fn() }, new client.Registry());
   });
 
   describe('#getSyncs', () => {

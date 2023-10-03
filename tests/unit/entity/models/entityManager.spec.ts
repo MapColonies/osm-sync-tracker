@@ -76,7 +76,7 @@ describe('EntityManager', () => {
       jsLogger({ enabled: false }),
       { get: jest.fn(), has: jest.fn() },
       { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
-      // new client.Registry()
+      new client.Registry()
     );
   });
 
@@ -283,7 +283,7 @@ describe('EntityManager', () => {
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
-        // new client.Registry()
+        new client.Registry()
       );
 
       const updatePromise = entityManagerWithRetries.updateEntity(file.fileId, entity.entityId, entity);
@@ -332,7 +332,7 @@ describe('EntityManager', () => {
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
-        // new client.Registry()
+        new client.Registry()
       );
 
       const updatePromise = entityManagerWithRetries.updateEntity(file.fileId, entity.entityId, entity);
@@ -359,7 +359,7 @@ describe('EntityManager', () => {
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
-        // new client.Registry()
+        new client.Registry()
       );
 
       const updatePromise = entityManagerWithRetries.updateEntity(file.fileId, entity.entityId, entity);
@@ -386,7 +386,7 @@ describe('EntityManager', () => {
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
-        // new client.Registry()
+        new client.Registry()
       );
 
       const updatePromise = entityManagerWithRetries.updateEntity(file.fileId, entity.entityId, entity);
@@ -438,7 +438,7 @@ describe('EntityManager', () => {
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
-        // new client.Registry()
+        new client.Registry()
       );
 
       const updateBulkPromise = entityManagerWithRetries.updateEntities(entities as UpdateEntities);
@@ -488,7 +488,7 @@ describe('EntityManager', () => {
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
-        // new client.Registry()
+        new client.Registry()
       );
 
       const updateBulkPromise = entityManagerWithRetries.updateEntities(entities as UpdateEntities);
@@ -516,7 +516,7 @@ describe('EntityManager', () => {
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
-        // new client.Registry()
+        new client.Registry()
       );
 
       const updateBulkPromise = entityManagerWithRetries.updateEntities(entities as UpdateEntities);
@@ -544,7 +544,7 @@ describe('EntityManager', () => {
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
         { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
-        // new client.Registry()
+        new client.Registry()
       );
 
       const updateBulkPromise = entityManagerWithRetries.updateEntities(entities as UpdateEntities);

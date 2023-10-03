@@ -25,53 +25,53 @@ export interface RegisterOptions {
 }
 
 export const registerExternalValues = async (options?: RegisterOptions): Promise<DependencyContainer> => {
-    const loggerConfig = config.get<LoggerOptions>('telemetry.logger');
-    const logger = jsLogger({ ...loggerConfig, mixin: getOtelMixin() });
+  const loggerConfig = config.get<LoggerOptions>('telemetry.logger');
+  const logger = jsLogger({ ...loggerConfig, mixin: getOtelMixin() });
 
-    const appConfig = config.get<IApplication>('application');
+  const appConfig = config.get<IApplication>('application');
 
-    const dataSourceOptions = config.get<DbConfig>('db');
-    const connection = await initDataSource(dataSourceOptions);
+  const dataSourceOptions = config.get<DbConfig>('db');
+  const connection = await initDataSource(dataSourceOptions);
 
-    const tracer = trace.getTracer(SERVICE_NAME);
+  const tracer = trace.getTracer(SERVICE_NAME);
 
-    const dependencies: InjectionObject<unknown>[] = [
-      { token: SERVICES.CONFIG, provider: { useValue: config } },
-      { token: DB_SCHEMA, provider: { useValue: config.get('db.schema') } },
-      { token: SERVICES.LOGGER, provider: { useValue: logger } },
-      { token: SERVICES.TRACER, provider: { useValue: tracer } },
-      {
-        token: METRICS_REGISTRY,
-        provider: {
-          useFactory: instancePerContainerCachingFactory((container) => {
-            const config = container.resolve<IConfig>(SERVICES.CONFIG);
+  const dependencies: InjectionObject<unknown>[] = [
+    { token: SERVICES.CONFIG, provider: { useValue: config } },
+    { token: DB_SCHEMA, provider: { useValue: config.get('db.schema') } },
+    { token: SERVICES.LOGGER, provider: { useValue: logger } },
+    { token: SERVICES.TRACER, provider: { useValue: tracer } },
+    {
+      token: METRICS_REGISTRY,
+      provider: {
+        useFactory: instancePerContainerCachingFactory((container) => {
+          const config = container.resolve<IConfig>(SERVICES.CONFIG);
 
-            if (config.get<boolean>('telemetry.metrics.enabled')) {
-              return client.register;
-            }
-          }),
+          if (config.get<boolean>('telemetry.metrics.enabled')) {
+            return client.register;
+          }
+        }),
+      },
+    },
+    { token: SERVICES.APPLICATION, provider: { useValue: appConfig } },
+    { token: DataSource, provider: { useValue: connection } },
+    { token: FILE_CUSTOM_REPOSITORY_SYMBOL, provider: { useFactory: fileRepositoryFactory } },
+    { token: CHANGESET_CUSTOM_REPOSITORY_SYMBOL, provider: { useFactory: changesetRepositoryFactory } },
+    { token: SYNC_CUSTOM_REPOSITORY_SYMBOL, provider: { useFactory: syncRepositoryFactory } },
+    { token: ENTITY_CUSTOM_REPOSITORY_SYMBOL, provider: { useFactory: entityRepositoryFactory } },
+    { token: syncRouterSymbol, provider: { useFactory: syncRouterFactory } },
+    { token: fileRouterSymbol, provider: { useFactory: fileRouterFactory } },
+    { token: entityRouterSymbol, provider: { useFactory: entityRouterFactory } },
+    { token: changesetRouterSymbol, provider: { useFactory: changesetRouterFactory } },
+    { token: HEALTHCHECK, provider: { useFactory: (container): unknown => getDbHealthCheckFunction(container.resolve<DataSource>(DataSource)) } },
+    {
+      token: ON_SIGNAL,
+      provider: {
+        useValue: async (): Promise<void> => {
+          await Promise.all([tracing.stop(), connection.destroy()]);
         },
       },
-      { token: SERVICES.APPLICATION, provider: { useValue: appConfig } },
-      { token: DataSource, provider: { useValue: connection } },
-      { token: FILE_CUSTOM_REPOSITORY_SYMBOL, provider: { useFactory: fileRepositoryFactory } },
-      { token: CHANGESET_CUSTOM_REPOSITORY_SYMBOL, provider: { useFactory: changesetRepositoryFactory } },
-      { token: SYNC_CUSTOM_REPOSITORY_SYMBOL, provider: { useFactory: syncRepositoryFactory } },
-      { token: ENTITY_CUSTOM_REPOSITORY_SYMBOL, provider: { useFactory: entityRepositoryFactory } },
-      { token: syncRouterSymbol, provider: { useFactory: syncRouterFactory } },
-      { token: fileRouterSymbol, provider: { useFactory: fileRouterFactory } },
-      { token: entityRouterSymbol, provider: { useFactory: entityRouterFactory } },
-      { token: changesetRouterSymbol, provider: { useFactory: changesetRouterFactory } },
-      { token: HEALTHCHECK, provider: { useFactory: (container): unknown => getDbHealthCheckFunction(container.resolve<DataSource>(DataSource)) } },
-      {
-        token: ON_SIGNAL,
-        provider: {
-          useValue: async (): Promise<void> => {
-            await Promise.all([tracing.stop(), connection.destroy()]);
-          },
-        },
-      },
-    ];
+    },
+  ];
 
-    return registerDependencies(dependencies, options?.override, options?.useChild);
+  return registerDependencies(dependencies, options?.override, options?.useChild);
 };

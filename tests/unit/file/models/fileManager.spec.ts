@@ -1,5 +1,6 @@
 import jsLogger from '@map-colonies/js-logger';
 import { faker } from '@faker-js/faker';
+import client from 'prom-client';
 import { FileManager } from '../../../../src/file/models/fileManager';
 import { FileRepository } from '../../../../src/file/DAL/fileRepository';
 import { SyncRepository } from '../../../../src/sync/DAL/syncRepository';
@@ -48,7 +49,8 @@ describe('FileManager', () => {
       syncRepository,
       jsLogger({ enabled: false }),
       { get: jest.fn(), has: jest.fn() },
-      { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
+      { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
+      new client.Registry()
     );
   });
 
@@ -82,7 +84,8 @@ describe('FileManager', () => {
         syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
+        { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
+        new client.Registry()
       );
       const updatePromise = fileManagerWithRetries.updateFile(sync.id, file.fileId, { totalEntities: 1 });
 
@@ -130,7 +133,8 @@ describe('FileManager', () => {
         syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
+        { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
+        new client.Registry()
       );
 
       const updatePromise = fileManagerWithRetries.updateFile(sync.id, file.fileId, { totalEntities: 1 });
@@ -153,7 +157,8 @@ describe('FileManager', () => {
         syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
+        { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
+        new client.Registry()
       );
 
       const closePromise = fileManagerWithRetries.updateFile(sync.id, file.fileId, { totalEntities: 1 });
