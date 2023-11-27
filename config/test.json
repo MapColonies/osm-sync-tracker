@@ -6,11 +6,18 @@
     }
   },
   "db": {
-    "host": "postgres",
-    "schema": "osm_sync_tracker",
-    "username": "postgres",
+    "type": "postgres",
+    "host": "localhost",
+    "port": 5432,
+    "username": "natalies",
     "password": "1234",
-    "database": "postgres",
-    "enableSslAuth": false
+    "enableSslAuth": false,
+    "sslPaths": {
+      "ca": "",
+      "key": "",
+      "cert": ""
+    },
+    "database": "prod_avi",
+    "schema": "osm_sync_tracker"
   }
 }

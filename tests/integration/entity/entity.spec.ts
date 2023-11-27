@@ -21,6 +21,7 @@ import { IApplication } from '../../../src/common/interfaces';
 import { SERVICES } from '../../../src/common/constants';
 import { ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/entity/DAL/entityRepository';
 import { createStringifiedFakeEntity } from './helpers/generators';
+import lodash from 'lodash';
 
 describe('entity', function () {
   let entityRequestSender: EntityRequestSender;
@@ -244,6 +245,7 @@ describe('entity', function () {
 
         const mockRegisterOptions = getBaseRegisterOptions();
         mockRegisterOptions.override.push({ token: FILE_CUSTOM_REPOSITORY_SYMBOL, provider: { useValue: { tryClosingFile: tryClosingFileMock } } });
+
         const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
         const { app: mockApp } = await getApp(mockRegisterOptions);
@@ -263,9 +265,11 @@ describe('entity', function () {
 
         const response = await mockEntityRequestSender.patchEntities(body);
 
+        const uniqueFileIds = lodash.uniqBy(body, 'fileId');
+
         expect(response.status).toBe(httpStatus.OK);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
-        expect(tryClosingFileMock).toHaveBeenCalledTimes(body.length + 1);
+        expect(tryClosingFileMock).toHaveBeenCalledTimes(uniqueFileIds.length + 1);
       });
     });
   });
@@ -681,9 +685,11 @@ describe('entity', function () {
 
         const response = await mockEntityRequestSender.patchEntities(body);
 
+        const uniqueFileIds = lodash.uniqBy(body, 'fileId');
+
         expect(response.status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
         expect(response.body).toHaveProperty('message', 'transaction failure');
-        expect(tryClosingFileMock).toHaveBeenCalledTimes(body.length);
+        expect(tryClosingFileMock).toHaveBeenCalledTimes(uniqueFileIds.length);
       });
 
       it('should return 500 when failing to close file due to transaction failures when retries is configured', async function () {
@@ -710,10 +716,12 @@ describe('entity', function () {
 
         const response = await mockEntityRequestSender.patchEntities(body);
 
+        const uniqueFileIds = lodash.uniqBy(body, 'fileId');
+
         expect(response.status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
         const message = (response.body as { message: string }).message;
         expect(message).toContain(`exceeded the number of retries (${retries}).`);
-        expect(tryClosingFileMock).toHaveBeenCalledTimes((retries + 1) * body.length);
+        expect(tryClosingFileMock).toHaveBeenCalledTimes((retries + 1) * uniqueFileIds.length);
       });
 
       it('should return 500 when failing to close file not due to a transaction failure when retries is configured', async function () {
@@ -740,9 +748,11 @@ describe('entity', function () {
 
         const response = await mockEntityRequestSender.patchEntities(body);
 
+        const uniqueFileIds = lodash.uniqBy(body, 'fileId');
+
         expect(response.status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
         expect(response.body).toHaveProperty('message', 'failed');
-        expect(tryClosingFileMock).toHaveBeenCalledTimes(body.length);
+        expect(tryClosingFileMock).toHaveBeenCalledTimes(uniqueFileIds.length);
       });
     });
   });

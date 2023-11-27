@@ -35,15 +35,15 @@
     "type": "postgres",
     "host": "localhost",
     "port": 5432,
-    "username": "postgres",
-    "password": "postgres",
+    "username": "natalies",
+    "password": "1234",
     "enableSslAuth": false,
     "sslPaths": {
       "ca": "",
       "key": "",
       "cert": ""
     },
-    "database": "postgres",
+    "database": "prod_avi",
     "schema": "osm_sync_tracker"
   }
 }
