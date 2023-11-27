@@ -2,6 +2,7 @@ import { faker } from '@faker-js/faker';
 import { DependencyContainer } from 'tsyringe';
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { DataSource, QueryFailedError } from 'typeorm';
+import lodash from 'lodash';
 import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from '../sync/helpers/generators';
 import { StringifiedSync } from '../sync/types';
 import { SyncRequestSender } from '../sync/helpers/requestSender';
@@ -21,7 +22,6 @@ import { IApplication } from '../../../src/common/interfaces';
 import { SERVICES } from '../../../src/common/constants';
 import { ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/entity/DAL/entityRepository';
 import { createStringifiedFakeEntity } from './helpers/generators';
-import lodash from 'lodash';
 
 describe('entity', function () {
   let entityRequestSender: EntityRequestSender;
