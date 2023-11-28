@@ -191,10 +191,10 @@ export class EntityManager {
     }
 
     await this.entityRepository.updateEntities(entities);
-    const filteredEntities = entities.filter(
+    const possiblyFileClosingEntities = entities.filter(
       (entity) => entity.status === EntityStatus.NOT_SYNCED || entity.status === EntityStatus.FAILED || entity.status === EntityStatus.COMPLETED
     );
-    const uniqueFileIds = lodash.uniqBy(filteredEntities, 'fileId');
+    const uniqueFileIds = lodash.uniqBy(possiblyFileClosingEntities, 'fileId');
     await Promise.all(uniqueFileIds.map(async (entity) => this.closeFile(entity.fileId)));
   }
 
