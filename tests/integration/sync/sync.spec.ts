@@ -186,65 +186,74 @@ describe('sync', function () {
         );
       });
 
-      it('should return 200 status code and the filtered syncs by isRerun, isFull, layerId and status', async function () {
-        const layerId = generateUniqueNumber();
-        // create failed full rerun
-        const fullSync = createStringifiedFakeSync({ isFull: true, layerId });
-        expect(await syncRequestSender.postSync(fullSync)).toHaveStatus(StatusCodes.CREATED);
-        expect(await syncRequestSender.patchSync(fullSync.id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
-        const fullRerunCreateBody1 = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
-        expect(await syncRequestSender.rerunSync(fullSync.id as string, fullRerunCreateBody1)).toHaveStatus(httpStatus.CREATED);
-        expect(await syncRequestSender.patchSync(fullRerunCreateBody1.rerunId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+      it(
+        'should return 200 status code and the filtered syncs by isRerun, isFull, layerId and status',
+        async function () {
+          const layerId = generateUniqueNumber();
+          // create failed full rerun
+          const fullSync = createStringifiedFakeSync({ isFull: true, layerId });
+          expect(await syncRequestSender.postSync(fullSync)).toHaveStatus(StatusCodes.CREATED);
+          expect(await syncRequestSender.patchSync(fullSync.id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+          const fullRerunCreateBody1 = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
+          expect(await syncRequestSender.rerunSync(fullSync.id as string, fullRerunCreateBody1)).toHaveStatus(httpStatus.CREATED);
+          expect(await syncRequestSender.patchSync(fullRerunCreateBody1.rerunId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
 
-        // create another rerun with the same base sync
-        const fullRerunCreateBody2 = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
-        expect(await syncRequestSender.rerunSync(fullSync.id as string, fullRerunCreateBody2)).toHaveStatus(httpStatus.CREATED);
-        expect(await syncRequestSender.patchSync(fullRerunCreateBody2.rerunId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+          // create another rerun with the same base sync
+          const fullRerunCreateBody2 = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
+          expect(await syncRequestSender.rerunSync(fullSync.id as string, fullRerunCreateBody2)).toHaveStatus(httpStatus.CREATED);
+          expect(await syncRequestSender.patchSync(fullRerunCreateBody2.rerunId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
 
-        // create another but inprogress
-        const fullRerunCreateBody3 = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
-        expect(await syncRequestSender.rerunSync(fullSync.id as string, fullRerunCreateBody3)).toHaveStatus(httpStatus.CREATED);
+          // create another but inprogress
+          const fullRerunCreateBody3 = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
+          expect(await syncRequestSender.rerunSync(fullSync.id as string, fullRerunCreateBody3)).toHaveStatus(httpStatus.CREATED);
 
-        // create failed rerun but not full
-        const diffSync = createStringifiedFakeSync({ isFull: false, layerId });
-        expect(await syncRequestSender.postSync(diffSync)).toHaveStatus(StatusCodes.CREATED);
-        expect(await syncRequestSender.patchSync(diffSync.id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
-        const diffRerunCreateBody = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
-        expect(await syncRequestSender.rerunSync(diffSync.id as string, diffRerunCreateBody)).toHaveStatus(httpStatus.CREATED);
-        expect(await syncRequestSender.patchSync(diffRerunCreateBody.rerunId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+          // create failed rerun but not full
+          const diffSync = createStringifiedFakeSync({ isFull: false, layerId });
+          expect(await syncRequestSender.postSync(diffSync)).toHaveStatus(StatusCodes.CREATED);
+          expect(await syncRequestSender.patchSync(diffSync.id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+          const diffRerunCreateBody = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
+          expect(await syncRequestSender.rerunSync(diffSync.id as string, diffRerunCreateBody)).toHaveStatus(httpStatus.CREATED);
+          expect(await syncRequestSender.patchSync(diffRerunCreateBody.rerunId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
 
-        // create failed full sync but not rerun
-        const fullSync2 = createStringifiedFakeSync({ isFull: true, status: Status.FAILED, layerId: layerId + 1 });
-        expect(await syncRequestSender.postSync(fullSync2)).toHaveStatus(StatusCodes.CREATED);
+          // create failed full sync but not rerun
+          const fullSync2 = createStringifiedFakeSync({ isFull: true, status: Status.FAILED, layerId: layerId + 1 });
+          expect(await syncRequestSender.postSync(fullSync2)).toHaveStatus(StatusCodes.CREATED);
 
-        const response = await syncRequestSender.getSyncs({ isRerun: true, isFull: true, status: [Status.FAILED], layerId: [layerId, layerId + 1] });
+          const response = await syncRequestSender.getSyncs({
+            isRerun: true,
+            isFull: true,
+            status: [Status.FAILED],
+            layerId: [layerId, layerId + 1],
+          });
 
-        expect(response.status).toBe(httpStatus.OK);
-        expect(response.body).toHaveLength(2);
-        expect(response).toHaveProperty(
-          'body',
-          expect.arrayContaining([
-            {
-              ...fullSync,
-              id: fullRerunCreateBody1.rerunId,
-              baseSyncId: fullSync.id as string,
-              startDate: fullRerunCreateBody1.startDate as string,
-              endDate: null,
-              runNumber: 1,
-              status: Status.FAILED,
-            },
-            {
-              ...fullSync,
-              id: fullRerunCreateBody2.rerunId,
-              baseSyncId: fullSync.id as string,
-              startDate: fullRerunCreateBody2.startDate as string,
-              endDate: null,
-              runNumber: 2,
-              status: Status.FAILED,
-            },
-          ])
-        );
-      }, LONG_RUNNING_TEST_TIMEOUT);
+          expect(response.status).toBe(httpStatus.OK);
+          expect(response.body).toHaveLength(2);
+          expect(response).toHaveProperty(
+            'body',
+            expect.arrayContaining([
+              {
+                ...fullSync,
+                id: fullRerunCreateBody1.rerunId,
+                baseSyncId: fullSync.id as string,
+                startDate: fullRerunCreateBody1.startDate as string,
+                endDate: null,
+                runNumber: 1,
+                status: Status.FAILED,
+              },
+              {
+                ...fullSync,
+                id: fullRerunCreateBody2.rerunId,
+                baseSyncId: fullSync.id as string,
+                startDate: fullRerunCreateBody2.startDate as string,
+                endDate: null,
+                runNumber: 2,
+                status: Status.FAILED,
+              },
+            ])
+          );
+        },
+        LONG_RUNNING_TEST_TIMEOUT
+      );
 
       it('should return 200 status code and the filtered syncs by isRerun, isFull, geometryType, status and layerId', async function () {
         const layerId1 = generateUniqueNumber();

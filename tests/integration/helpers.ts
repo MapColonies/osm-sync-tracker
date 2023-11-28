@@ -26,5 +26,8 @@ export const getBaseRegisterOptions = (): Required<RegisterOptions> => {
 };
 
 export const clearRepositories = async (connection: DataSource): Promise<void> => {
-  await Promise.all([SyncDb, Changeset].map(async (entity) => connection.getRepository(entity).delete({})));
+  await connection.transaction(DEFAULT_ISOLATION_LEVEL, async (manager) => {
+    await manager.getRepository(SyncDb).delete({});
+    await manager.getRepository(Changeset).delete({});
+  });
 };
