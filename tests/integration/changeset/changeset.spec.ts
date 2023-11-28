@@ -14,7 +14,7 @@ import { SyncRequestSender } from '../sync/helpers/requestSender';
 import { SERVICES } from '../../../src/common/constants';
 import { CHANGESET_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/changeset/DAL/changesetRepository';
 import { TransactionFailureError } from '../../../src/changeset/models/errors';
-import { BEFORE_ALL_TIMEOUT, DEFAULT_ISOLATION_LEVEL, FLOW_TEST_TIMEOUT, getBaseRegisterOptions } from '../helpers';
+import { BEFORE_ALL_TIMEOUT, DEFAULT_ISOLATION_LEVEL, LONG_RUNNING_TEST_TIMEOUT, getBaseRegisterOptions } from '../helpers';
 import { IApplication } from '../../../src/common/interfaces';
 import { ChangesetRequestSender } from './helpers/requestSender';
 import { createStringifiedFakeChangeset } from './helpers/generators';
@@ -637,7 +637,7 @@ describe('changeset', function () {
         expect(latestSyncResponse).toHaveProperty('body.endDate');
         expect((latestSyncResponse.body as Sync).endDate).not.toBeNull();
       },
-      FLOW_TEST_TIMEOUT
+      LONG_RUNNING_TEST_TIMEOUT
     );
 
     it(
@@ -739,7 +739,7 @@ describe('changeset', function () {
         expect(latestSyncResponse).toHaveProperty('body.endDate');
         expect((latestSyncResponse.body as Sync).endDate).not.toBeNull();
       },
-      FLOW_TEST_TIMEOUT
+      LONG_RUNNING_TEST_TIMEOUT
     );
   });
 
@@ -804,7 +804,7 @@ describe('changeset', function () {
         expect(latestSyncResponse).toHaveProperty('body.endDate');
         expect((latestSyncResponse.body as Sync).endDate).not.toBeNull();
       },
-      FLOW_TEST_TIMEOUT
+      LONG_RUNNING_TEST_TIMEOUT
     );
 
     it(
@@ -860,7 +860,7 @@ describe('changeset', function () {
         expect(latestSyncResponse).toHaveProperty('body.endDate');
         expect((latestSyncResponse.body as Sync).endDate).not.toBeNull();
       },
-      FLOW_TEST_TIMEOUT
+      LONG_RUNNING_TEST_TIMEOUT
     );
 
     it(
@@ -937,7 +937,7 @@ describe('changeset', function () {
         expect(latestSyncResponse).toHaveProperty('body.endDate');
         expect((latestSyncResponse.body as Sync).endDate).not.toBeNull();
       },
-      FLOW_TEST_TIMEOUT
+      LONG_RUNNING_TEST_TIMEOUT
     );
   });
 
@@ -1011,6 +1011,6 @@ describe('changeset', function () {
       expect(latestSyncLayer2Response).toHaveProperty('body.endDate');
       expect((latestSyncLayer2Response.body as Sync).endDate).not.toBeNull();
     },
-    FLOW_TEST_TIMEOUT
+    LONG_RUNNING_TEST_TIMEOUT
   );
 });

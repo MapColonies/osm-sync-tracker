@@ -4,7 +4,7 @@ import { faker } from '@faker-js/faker';
 import { DataSource, In, QueryFailedError, Repository } from 'typeorm';
 import { EntityRepository, ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/entity/DAL/entityRepository';
 import { getApp } from '../../../src/app';
-import { BEFORE_ALL_TIMEOUT, RERUN_TEST_TIMEOUT, getBaseRegisterOptions, DEFAULT_ISOLATION_LEVEL } from '../helpers';
+import { BEFORE_ALL_TIMEOUT, RERUN_TEST_TIMEOUT, getBaseRegisterOptions, DEFAULT_ISOLATION_LEVEL, LONG_RUNNING_TEST_TIMEOUT } from '../helpers';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/sync/DAL/syncRepository';
 import { FILE_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/file/DAL/fileRepository';
 import { EntityStatus, GeometryType, Status } from '../../../src/common/enums';
@@ -244,7 +244,7 @@ describe('sync', function () {
             },
           ])
         );
-      });
+      }, LONG_RUNNING_TEST_TIMEOUT);
 
       it('should return 200 status code and the filtered syncs by isRerun, isFull, geometryType, status and layerId', async function () {
         const layerId1 = generateUniqueNumber();

@@ -9,7 +9,7 @@ import { SyncDb } from '../../src/sync/DAL/sync';
 
 export const BEFORE_ALL_TIMEOUT = 15000;
 
-export const FLOW_TEST_TIMEOUT = 20000;
+export const LONG_RUNNING_TEST_TIMEOUT = 20000;
 
 export const RERUN_TEST_TIMEOUT = 60000;
 
