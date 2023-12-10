@@ -9,7 +9,7 @@ import { SyncDb } from '../../src/sync/DAL/sync';
 
 export const BEFORE_ALL_TIMEOUT = 15000;
 
-export const FLOW_TEST_TIMEOUT = 20000;
+export const LONG_RUNNING_TEST_TIMEOUT = 20000;
 
 export const RERUN_TEST_TIMEOUT = 60000;
 
@@ -26,5 +26,8 @@ export const getBaseRegisterOptions = (): Required<RegisterOptions> => {
 };
 
 export const clearRepositories = async (connection: DataSource): Promise<void> => {
-  await Promise.all([SyncDb, Changeset].map(async (entity) => connection.getRepository(entity).delete({})));
+  await connection.transaction(DEFAULT_ISOLATION_LEVEL, async (manager) => {
+    await manager.getRepository(SyncDb).delete({});
+    await manager.getRepository(Changeset).delete({});
+  });
 };
