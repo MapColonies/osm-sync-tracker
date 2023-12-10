@@ -22,6 +22,9 @@ export interface Sync {
   baseSyncId: string | null;
 
   runNumber: number;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- typeorm's QueryDeepPartialEntity does not recognize unknown types
+  metadata: Record<string, any> | null;
 }
 
 export type BaseSync = Omit<Sync, 'baseSyncId' | 'runNumber'>;

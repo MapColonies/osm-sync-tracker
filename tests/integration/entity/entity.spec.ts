@@ -334,6 +334,19 @@ describe('entity', function () {
         );
       });
 
+      it('should return 400 if at least one entityId is missing', async function () {
+        const entity1 = createStringifiedFakeEntity();
+        const entity2 = createStringifiedFakeEntity();
+        const { entityId, ...entityWithoutId } = entity2;
+        const response = await entityRequestSender.postEntityBulk(file.fileId as string, [entity1, entityWithoutId]);
+
+        expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
+        expect(response.body).toHaveProperty(
+          'message',
+          "request.body[1] should have required property 'entityId'"
+        );
+      });
+
       it('should return 404 if no file with the specified file id was found', async function () {
         const body = createStringifiedFakeEntity();
 

@@ -61,6 +61,17 @@ describe('sync', function () {
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
       });
 
+      it('should return 201 status code for a post with metadata', async function () {
+        const metadata = { test: 'test' };
+        const sync = createStringifiedFakeSync();
+        const response = await syncRequestSender.postSync({ ...sync, metadata });
+
+        expect(response.status).toBe(httpStatus.CREATED);
+        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
+        const latestResponse = await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType);
+        expect(latestResponse.body).toHaveProperty('metadata', metadata);
+      });
+
       it('should return 201 status code for non full sync with the same layerId and geometryType as existing non full sync', async function () {
         const nonFullSync1 = createStringifiedFakeSync({ isFull: false });
         const { layerId, geometryType } = nonFullSync1;
@@ -84,6 +95,27 @@ describe('sync', function () {
 
         expect(response.status).toBe(httpStatus.OK);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.OK));
+      });
+
+      it('should return 200 status code and update the sync metadata accordingly', async function () {
+        // create without metadata
+        const sync = createStringifiedFakeSync();
+        const response = await syncRequestSender.postSync(sync);
+
+        expect(response.status).toBe(httpStatus.CREATED);
+        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
+        let latestResponse = await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType);
+        expect(latestResponse.body).toHaveProperty('metadata', null);
+
+        // update with some metadata
+        await syncRequestSender.patchSync(sync.id as string, { metadata: { test: 'test' } });
+        latestResponse = await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType);
+        expect(latestResponse.body).toHaveProperty('metadata', { test: 'test' });
+
+        // update with additional metadata
+        await syncRequestSender.patchSync(sync.id as string, { metadata: { test2: 'test2' } });
+        latestResponse = await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType);
+        expect(latestResponse.body).toHaveProperty('metadata', { test: 'test', test2: 'test2' });
       });
     });
 
@@ -128,8 +160,8 @@ describe('sync', function () {
         expect(response).toHaveProperty(
           'body',
           expect.arrayContaining([
-            { ...inprogressSync, baseSyncId: null, endDate: null, runNumber: 0 },
-            { ...anotherInprogressSync, baseSyncId: null, endDate: null, runNumber: 0 },
+            { ...inprogressSync, baseSyncId: null, endDate: null, runNumber: 0, metadata: null },
+            { ...anotherInprogressSync, baseSyncId: null, endDate: null, runNumber: 0, metadata: null },
           ])
         );
       });
@@ -152,8 +184,8 @@ describe('sync', function () {
         expect(response).toHaveProperty(
           'body',
           expect.arrayContaining([
-            { ...sync1, baseSyncId: null, endDate: null, runNumber: 0 },
-            { ...sync3, baseSyncId: null, endDate: null, runNumber: 0 },
+            { ...sync1, baseSyncId: null, endDate: null, runNumber: 0, metadata: null },
+            { ...sync3, baseSyncId: null, endDate: null, runNumber: 0, metadata: null },
           ])
         );
       });
@@ -181,7 +213,7 @@ describe('sync', function () {
         expect(response).toHaveProperty(
           'body',
           expect.arrayContaining([
-            { ...sync1, id: rerunId, baseSyncId: sync1.id as string, startDate: startDate as string, endDate: null, runNumber: 1 },
+            { ...sync1, id: rerunId, baseSyncId: sync1.id as string, startDate: startDate as string, endDate: null, runNumber: 1, metadata: {} },
           ])
         );
       });
@@ -239,6 +271,7 @@ describe('sync', function () {
                 endDate: null,
                 runNumber: 1,
                 status: Status.FAILED,
+                metadata: {},
               },
               {
                 ...fullSync,
@@ -248,6 +281,7 @@ describe('sync', function () {
                 endDate: null,
                 runNumber: 2,
                 status: Status.FAILED,
+                metadata: {},
               },
             ])
           );
@@ -313,10 +347,10 @@ describe('sync', function () {
         expect(response).toHaveProperty(
           'body',
           expect.arrayContaining([
-            { ...sync0, endDate: null, baseSyncId: null, runNumber: 0 },
-            { ...sync1, endDate: null, baseSyncId: null, runNumber: 0 },
-            { ...sync4, endDate: null, baseSyncId: null, runNumber: 0 },
-            { ...sync6, endDate: null, baseSyncId: null, runNumber: 0 },
+            { ...sync0, endDate: null, baseSyncId: null, runNumber: 0, metadata: null },
+            { ...sync1, endDate: null, baseSyncId: null, runNumber: 0, metadata: null },
+            { ...sync4, endDate: null, baseSyncId: null, runNumber: 0, metadata: null },
+            { ...sync6, endDate: null, baseSyncId: null, runNumber: 0, metadata: null },
           ])
         );
       });
