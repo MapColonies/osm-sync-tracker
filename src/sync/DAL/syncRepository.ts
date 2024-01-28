@@ -156,7 +156,7 @@ const createSyncRepo = (dataSource: DataSource) => {
       return this.findOne({
         where: { layerId, geometryType, runNumber: 0 },
         order: { dumpDate: 'DESC', startDate: 'DESC' },
-        select: ['id', 'dumpDate', 'startDate', 'endDate', 'status', 'layerId', 'isFull', 'totalFiles', 'geometryType'],
+        select: ['id', 'dumpDate', 'startDate', 'endDate', 'status', 'layerId', 'isFull', 'totalFiles', 'geometryType', 'metadata'],
       });
     },
 

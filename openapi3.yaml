@@ -628,6 +628,8 @@ components:
           type: integer
         geometryType:
           $ref: '#/components/schemas/geometryType'
+        metadata:
+          $ref: '#/components/schemas/syncMetadata'
     extendedSync:
       allOf:
         - $ref: '#/components/schemas/sync'
@@ -658,6 +660,8 @@ components:
           type: integer
         geometryType:
           $ref: '#/components/schemas/geometryType'
+        metadata:
+          $ref: '#/components/schemas/syncMetadata'
     file:
       type: object
       properties:
@@ -726,6 +730,8 @@ components:
     entity:
       allOf:
         - type: object
+          required:
+            - entityId
           properties:
             entityId:
               $ref: '#/components/schemas/entityId'
@@ -756,3 +762,6 @@ components:
             failReason:
               type: string
               maxLength: 500
+    syncMetadata:
+      type: object
+      additionalProperties: true

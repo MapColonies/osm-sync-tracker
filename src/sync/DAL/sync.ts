@@ -47,4 +47,7 @@ export class SyncDb implements ISync {
 
   @Column({ name: 'run_number', type: 'integer', default: 0 })
   public runNumber!: number;
+
+  @Column({ name: 'metadata', type: 'jsonb', nullable: true })
+  public metadata!: Record<string, unknown> | null;
 }

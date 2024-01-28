@@ -44,6 +44,8 @@ export const createFakeSync = (params: FakeSyncParams = {}): Sync => {
     runNumber: params.runNumber ?? 0,
 
     baseSyncId: params.baseSyncId ?? null,
+
+    metadata: params.metadata ?? null,
   };
 };
 
@@ -76,6 +78,8 @@ export const createFakeRerunSync = (params: FakeSyncParams = {}): Sync => {
     runNumber: params.runNumber ?? faker.datatype.number({ min: 1 }),
 
     baseSyncId: params.baseSyncId ?? faker.datatype.uuid(),
+
+    metadata: params.metadata ?? null,
   };
 };
 

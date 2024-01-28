@@ -37,7 +37,7 @@ export class SyncManager {
   }
 
   public async createSync(sync: Sync): Promise<void> {
-    this.logger.info({ msg: 'creating sync', syncId: sync.id, layerId: sync.layerId, isFull: sync.isFull, geometryType: sync.geometryType });
+    this.logger.info({ msg: 'attempting to create sync', sync });
 
     const syncEntity = await this.syncRepository.findOneSync(sync.id);
     if (syncEntity) {
@@ -66,7 +66,7 @@ export class SyncManager {
   }
 
   public async updateSync(syncId: string, updatedSync: SyncUpdate): Promise<void> {
-    this.logger.info({ msg: 'updating sync', syncId });
+    this.logger.info({ msg: 'updating sync', syncId, updatedSync });
     const currentSync = await this.syncRepository.findOneSync(syncId);
 
     if (!currentSync) {
@@ -74,9 +74,7 @@ export class SyncManager {
       throw new SyncNotFoundError(`sync = ${syncId} not found`);
     }
 
-    const { isFull } = currentSync;
-    const updatedEntity = { isFull, ...updatedSync };
-    await this.syncRepository.updateSync(syncId, updatedEntity);
+    await this.syncRepository.updateSync(syncId, { ...updatedSync, metadata: { ...currentSync.metadata, ...updatedSync.metadata } });
   }
 
   public async rerunSyncIfNeeded(syncId: string, rerunId: string, startDate: Date, shouldRerunNotSynced?: boolean): Promise<boolean> {
