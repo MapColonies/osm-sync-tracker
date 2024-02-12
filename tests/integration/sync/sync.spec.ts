@@ -357,7 +357,7 @@ describe('sync', function () {
     });
 
     describe('GET /sync/latest', function () {
-      it('should return 200 status code and the latest sync entity', async function () {
+      it('should return 200 status code and the latest sync entity with no additional full', async function () {
         const earlierDate = faker.date.past().toISOString();
         const earlierSync = createStringifiedFakeSync({ dumpDate: earlierDate, geometryType: GeometryType.POLYGON, isFull: false });
         const { layerId, geometryType } = earlierSync;
@@ -383,6 +383,55 @@ describe('sync', function () {
 
         expect(response.status).toBe(httpStatus.OK);
         expect(response.body).toMatchObject(laterSync);
+      });
+
+      it('should return 200 status code and the latest sync entity with 1 additional full', async function () {
+        const firstDate = faker.date.past().toISOString();
+        const lastDate = faker.date.between(firstDate, new Date()).toISOString();
+        const secondDate = faker.date.between(firstDate, lastDate).toISOString();
+        const thirdDate = faker.date.between(secondDate, lastDate).toISOString();
+        const forthDate = faker.date.between(thirdDate, lastDate).toISOString();
+
+        const beforeFullDiff1 = createStringifiedFakeSync({ 
+          dumpDate: secondDate, 
+          startDate: secondDate, 
+          geometryType: GeometryType.POLYGON,
+          isFull: false
+        });
+        const { layerId, geometryType } = beforeFullDiff1;
+
+        const beforeFullDiff2 = createStringifiedFakeSync({
+          dumpDate: thirdDate,
+          startDate: thirdDate,
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+        const additionalFull = createStringifiedFakeSync({
+          dumpDate: firstDate,
+          startDate: forthDate,
+          layerId,
+          geometryType,
+          isFull: false,
+          metadata: { isAdditionalFull: 'true' }
+        });
+        const afterFullDiff1 = createStringifiedFakeSync({
+          dumpDate: secondDate,
+          startDate: lastDate,
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+
+        expect(await syncRequestSender.postSync(beforeFullDiff1)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(beforeFullDiff2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(additionalFull)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(afterFullDiff1)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await syncRequestSender.getLatestSync(layerId as number, geometryType as GeometryType);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.body).toMatchObject(beforeFullDiff2);
       });
 
       it('should return 200 status code and the sync with the later startDate for multiple syncs with same dumpDate', async function () {
