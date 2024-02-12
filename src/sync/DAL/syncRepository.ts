@@ -3,7 +3,7 @@ import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
 import { EntityStatus, GeometryType } from '../../common/enums';
-import { BaseSync, CreateRerunRequest, Sync, SyncsFilter, SyncUpdate, SyncWithReruns, ReturningDate } from '../models/sync';
+import { BaseSync, CreateRerunRequest, Sync, SyncsFilter, SyncUpdate, SyncWithReruns } from '../models/sync';
 import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
 import { TransactionFailureError } from '../../changeset/models/errors';
 import { getIsolationLevel } from '../../common/utils/db';
@@ -154,38 +154,30 @@ const createSyncRepo = (dataSource: DataSource) => {
   return dataSource.getRepository(SyncDb).extend({
     async getLatestSync(layerId: number, geometryType: GeometryType): Promise<BaseSync | null> {
       const returnedFullDate = await this.getLatestFullStartDate(layerId, geometryType);
-      try {
-        const fullStartDate = returnedFullDate[0].start_date
+      if (returnedFullDate) {
         return this.findOne({
-          where: { layerId, geometryType, runNumber: 0, startDate: MoreThanOrEqual(fullStartDate as unknown as Date) },
-          // where: { layerId, geometryType, runNumber: 0 },
+          where: { layerId, geometryType, runNumber: 0, startDate: MoreThanOrEqual(returnedFullDate.startDate) },
           order: { dumpDate: 'DESC', startDate: 'DESC' },
           select: ['id', 'dumpDate', 'startDate', 'endDate', 'status', 'layerId', 'isFull', 'totalFiles', 'geometryType', 'metadata'],
         });
       }
-      catch {
-        return this.findOne({
-          // where: { layerId, geometryType, runNumber: 0, startDate: MoreThanOrEqual(fullStartDate as unknown as Date) },
-          where: { layerId, geometryType, runNumber: 0 },
-          order: { dumpDate: 'DESC', startDate: 'DESC' },
-          select: ['id', 'dumpDate', 'startDate', 'endDate', 'status', 'layerId', 'isFull', 'totalFiles', 'geometryType', 'metadata'],
-        });
-      }
+      return this.findOne({
+        where: { layerId, geometryType, runNumber: 0 },
+        order: { dumpDate: 'DESC', startDate: 'DESC' },
+        select: ['id', 'dumpDate', 'startDate', 'endDate', 'status', 'layerId', 'isFull', 'totalFiles', 'geometryType', 'metadata'],
+      });
     },
 
-    // async getLatestFullStartDate(layerId: number, geometryType: GeometryType): Promise<any[]> {
-    async getLatestFullStartDate(layerId: number, geometryType: GeometryType): Promise<ReturningDate[]> {
-      // async getLatestFullStartDate(layerId: number, geometryType: GeometryType): Promise<ReturningResult<ReturningDate>> {
-      return await this.query(
-        `
-        SELECT start_date
-        FROM osm_sync_tracker.sync
-        WHERE layer_id = $1 and geometry_type = $2 and run_number = 0 and
-        (is_full = true or metadata -> 'isAdditionalFull' = 'true')
-        ORDER BY start_date DESC LIMIT 1
-        `,
-        [layerId, geometryType]
-      );
+    async getLatestFullStartDate(layerId: number, geometryType: GeometryType): Promise<SyncDb | null> {
+      return this.createQueryBuilder('sync')
+        .select('sync')
+        .where(
+          `layer_id = :layerId and geometry_type = :geometryType and run_number = 0 and (is_full = true or metadata -> 'isAdditionalFull' = 'true')`,
+          { layerId, geometryType }
+        )
+        .orderBy('start_date', 'DESC')
+        .limit(1)
+        .getOne();
     },
 
     async createSync(sync: Sync): Promise<void> {

@@ -42,7 +42,3 @@ export interface SyncsFilter {
   isFull?: boolean;
   isRerun?: boolean;
 }
-
-export interface ReturningDate {
-  start_date: string;
-}
