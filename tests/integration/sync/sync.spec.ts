@@ -387,10 +387,10 @@ describe('sync', function () {
 
       it('should return 200 status code and the latest sync entity with 1 additional full', async function () {
         const firstDate = faker.date.past().toISOString();
-        const lastDate = faker.date.between(firstDate, new Date()).toISOString();
-        const secondDate = faker.date.between(firstDate, lastDate).toISOString();
-        const thirdDate = faker.date.between(secondDate, lastDate).toISOString();
-        const forthDate = faker.date.between(thirdDate, lastDate).toISOString();
+        const secondDate = faker.date.between(firstDate, new Date()).toISOString();
+        const thirdDate = faker.date.between(secondDate, new Date()).toISOString();
+        const forthDate = faker.date.between(thirdDate, new Date()).toISOString();
+        const lastDate = faker.date.between(forthDate, new Date()).toISOString();
 
         const beforeFullDiff1 = createStringifiedFakeSync({ 
           dumpDate: secondDate, 
@@ -413,8 +413,8 @@ describe('sync', function () {
           layerId,
           geometryType,
           isFull: false,
-          metadata: { isAdditionalFull: 'true' }
         });
+        const metadata = { isAdditionalFull: true }
         const afterFullDiff1 = createStringifiedFakeSync({
           dumpDate: secondDate,
           startDate: lastDate,
@@ -425,13 +425,13 @@ describe('sync', function () {
 
         expect(await syncRequestSender.postSync(beforeFullDiff1)).toHaveStatus(StatusCodes.CREATED);
         expect(await syncRequestSender.postSync(beforeFullDiff2)).toHaveStatus(StatusCodes.CREATED);
-        expect(await syncRequestSender.postSync(additionalFull)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync({ ...additionalFull, metadata })).toHaveStatus(StatusCodes.CREATED);
         expect(await syncRequestSender.postSync(afterFullDiff1)).toHaveStatus(StatusCodes.CREATED);
 
         const response = await syncRequestSender.getLatestSync(layerId as number, geometryType as GeometryType);
 
         expect(response.status).toBe(httpStatus.OK);
-        expect(response.body).toMatchObject(beforeFullDiff2);
+        expect(response.body).toMatchObject(afterFullDiff1);
       });
 
       it('should return 200 status code and the sync with the later startDate for multiple syncs with same dumpDate', async function () {
