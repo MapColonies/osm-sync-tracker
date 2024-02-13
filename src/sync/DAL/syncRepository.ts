@@ -1,4 +1,4 @@
-import { DataSource, EntityManager, FindOptionsWhere, In, MoreThan } from 'typeorm';
+import { DataSource, EntityManager, FindOptionsWhere, In, MoreThan, MoreThanOrEqual } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
@@ -153,11 +153,31 @@ async function updateDanglingFilesAsCompleted(syncId: string, schema: string, tr
 const createSyncRepo = (dataSource: DataSource) => {
   return dataSource.getRepository(SyncDb).extend({
     async getLatestSync(layerId: number, geometryType: GeometryType): Promise<BaseSync | null> {
+      const returnedFullDate = await this.getLatestFullStartDate(layerId, geometryType);
+      if (returnedFullDate) {
+        return this.findOne({
+          where: { layerId, geometryType, runNumber: 0, startDate: MoreThanOrEqual(returnedFullDate.startDate) },
+          order: { dumpDate: 'DESC', startDate: 'DESC' },
+          select: ['id', 'dumpDate', 'startDate', 'endDate', 'status', 'layerId', 'isFull', 'totalFiles', 'geometryType', 'metadata'],
+        });
+      }
       return this.findOne({
         where: { layerId, geometryType, runNumber: 0 },
         order: { dumpDate: 'DESC', startDate: 'DESC' },
         select: ['id', 'dumpDate', 'startDate', 'endDate', 'status', 'layerId', 'isFull', 'totalFiles', 'geometryType', 'metadata'],
       });
+    },
+
+    async getLatestFullStartDate(layerId: number, geometryType: GeometryType): Promise<SyncDb | null> {
+      return this.createQueryBuilder('sync')
+        .select('sync')
+        .where(
+          `layer_id = :layerId and geometry_type = :geometryType and run_number = 0 and (is_full = true or metadata -> 'isAdditionalFull' = 'true')`,
+          { layerId, geometryType }
+        )
+        .orderBy('start_date', 'DESC')
+        .limit(1)
+        .getOne();
     },
 
     async createSync(sync: Sync): Promise<void> {
