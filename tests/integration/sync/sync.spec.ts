@@ -392,11 +392,11 @@ describe('sync', function () {
         const fourthDate = faker.date.between(thirdDate, new Date()).toISOString();
         const lastDate = faker.date.between(fourthDate, new Date()).toISOString();
 
-        const beforeFullDiff1 = createStringifiedFakeSync({ 
-          dumpDate: secondDate, 
-          startDate: secondDate, 
+        const beforeFullDiff1 = createStringifiedFakeSync({
+          dumpDate: secondDate,
+          startDate: secondDate,
           geometryType: GeometryType.POLYGON,
-          isFull: false
+          isFull: false,
         });
         const { layerId, geometryType } = beforeFullDiff1;
 
@@ -414,7 +414,7 @@ describe('sync', function () {
           geometryType,
           isFull: false,
         });
-        const metadata = { isAdditionalFull: true }
+        const metadata = { isAdditionalFull: true };
         const afterFullDiff1 = createStringifiedFakeSync({
           dumpDate: secondDate,
           startDate: lastDate,
@@ -443,11 +443,11 @@ describe('sync', function () {
         const sixthDate = faker.date.between(fifthDate, new Date()).toISOString();
         const lastDate = faker.date.between(sixthDate, new Date()).toISOString();
 
-        const diff1 = createStringifiedFakeSync({ 
-          dumpDate: secondDate, 
-          startDate: secondDate, 
+        const diff1 = createStringifiedFakeSync({
+          dumpDate: secondDate,
+          startDate: secondDate,
           geometryType: GeometryType.POLYGON,
-          isFull: false
+          isFull: false,
         });
         const { layerId, geometryType } = diff1;
 
@@ -458,7 +458,7 @@ describe('sync', function () {
           geometryType,
           isFull: false,
         });
-        const metadata = { isAdditionalFull: true }
+        const metadata = { isAdditionalFull: true };
 
         const diff1Run2 = createStringifiedFakeSync({
           dumpDate: secondDate,
