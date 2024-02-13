@@ -389,8 +389,8 @@ describe('sync', function () {
         const firstDate = faker.date.past().toISOString();
         const secondDate = faker.date.between(firstDate, new Date()).toISOString();
         const thirdDate = faker.date.between(secondDate, new Date()).toISOString();
-        const forthDate = faker.date.between(thirdDate, new Date()).toISOString();
-        const lastDate = faker.date.between(forthDate, new Date()).toISOString();
+        const fourthDate = faker.date.between(thirdDate, new Date()).toISOString();
+        const lastDate = faker.date.between(fourthDate, new Date()).toISOString();
 
         const beforeFullDiff1 = createStringifiedFakeSync({ 
           dumpDate: secondDate, 
@@ -409,7 +409,7 @@ describe('sync', function () {
         });
         const additionalFull = createStringifiedFakeSync({
           dumpDate: firstDate,
-          startDate: forthDate,
+          startDate: fourthDate,
           layerId,
           geometryType,
           isFull: false,
@@ -432,6 +432,74 @@ describe('sync', function () {
 
         expect(response.status).toBe(httpStatus.OK);
         expect(response.body).toMatchObject(afterFullDiff1);
+      });
+
+      it('should return 200 status code and the latest sync entity with 2 additional fulls', async function () {
+        const firstDate = faker.date.past().toISOString();
+        const secondDate = faker.date.between(firstDate, new Date()).toISOString();
+        const thirdDate = faker.date.between(secondDate, new Date()).toISOString();
+        const fourthDate = faker.date.between(thirdDate, new Date()).toISOString();
+        const fifthDate = faker.date.between(fourthDate, new Date()).toISOString();
+        const sixthDate = faker.date.between(fifthDate, new Date()).toISOString();
+        const lastDate = faker.date.between(sixthDate, new Date()).toISOString();
+
+        const diff1 = createStringifiedFakeSync({ 
+          dumpDate: secondDate, 
+          startDate: secondDate, 
+          geometryType: GeometryType.POLYGON,
+          isFull: false
+        });
+        const { layerId, geometryType } = diff1;
+
+        const additionalFull1 = createStringifiedFakeSync({
+          dumpDate: firstDate,
+          startDate: thirdDate,
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+        const metadata = { isAdditionalFull: true }
+
+        const diff1Run2 = createStringifiedFakeSync({
+          dumpDate: secondDate,
+          startDate: fourthDate,
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+        const diff2 = createStringifiedFakeSync({
+          dumpDate: fifthDate,
+          startDate: fifthDate,
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+        const additionalFull1Run2 = createStringifiedFakeSync({
+          dumpDate: firstDate,
+          startDate: sixthDate,
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+        const diff1Run3 = createStringifiedFakeSync({
+          dumpDate: secondDate,
+          startDate: lastDate,
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+
+        expect(await syncRequestSender.postSync(diff1)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync({ ...additionalFull1, metadata })).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(diff1Run2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(diff2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync({ ...additionalFull1Run2, metadata })).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(diff1Run3)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await syncRequestSender.getLatestSync(layerId as number, geometryType as GeometryType);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.body).toMatchObject(diff1Run3);
       });
 
       it('should return 200 status code and the sync with the later startDate for multiple syncs with same dumpDate', async function () {
