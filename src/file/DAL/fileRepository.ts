@@ -6,7 +6,7 @@ import { TransactionFailureError } from '../../changeset/models/errors';
 import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
 import { File, FileUpdate } from '../models/file';
 import { SyncDb } from '../../sync/DAL/sync';
-import { Status } from '../../common/enums';
+import { EntityStatus, Status } from '../../common/enums';
 import { SERVICES } from '../../common/constants';
 import { getIsolationLevel } from '../../common/utils/db';
 import { File as FileDb } from './file';
@@ -83,6 +83,19 @@ const createFileRepo = (dataSource: DataSource) => {
         return null;
       }
       return filesEntities;
+    },
+    async findFilesThatCanBeClosed(): Promise<Pick<FileDb, 'fileId'>[]> {
+      const fileIds: Pick<FileDb, 'fileId'>[] = await this.createQueryBuilder('file')
+        .select('file.fileId', 'fileId')
+        .innerJoin('file.entities', 'entity')
+        .where('entity.status = :entityStatus', { entityStatus: EntityStatus.COMPLETED })
+        .andWhere('file.status = :fileStatus', { fileStatus: Status.IN_PROGRESS })
+        .groupBy('file.fileId')
+        .addGroupBy('file.totalEntities')
+        .having('COUNT(entity.entityId) = file.totalEntities')
+        .getRawMany();
+
+      return fileIds;
     },
 
     async tryClosingFile(fileId: string, schema: string): Promise<string[]> {
