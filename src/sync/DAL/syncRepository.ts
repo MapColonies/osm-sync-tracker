@@ -2,7 +2,8 @@ import { DataSource, EntityManager, FindOptionsWhere, In, MoreThan, MoreThanOrEq
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
-import { EntityStatus, GeometryType } from '../../common/enums';
+import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
+import { EntityStatus, GeometryType, Status } from '../../common/enums';
 import { BaseSync, CreateRerunRequest, Sync, SyncsFilter, SyncUpdate, SyncWithReruns } from '../models/sync';
 import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
 import { TransactionFailureError } from '../../changeset/models/errors';
@@ -147,6 +148,21 @@ async function updateDanglingFilesAsCompleted(syncId: string, schema: string, tr
     `,
     [syncId]
   );
+}
+
+async function updateLastRerunAsCompleted(syncId: string, transactionalEntityManager: EntityManager): Promise<void> {
+  const completedSyncWithLastRerun = await transactionalEntityManager
+    .createQueryBuilder(SyncDb, 'sync')
+    .leftJoinAndSelect('sync.reruns', 'rerun')
+    .where('sync.id = :syncId', { syncId })
+    .orderBy('rerun.run_number', 'DESC')
+    .limit(1)
+    .getOne();
+
+  if (completedSyncWithLastRerun && completedSyncWithLastRerun.reruns.length > 0) {
+    const lastRerun = completedSyncWithLastRerun.reruns[0];
+    await transactionalEntityManager.update(SyncDb, { id: lastRerun.id }, { status: Status.COMPLETED, endDate: completedSyncWithLastRerun.endDate });
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -350,6 +366,57 @@ const createSyncRepo = (dataSource: DataSource) => {
       return syncIds;
     },
 
+    async tryCloseSync(
+      syncId: string,
+      schema: string,
+      transactionalEntityManager: EntityManager,
+      transaction: {
+        transactionId: string;
+        transactionName: TransactionName;
+        isolationLevel: IsolationLevel;
+      }
+    ): Promise<string[]> {
+      logger.debug({ msg: 'attempting to close sync', syncId, transaction });
+
+      const completedSyncResult = await tryClosingSync(syncId, schema, transactionalEntityManager);
+
+      const completedSyncs = completedSyncResult[0].map((sync) => sync.id);
+      await Promise.all(completedSyncs.map(async (syncId) => updateLastRerunAsCompleted(syncId, transactionalEntityManager)));
+      logger.debug({ msg: 'updated sync as completed resulted in', completedSyncResult, syncId, transaction });
+      return completedSyncs;
+    },
+
+    async tryCloseAllOpenSyncTransaction(schema: string): Promise<string[]> {
+      const isolationLevel = getIsolationLevel();
+      const transaction = { transactionId: nanoid(), transactionName: TransactionName.TRY_CLOSING_FILE, isolationLevel };
+
+      let syncId = '';
+      try {
+        return await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager: EntityManager) => {
+          let completedSyncIds: string[] = [];
+
+          const inProgressSyncs = await this.findSyncsThatCanBeClosed();
+          console.log('inProgressSyncs', inProgressSyncs);
+          for (const sync of inProgressSyncs) {
+            syncId = sync.id;
+
+            const completedSyncsIteration = await this.tryCloseSync(syncId, schema, transactionalEntityManager, transaction);
+            if (completedSyncsIteration.length === 0) {
+              break; // If sync can't be closed, cancel all closing procedure to prevent continues lock of the DB
+            }
+            completedSyncIds = [...completedSyncIds, ...completedSyncsIteration];
+          }
+          return completedSyncIds;
+        });
+      } catch (error) {
+        logger.error({ err: error, msg: 'failure occurred while trying to close sync in transaction', syncId, transaction });
+
+        if (isTransactionFailure(error)) {
+          throw new TransactionFailureError(`closing sync ${syncId} has failed due to read/write dependencies among transactions.`);
+        }
+        throw error;
+      }
+    },
   });
 };
 
