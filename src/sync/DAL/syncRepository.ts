@@ -336,6 +336,20 @@ const createSyncRepo = (dataSource: DataSource) => {
         throw error;
       }
     },
+
+    async findSyncsThatCanBeClosed(): Promise<Pick<SyncDb, 'id'>[]> {
+      const syncIds: Pick<SyncDb, 'id'>[] = await this.createQueryBuilder('sync')
+        .select('sync.id', 'id')
+        .innerJoin('sync.files', 'file')
+        .where('file.status = :fileStatus', { fileStatus: Status.COMPLETED })
+        .andWhere('sync.status = :syncStatus', { syncStatus: Status.IN_PROGRESS })
+        .groupBy('sync.id')
+        .addGroupBy('sync.totalFiles')
+        .having('COUNT(file.fileId) = sync.totalFiles')
+        .getRawMany();
+      return syncIds;
+    },
+
   });
 };
 
