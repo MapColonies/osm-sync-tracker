@@ -108,6 +108,11 @@ export class FileManager {
 
     await this.fileRepository.updateFile(fileId, fileUpdate);
 
+    const closeFileCronFeature: boolean = this.config.get('featureFlags.closeFileByCron');
+    //Feature flag to Close File By Cron Job
+    if (closeFileCronFeature) {
+      return [];
+    }
     // try closing the file which in turn if if succeeded will try compliting the sync
     const completedSyncIds = await this.closeFile(fileId);
 
