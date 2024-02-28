@@ -2,6 +2,7 @@ import { EntityManager, DataSource, In } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
+import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { TransactionFailureError } from '../../changeset/models/errors';
 import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
 import { File, FileUpdate } from '../models/file';
@@ -84,6 +85,7 @@ const createFileRepo = (dataSource: DataSource) => {
       }
       return filesEntities;
     },
+
     async findFilesThatCanBeClosed(): Promise<Pick<FileDb, 'fileId'>[]> {
       const fileIds: Pick<FileDb, 'fileId'>[] = await this.createQueryBuilder('file')
         .select('file.fileId', 'fileId')
@@ -124,6 +126,55 @@ const createFileRepo = (dataSource: DataSource) => {
           }
 
           return completedSyncIds;
+        });
+      } catch (error) {
+        logger.error({ err: error, msg: 'failure occurred while trying to close file in transaction', fileId, transaction });
+
+        if (isTransactionFailure(error)) {
+          throw new TransactionFailureError(`closing file ${fileId} has failed due to read/write dependencies among transactions.`);
+        }
+        throw error;
+      }
+    },
+
+    async tryCloseFile(
+      fileId: string,
+      schema: string,
+      transactionalEntityManager: EntityManager,
+      transaction: {
+        transactionId: string;
+        transactionName: TransactionName;
+        isolationLevel: IsolationLevel;
+      }
+    ): Promise<string[]> {
+      logger.debug({ msg: 'attempting to close files in transaction', fileId, transaction });
+
+      const completedFilesResult = await updateFileAsCompleted(fileId, schema, transactionalEntityManager);
+
+      logger.debug({ msg: 'updated file as completed resulted in', completedFilesResult, fileId, transaction });
+      return completedFilesResult[0].map((file) => file.id);
+    },
+
+    async tryCloseAllOpenFilesTransaction(schema: string): Promise<string[]> {
+      const isolationLevel = getIsolationLevel();
+      const transaction = { transactionId: nanoid(), transactionName: TransactionName.TRY_CLOSING_FILE, isolationLevel };
+
+      let fileId = '';
+      try {
+        return await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager: EntityManager) => {
+          let completedFiles: string[] = [];
+
+          const inProgressFiles = await this.findFilesThatCanBeClosed();
+          for (const file of inProgressFiles) {
+            fileId = file.fileId;
+
+            const completedFilesIteration = await this.tryCloseFile(fileId, schema, transactionalEntityManager, transaction);
+            if (completedFilesIteration.length === 0) {
+              break; // If file can't be closed, cancel all closing procedure to prevent continues lock of the DB
+            }
+            completedFiles = [...completedFiles, ...completedFilesIteration];
+          }
+          return completedFiles;
         });
       } catch (error) {
         logger.error({ err: error, msg: 'failure occurred while trying to close file in transaction', fileId, transaction });
