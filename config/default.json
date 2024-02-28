@@ -45,5 +45,8 @@
     },
     "database": "postgres",
     "schema": "osm_sync_tracker"
+  },
+  "featureFlags": {
+    "closeFileCron": true
   }
 }
