@@ -122,6 +122,18 @@ export class FileManager {
     return completedSyncIds;
   }
 
+  public async tryCloseOpenPossibleFiles(): Promise<string[]> {
+    this.logger.info({ msg: 'attempting to close all open files', transactionRetryPolicy: this.transactionRetryPolicy });
+
+    if (!this.transactionRetryPolicy.enabled) {
+      const results = await this.fileRepository.tryCloseAllOpenFilesTransaction(this.dbSchema);
+      return results;
+    }
+    const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
+    const functionRef = this.fileRepository.tryCloseAllOpenFilesTransaction.bind(this.fileRepository);
+    return retryFunctionWrapper(retryOptions, functionRef, this.dbSchema);
+  }
+
   private async createRerunFile(rerunSync: Sync, rerunFile: File): Promise<void> {
     this.logger.info({
       msg: 'creating rerun file on base sync if file not already existing on base sync',
