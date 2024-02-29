@@ -90,7 +90,7 @@ const createFileRepo = (dataSource: DataSource) => {
       const fileIds: Pick<FileDb, 'fileId'>[] = await this.createQueryBuilder('file')
         .select('file.fileId', 'fileId')
         .innerJoin('file.entities', 'entity')
-        .where('entity.status = :entityStatus', { entityStatus: EntityStatus.COMPLETED })
+        .where('entity.status IN(:...statuses)', { statuses: [EntityStatus.COMPLETED, EntityStatus.NOT_SYNCED] })
         .andWhere('file.status = :fileStatus', { fileStatus: Status.IN_PROGRESS })
         .groupBy('file.fileId')
         .addGroupBy('file.totalEntities')
