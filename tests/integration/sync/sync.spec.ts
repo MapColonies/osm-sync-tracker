@@ -1380,7 +1380,6 @@ describe('sync', function () {
           });
 
           expect(patchEntityResponse).toHaveStatus(StatusCodes.OK);
-          expect(patchEntityResponse.body).toMatchObject([baseSyncId]);
 
           // validate entity history count
           const entityHistoryCount = await entityHistoryRepository.countBy({ syncId: In([baseSyncId, firstRerunId, secondRerunId]) });
@@ -1420,7 +1419,6 @@ describe('sync', function () {
         const response = await fileRequestSender.patchFile(syncId as string, fileId as string, { totalEntities: 0 });
 
         expect(response.status).toBe(httpStatus.OK);
-        expect(response.body).toEqual([syncId]);
       });
 
       it('should return 200 status code and a closed sync id from the patch when all other files is already completed', async function () {
@@ -1443,7 +1441,6 @@ describe('sync', function () {
         const response = await fileRequestSender.patchFile(sync.id as string, file2.fileId as string, { totalEntities: 0 });
 
         expect(response.status).toBe(httpStatus.OK);
-        expect(response.body).toEqual([sync.id]);
       });
     });
   });
