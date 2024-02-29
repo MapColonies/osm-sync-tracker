@@ -89,9 +89,10 @@ const createFileRepo = (dataSource: DataSource) => {
     async findFilesThatCanBeClosed(): Promise<Pick<FileDb, 'fileId'>[]> {
       const fileIds: Pick<FileDb, 'fileId'>[] = await this.createQueryBuilder('file')
         .select('file.fileId', 'fileId')
-        .innerJoin('file.entities', 'entity')
+        .leftJoin('file.entities', 'entity')
         .where('entity.status IN(:...statuses)', { statuses: [EntityStatus.COMPLETED, EntityStatus.NOT_SYNCED] })
         .andWhere('file.status = :fileStatus', { fileStatus: Status.IN_PROGRESS })
+        .orWhere('file.totalEntities = 0')
         .groupBy('file.fileId')
         .addGroupBy('file.totalEntities')
         .having('COUNT(entity.entityId) = file.totalEntities')
