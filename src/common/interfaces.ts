@@ -14,6 +14,9 @@ export interface TransactionRetryPolicy {
 export interface IApplication {
   isolationLevel: IsolationLevel;
   transactionRetryPolicy: TransactionRetryPolicy;
+  featureFlags?: {
+    closeFileCron: boolean;
+  };
 }
 
 export interface IServerConfig {
