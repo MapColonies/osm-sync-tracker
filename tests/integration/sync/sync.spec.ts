@@ -1970,7 +1970,11 @@ describe('sync', function () {
         });
 
         const retries = faker.datatype.number({ min: 1, max: 10 });
-        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
+        const appConfig: IApplication = {
+          transactionRetryPolicy: { enabled: true, numRetries: retries },
+          isolationLevel: DEFAULT_ISOLATION_LEVEL,
+          featureFlags: { closeFileCron: false },
+        };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
         const { app: mockApp } = await getApp(mockRegisterOptions);
         const mockFileRequestSender = new FileRequestSender(mockApp);
