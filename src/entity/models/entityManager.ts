@@ -147,7 +147,7 @@ export class EntityManager {
 
     await this.entityRepository.updateEntity(entityId, fileId, entity);
 
-    const closeFileCronFeature: boolean = this.config.get('featureFlags.closeFileByCron');
+    const closeFileCronFeature = this.appConfig.featureFlags?.closeFileCron ?? false;
     //Feature flag to Close File By Cron Job
     if (closeFileCronFeature) {
       return [];
@@ -198,7 +198,7 @@ export class EntityManager {
 
     await this.entityRepository.updateEntities(entities);
 
-    const closeFileCronFeature: boolean = this.config.get('featureFlags.closeFileByCron');
+    const closeFileCronFeature = this.appConfig.featureFlags?.closeFileCron ?? false;
     //Feature flag to Close File By Cron Job
     if (closeFileCronFeature) {
       return;

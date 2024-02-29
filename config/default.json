@@ -29,6 +29,9 @@
     "isolationLevel": "SERIALIZABLE",
     "transactionRetryPolicy": {
       "enabled": false
+    },
+    "featureFlags": {
+      "closeFileCron": true
     }
   },
   "db": {
@@ -36,7 +39,7 @@
     "host": "localhost",
     "port": 5432,
     "username": "postgres",
-    "password": "postgres",
+    "password": "test1234",
     "enableSslAuth": false,
     "sslPaths": {
       "ca": "",
@@ -45,8 +48,5 @@
     },
     "database": "postgres",
     "schema": "osm_sync_tracker"
-  },
-  "featureFlags": {
-    "closeFileCron": true
   }
 }
