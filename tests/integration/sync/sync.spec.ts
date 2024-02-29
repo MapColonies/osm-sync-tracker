@@ -985,7 +985,13 @@ describe('sync', function () {
           });
 
           expect(patchEntityResponse).toHaveStatus(StatusCodes.OK);
-          expect(patchEntityResponse.body).toMatchObject([baseSyncId]);
+
+          const closeFileResponse = await fileRequestSender.tryCloseOpenPossibleFiles();
+          expect(closeFileResponse.body).toEqual(expect.arrayContaining([file1.fileId, file3.fileId]));
+
+          expect((await syncRequestSender.tryToCloseOpenPossibleSyncs()).body).toEqual(
+            expect.arrayContaining([baseSyncId, firstRerunId, secondRerunId])
+          );
 
           // validate latest sync is the base as completed
           const latestSyncResponse = await syncRequestSender.getLatestSync(baseSync.layerId as number, baseSync.geometryType as GeometryType);
