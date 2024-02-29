@@ -44,7 +44,7 @@ async function tryClosingSync(baseSyncId: string, schema: string, transactionalE
       WHERE (sync_to_update.id = $1 OR sync_to_update.base_sync_id = $1)
       AND sync_to_update.total_files = (
         SELECT COUNT(*) FROM osm_sync_tracker.file
-          WHERE sync_id = sync_to_update.id
+          WHERE sync_id = $1
           AND status = 'completed')
     RETURNING sync_to_update.id
   `,
