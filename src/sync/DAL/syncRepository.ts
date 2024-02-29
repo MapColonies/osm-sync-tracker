@@ -358,7 +358,7 @@ const createSyncRepo = (dataSource: DataSource) => {
         .select('sync.id', 'id')
         .innerJoin('sync.files', 'file')
         .where('file.status = :fileStatus', { fileStatus: Status.COMPLETED })
-        .andWhere('sync.status = :syncStatus', { syncStatus: Status.IN_PROGRESS })
+        .andWhere('sync.status IN(:...statuses)', { statuses: [Status.IN_PROGRESS, Status.FAILED] })
         .groupBy('sync.id')
         .addGroupBy('sync.totalFiles')
         .having('COUNT(file.fileId) = sync.totalFiles')
@@ -396,7 +396,6 @@ const createSyncRepo = (dataSource: DataSource) => {
           let completedSyncIds: string[] = [];
 
           const inProgressSyncs = await this.findSyncsThatCanBeClosed();
-          console.log('inProgressSyncs', inProgressSyncs);
           for (const sync of inProgressSyncs) {
             syncId = sync.id;
 
