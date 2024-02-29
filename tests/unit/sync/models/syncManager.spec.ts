@@ -12,6 +12,7 @@ import {
 } from '../../../../src/sync/models/errors';
 import { GeometryType, Status } from '../../../../src/common/enums';
 import { CreateRerunRequest } from '../../../../src/sync/models/sync';
+import { DEFAULT_ISOLATION_LEVEL } from '../../../integration/helpers';
 
 let syncManager: SyncManager;
 
@@ -38,7 +39,12 @@ describe('SyncManager', () => {
       findOneSyncWithLastRerun,
       createRerun,
     } as unknown as SyncRepository;
-    syncManager = new SyncManager(syncRepository, jsLogger({ enabled: false }), { get: jest.fn(), has: jest.fn() });
+    syncManager = new SyncManager(
+      syncRepository,
+      jsLogger({ enabled: false }),
+      { get: jest.fn(), has: jest.fn() },
+      { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
+    );
   });
 
   describe('#getSyncs', () => {
