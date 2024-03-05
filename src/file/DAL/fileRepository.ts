@@ -1,4 +1,4 @@
-import { EntityManager, DataSource, In } from 'typeorm';
+import { EntityManager, DataSource, In, Brackets } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
@@ -90,9 +90,15 @@ const createFileRepo = (dataSource: DataSource) => {
       const fileIds: Pick<FileDb, 'fileId'>[] = await this.createQueryBuilder('file')
         .select('file.fileId', 'fileId')
         .leftJoin('file.entities', 'entity')
-        .where('entity.status IN(:...statuses)', { statuses: [EntityStatus.COMPLETED, EntityStatus.NOT_SYNCED] })
-        .andWhere('file.status = :fileStatus', { fileStatus: Status.IN_PROGRESS })
-        .orWhere('file.totalEntities = 0')
+        .innerJoin('file.sync', 'sync')
+        .where(
+          new Brackets((qb) => {
+            qb.where('entity.status IN(:...statuses)', { statuses: [EntityStatus.COMPLETED, EntityStatus.NOT_SYNCED] }).orWhere(
+              'file.totalEntities = 0'
+            );
+          })
+        )
+        .andWhere('file.status = :inProgress and sync.status = :inProgress', { inProgress: Status.IN_PROGRESS })
         .groupBy('file.fileId')
         .addGroupBy('file.totalEntities')
         .having('COUNT(entity.entityId) = file.totalEntities')
