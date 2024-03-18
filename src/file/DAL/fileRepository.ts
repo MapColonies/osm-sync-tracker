@@ -98,7 +98,7 @@ const createFileRepo = (dataSource: DataSource) => {
             );
           })
         )
-        .andWhere('file.status = :inProgress and sync.status = :inProgress', { inProgress: Status.IN_PROGRESS })
+        .andWhere('file.status = :inProgress and sync.status IN(:inProgress, :failed)', { inProgress: Status.IN_PROGRESS, failed: Status.FAILED })
         .groupBy('file.fileId')
         .addGroupBy('file.totalEntities')
         .having('COUNT(entity.entityId) = file.totalEntities')
