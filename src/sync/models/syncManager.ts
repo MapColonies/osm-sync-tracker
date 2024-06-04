@@ -146,8 +146,7 @@ export class SyncManager {
     this.logger.info({ msg: 'attempting to close all open files', transactionRetryPolicy: this.transactionRetryPolicy });
 
     if (!this.transactionRetryPolicy.enabled) {
-      const results = await this.syncRepository.tryCloseAllOpenSyncTransaction(this.dbSchema);
-      return results;
+      return this.syncRepository.tryCloseAllOpenSyncTransaction(this.dbSchema);
     }
     const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
     const functionRef = this.syncRepository.tryCloseAllOpenSyncTransaction.bind(this.syncRepository);

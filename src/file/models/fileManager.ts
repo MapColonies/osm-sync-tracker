@@ -131,8 +131,7 @@ export class FileManager {
     this.logger.info({ msg: 'attempting to close all open files', transactionRetryPolicy: this.transactionRetryPolicy });
 
     if (!this.transactionRetryPolicy.enabled) {
-      const results = await this.fileRepository.tryCloseAllOpenFilesTransaction(this.dbSchema);
-      return results;
+      return this.fileRepository.tryCloseAllOpenFilesTransaction(this.dbSchema);
     }
     const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
     const functionRef = this.fileRepository.tryCloseAllOpenFilesTransaction.bind(this.fileRepository);

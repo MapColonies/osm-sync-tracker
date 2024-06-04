@@ -13,8 +13,10 @@ import {
 import { GeometryType, Status } from '../../../../src/common/enums';
 import { CreateRerunRequest } from '../../../../src/sync/models/sync';
 import { DEFAULT_ISOLATION_LEVEL } from '../../../integration/helpers';
+import { TransactionFailureError } from '../../../../src/changeset/models/errors';
 
 let syncManager: SyncManager;
+let syncManagerWithRetries: SyncManager;
 
 describe('SyncManager', () => {
   const filterSyncs = jest.fn();
@@ -25,6 +27,7 @@ describe('SyncManager', () => {
   const findSyncs = jest.fn();
   const findOneSyncWithLastRerun = jest.fn();
   const createRerun = jest.fn();
+  const tryCloseAllOpenSyncTransaction = jest.fn();
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -38,6 +41,7 @@ describe('SyncManager', () => {
       findSyncs,
       findOneSyncWithLastRerun,
       createRerun,
+      tryCloseAllOpenSyncTransaction,
     } as unknown as SyncRepository;
     syncManager = new SyncManager(
       syncRepository,
@@ -424,6 +428,89 @@ describe('SyncManager', () => {
       const createRerunPromise = syncManager.rerunSyncIfNeeded(sync.id, rerunId, rerunStartDate);
 
       await expect(createRerunPromise).rejects.toThrow(InvalidSyncForRerunError);
+    });
+  });
+
+  describe('#tryCloseOpenPossibleSyncs', () => {
+    it('resolves without errors if a sync exists in the db', async () => {
+      createFakeSync();
+
+      tryCloseAllOpenSyncTransaction.mockResolvedValue(undefined);
+
+      const closePromise = syncManager.tryCloseOpenPossibleSyncs();
+
+      await expect(closePromise).resolves.not.toThrow();
+    });
+
+    it('resolves without errors if a sync does not exists in the db', async () => {
+      tryCloseAllOpenSyncTransaction.mockResolvedValue(undefined);
+
+      const closePromise = syncManager.tryCloseOpenPossibleSyncs();
+
+      await expect(closePromise).resolves.not.toThrow();
+    });
+
+    it('resolves if closing sync fails only once while retries is configured', async () => {
+      createFakeSync();
+
+      tryCloseAllOpenSyncTransaction.mockRejectedValueOnce(new TransactionFailureError('transaction failure')).mockResolvedValueOnce([]);
+
+      const repository = {
+        filterSyncs,
+        getLatestSync,
+        createSync,
+        updateSync,
+        findOneSync,
+        findSyncs,
+        findOneSyncWithLastRerun,
+        createRerun,
+        tryCloseAllOpenSyncTransaction,
+      };
+      syncManagerWithRetries = new SyncManager(
+        repository as unknown as SyncRepository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        {
+          transactionRetryPolicy: { enabled: true, numRetries: 1 },
+          isolationLevel: DEFAULT_ISOLATION_LEVEL,
+        }
+      );
+
+      const closePromise = syncManagerWithRetries.tryCloseOpenPossibleSyncs();
+
+      await expect(closePromise).resolves.not.toThrow();
+      expect(tryCloseAllOpenSyncTransaction).toHaveBeenCalledTimes(2);
+    });
+
+    it('rejects with transaction failure error if closing sync fails', async () => {
+      createFakeSync();
+
+      tryCloseAllOpenSyncTransaction.mockRejectedValue(new TransactionFailureError('transaction failure'));
+
+      const repository = {
+        filterSyncs,
+        getLatestSync,
+        createSync,
+        updateSync,
+        findOneSync,
+        findSyncs,
+        findOneSyncWithLastRerun,
+        createRerun,
+        tryCloseAllOpenSyncTransaction,
+      };
+      syncManagerWithRetries = new SyncManager(
+        repository as unknown as SyncRepository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        {
+          transactionRetryPolicy: { enabled: false },
+          isolationLevel: DEFAULT_ISOLATION_LEVEL,
+        }
+      );
+
+      const closePromise = syncManagerWithRetries.tryCloseOpenPossibleSyncs();
+
+      await expect(closePromise).rejects.toThrow(TransactionFailureError);
     });
   });
 });
