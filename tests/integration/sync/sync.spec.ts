@@ -5,8 +5,9 @@ import { DataSource, In, QueryFailedError, Repository } from 'typeorm';
 import { EntityRepository, ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/entity/DAL/entityRepository';
 import { getApp } from '../../../src/app';
 import { BEFORE_ALL_TIMEOUT, RERUN_TEST_TIMEOUT, getBaseRegisterOptions, DEFAULT_ISOLATION_LEVEL, LONG_RUNNING_TEST_TIMEOUT } from '../helpers';
-import { SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/sync/DAL/syncRepository';
-import { FILE_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/file/DAL/fileRepository';
+import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository, syncRepositoryFactory } from '../../../src/sync/DAL/syncRepository';
+import { FILE_CUSTOM_REPOSITORY_SYMBOL, fileRepositoryFactory, FileRepository } from '../../../src/file/DAL/fileRepository';
+import * as fileRepositoryFunctions from '../../../src/file/DAL/fileRepository';
 import { EntityStatus, GeometryType, Status } from '../../../src/common/enums';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { FileRequestSender } from '../file/helpers/requestSender';
@@ -19,6 +20,7 @@ import { EntityRequestSender } from '../entity/helpers/requestSender';
 import { ChangesetRequestSender } from '../changeset/helpers/requestSender';
 import { createStringifiedFakeEntity } from '../entity/helpers/generators';
 import { createStringifiedFakeChangeset } from '../changeset/helpers/generators';
+import * as commonDbUtils from '../../../src/common/db';
 import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from './helpers/generators';
 import { SyncRequestSender } from './helpers/requestSender';
 
@@ -574,7 +576,6 @@ describe('sync', function () {
         RERUN_TEST_TIMEOUT
       );
 
-      //should return 200 if the sync to rerun was successfully closed by trying to rerun
       it(
         'should return 200 if the sync to rerun was successfully closed by trying to rerun',
         async function () {
@@ -1449,6 +1450,29 @@ describe('sync', function () {
         expect(response.status).toBe(httpStatus.OK);
       });
     });
+
+    it("should return 200 and empty array because it couldn't close a sync", async function () {
+      const findSyncsThatCanBeClosedMock = jest.fn().mockResolvedValueOnce(['{Some_sync_id}']);
+
+      const mockRegisterOptions = getBaseRegisterOptions();
+      mockRegisterOptions.override.push({
+        token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
+        provider: {
+          useFactory: (container): SyncRepository => {
+            const syncRepository = syncRepositoryFactory(container);
+            syncRepository.findSyncsThatCanBeClosed = findSyncsThatCanBeClosedMock;
+            return syncRepository;
+          },
+        },
+      });
+
+      const { app: mockApp } = await getApp(mockRegisterOptions);
+      mockSyncRequestSender = new SyncRequestSender(mockApp);
+      const response = await mockSyncRequestSender.tryToCloseOpenPossibleSyncs();
+
+      expect(response.status).toBe(httpStatus.OK);
+      expect(response.body).toStrictEqual([]);
+    });
   });
 
   describe('Bad Path', function () {
@@ -1793,6 +1817,70 @@ describe('sync', function () {
         expect(response.status).toBe(httpStatus.NOT_FOUND);
       });
     });
+
+    it('should return 500 due to an error in findSyncsThatCanBeClosed', async function () {
+      const findSyncsThatCanBeClosedMock = jest.fn().mockRejectedValue(new TransactionFailureError(`this is an error test.`));
+
+      const mockRegisterOptions = getBaseRegisterOptions();
+      mockRegisterOptions.override.push({
+        token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
+        provider: {
+          useFactory: (container): SyncRepository => {
+            const syncRepository = syncRepositoryFactory(container);
+            syncRepository.findSyncsThatCanBeClosed = findSyncsThatCanBeClosedMock;
+            return syncRepository;
+          },
+        },
+      });
+
+      const { app: mockApp } = await getApp(mockRegisterOptions);
+      mockSyncRequestSender = new SyncRequestSender(mockApp);
+
+      expect((await mockSyncRequestSender.tryToCloseOpenPossibleSyncs()).status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
+
+      jest.spyOn(commonDbUtils, 'isTransactionFailure').mockReturnValueOnce(true);
+
+      // this is because the spyon only mocks return value once
+      expect((await mockSyncRequestSender.tryToCloseOpenPossibleSyncs()).status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
+    });
+
+    it('should return 500 due to an error in createRerun', async function () {
+      const createSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('this is a test', [], {}));
+      jest.spyOn(commonDbUtils, 'isTransactionFailure').mockReturnValueOnce(true);
+
+      const mockRegisterOptions = getBaseRegisterOptions();
+      mockRegisterOptions.override.push({
+        token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
+        provider: {
+          useFactory: (container): SyncRepository => {
+            const syncRepository = syncRepositoryFactory(container);
+            syncRepository.createSync = createSyncMock;
+            return syncRepository;
+          },
+        },
+      });
+
+      const { app: mockApp } = await getApp(mockRegisterOptions);
+      mockSyncRequestSender = new SyncRequestSender(mockApp);
+
+      const layerId = generateUniqueNumber();
+      // create the base sync
+      const sync1 = createStringifiedFakeSync({ layerId, isFull: false });
+      expect(await syncRequestSender.postSync(sync1)).toHaveStatus(StatusCodes.CREATED);
+      const { id: baseSyncId } = sync1;
+
+      // mark the base sync as failure and rerun
+      expect(await syncRequestSender.patchSync(baseSyncId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+      const rerunCreateBody = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
+
+      let response = await mockSyncRequestSender.rerunSync(baseSyncId as string, rerunCreateBody);
+
+      expect(response.status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
+
+      response = await mockSyncRequestSender.rerunSync(baseSyncId as string, rerunCreateBody);
+
+      expect(response.status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
+    });
   });
 
   describe('Sad Path', function () {
@@ -1998,6 +2086,55 @@ describe('sync', function () {
         const message = (response.body as { message: string }).message;
         expect(message).toContain(`exceeded the number of retries (${retries}).`);
       });
+    });
+
+    it('should return 500 due to an error in updateFileAsCompleted', async function () {
+      jest.spyOn(fileRepositoryFunctions, 'updateFileAsCompleted').mockRejectedValue(new TransactionFailureError('transaction failure'));
+      const mockRegisterOptions = getBaseRegisterOptions();
+      mockRegisterOptions.override.push({
+        token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
+        provider: {
+          useValue: {
+            findOneSync: jest.fn().mockResolvedValue(true),
+          },
+        },
+      });
+      mockRegisterOptions.override.push({
+        token: FILE_CUSTOM_REPOSITORY_SYMBOL,
+        provider: {
+          useFactory: (container): FileRepository => {
+            const fileRepository = fileRepositoryFactory(container);
+            fileRepository.findOneFile = jest.fn().mockResolvedValue(true);
+            fileRepository.updateFile = jest.fn().mockResolvedValue(true);
+            return fileRepository;
+          },
+        },
+      });
+
+      const retries = faker.datatype.number({ min: 1, max: 10 });
+      const appConfig: IApplication = {
+        transactionRetryPolicy: { enabled: false, numRetries: retries },
+        isolationLevel: DEFAULT_ISOLATION_LEVEL,
+        featureFlags: { closeFileCron: false },
+      };
+      mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
+      const { app: mockApp } = await getApp(mockRegisterOptions);
+      const mockFileRequestSender = new FileRequestSender(mockApp);
+
+      const syncBody = createStringifiedFakeSync({ totalFiles: 1 });
+      const fileBody = createStringifiedFakeFile();
+
+      const { id: syncId } = syncBody;
+      const { fileId, totalEntities } = fileBody;
+
+      const request = async () =>
+        mockFileRequestSender.patchFile(syncId as string, fileId as string, { totalEntities: (totalEntities as number) - 1 });
+
+      expect((await request()).status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
+
+      jest.spyOn(commonDbUtils, 'isTransactionFailure').mockReturnValueOnce(true);
+
+      expect((await request()).status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
     });
   });
 });

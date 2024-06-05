@@ -9,9 +9,10 @@ import { FileRequestSender } from '../file/helpers/requestSender';
 import { SyncRequestSender } from '../sync/helpers/requestSender';
 import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions, RERUN_TEST_TIMEOUT } from '../helpers';
 import { Status } from '../../../src/common/enums';
-import { FILE_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/file/DAL/fileRepository';
+import { FILE_CUSTOM_REPOSITORY_SYMBOL, fileRepositoryFactory } from '../../../src/file/DAL/fileRepository';
 import { createStringifiedFakeEntity } from '../entity/helpers/generators';
 import { EntityRequestSender } from '../entity/helpers/requestSender';
+import * as commonDbUtils from '../../../src/common/db';
 import { createStringifiedFakeFile } from './helpers/generators';
 
 describe('file', function () {
@@ -98,6 +99,27 @@ describe('file', function () {
         expect(response.status).toBe(httpStatus.CREATED);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
       });
+    });
+
+    it('should return 200 when trying to close file while in transaction', async function () {
+      const mockRegisterOptions = getBaseRegisterOptions();
+      mockRegisterOptions.override.push({
+        token: FILE_CUSTOM_REPOSITORY_SYMBOL,
+        provider: {
+          useFactory: (container) => {
+            const fileRepository = fileRepositoryFactory(container);
+            fileRepository.tryCloseFile = jest.fn().mockResolvedValue([]);
+            return fileRepository;
+          },
+        },
+      });
+      const { app: mockApp } = await getApp(mockRegisterOptions);
+      mockFileRequestSender = new FileRequestSender(mockApp);
+
+      const response = await mockFileRequestSender.tryCloseOpenPossibleFiles();
+
+      expect(response.status).toBe(StatusCodes.OK);
+      expect(response.body).toStrictEqual([]);
     });
   });
 
@@ -274,6 +296,29 @@ describe('file', function () {
 
         expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
         expect(response.body).toHaveProperty('message', 'failed');
+      });
+
+      it('should return 500 when trying to close file while in transaction', async function () {
+        const mockRegisterOptions = getBaseRegisterOptions();
+        mockRegisterOptions.override.push({
+          token: FILE_CUSTOM_REPOSITORY_SYMBOL,
+          provider: {
+            useFactory: (container) => {
+              const fileRepository = fileRepositoryFactory(container);
+              fileRepository.tryCloseFile = jest.fn().mockRejectedValue(new Error('this is a test'));
+              return fileRepository;
+            },
+          },
+        });
+        const { app: mockApp } = await getApp(mockRegisterOptions);
+        mockFileRequestSender = new FileRequestSender(mockApp);
+
+        const request = async () => mockFileRequestSender.tryCloseOpenPossibleFiles();
+
+        expect((await request()).status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+
+        jest.spyOn(commonDbUtils, 'isTransactionFailure').mockReturnValueOnce(true);
+        expect((await request()).status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
       });
     });
   });

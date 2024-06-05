@@ -12,21 +12,6 @@ import { SERVICES } from '../../common/constants';
 import { getIsolationLevel } from '../../common/utils/db';
 import { File as FileDb } from './file';
 
-async function updateFileAsCompleted(
-  fileId: string,
-  schema: string,
-  transactionalEntityManager: EntityManager
-): Promise<ReturningResult<ReturningId>> {
-  return (await transactionalEntityManager.query(
-    `UPDATE ${schema}.file AS FILE SET status = 'completed', end_date = LOCALTIMESTAMP
-  WHERE FILE.file_id = $1 AND FILE.total_entities = (SELECT COUNT(*) AS CompletedEntities
-      FROM ${schema}.entity
-      WHERE file_id = $1 AND (status = 'completed' OR status = 'not_synced'))
-      RETURNING FILE.file_id AS id`,
-    [fileId]
-  )) as ReturningResult<ReturningId>;
-}
-
 async function updateSyncAsCompleted(
   fileId: string,
   schema: string,
@@ -116,7 +101,15 @@ const createFileRepo = (dataSource: DataSource) => {
       try {
         return await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager) => {
           let completedSyncIds: string[] = [];
-          const completedFilesResult = await updateFileAsCompleted(fileId, schema, transactionalEntityManager);
+          const completedFilesResult: ReturningResult<ReturningId> = await (
+            exports as {
+              updateFileAsCompleted: (
+                fileId: string,
+                schema: string,
+                transactionalEntityManager: EntityManager
+              ) => Promise<ReturningResult<ReturningId>>;
+            }
+          ).updateFileAsCompleted(fileId, schema, transactionalEntityManager);
 
           logger.debug({ msg: 'updated file as completed resulted in', completedFilesResult, fileId, transaction });
 
@@ -205,3 +198,18 @@ export const fileRepositoryFactory: FactoryFunction<FileRepository> = (depContai
 };
 
 export const FILE_CUSTOM_REPOSITORY_SYMBOL = Symbol('FILE_CUSTOM_REPOSITORY_SYMBOL');
+
+export async function updateFileAsCompleted(
+  fileId: string,
+  schema: string,
+  transactionalEntityManager: EntityManager
+): Promise<ReturningResult<ReturningId>> {
+  return (await transactionalEntityManager.query(
+    `UPDATE ${schema}.file AS FILE SET status = 'completed', end_date = LOCALTIMESTAMP
+  WHERE FILE.file_id = $1 AND FILE.total_entities = (SELECT COUNT(*) AS CompletedEntities
+      FROM ${schema}.entity
+      WHERE file_id = $1 AND (status = 'completed' OR status = 'not_synced'))
+      RETURNING FILE.file_id AS id`,
+    [fileId]
+  )) as ReturningResult<ReturningId>;
+}

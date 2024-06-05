@@ -127,7 +127,7 @@ const createChangesetRepository = (dataSource: DataSource) => {
       try {
         return await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager) => {
           let completedSyncIds: string[] = [];
-          const completedFilesResult = await updateFileAsCompleted(changesetIds, schema, transactionalEntityManager);
+          const completedFilesResult: ReturningResult<ReturningId> = await updateFileAsCompleted(changesetIds, schema, transactionalEntityManager);
 
           logger.debug({ msg: 'updated file as completed resulted in', completedFilesResult, changesetIds, transaction });
 

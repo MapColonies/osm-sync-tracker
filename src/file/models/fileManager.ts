@@ -117,7 +117,7 @@ export class FileManager {
     const completedSyncIds = await this.closeFile(fileId);
 
     this.logger.debug({
-      msg: 'closing file resulted in the complition of following syncs',
+      msg: 'closing file resulted in the completion of following syncs',
       fileId,
       syncId,
       completedSyncIds,
