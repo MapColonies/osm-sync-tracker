@@ -307,6 +307,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
+        '423':
+          $ref: '#/components/responses/Locked'
         5XX:
           $ref: '#/components/responses/UnexpectedError'
   /file/{fileId}/entity:
@@ -582,6 +584,12 @@ components:
             $ref: '#/components/schemas/Error'
     Conflict:
       description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Locked:
+      description: Locked
       content:
         application/json:
           schema:

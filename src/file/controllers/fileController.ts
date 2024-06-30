@@ -9,7 +9,7 @@ import { FileManager } from '../models/fileManager';
 import { HttpError } from '../../common/errors';
 import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from '../models/errors';
 import { SyncNotFoundError } from '../../sync/models/errors';
-import { ExceededNumberOfRetriesError } from '../../changeset/models/errors';
+import { ExceededNumberOfRetriesError, TransactionFailureError } from '../../changeset/models/errors';
 
 type PostFileHandler = RequestHandler<{ syncId: string }, string, File>;
 type PostFilesHandler = RequestHandler<{ syncId: string }, string, File[]>;
@@ -71,6 +71,9 @@ export class FileController {
       const fileIds = await this.manager.tryCloseOpenPossibleFiles();
       return res.status(httpStatus.OK).json(fileIds);
     } catch (error) {
+      if(error instanceof TransactionFailureError) {
+        (error as HttpError).status = StatusCodes.LOCKED;
+      }
       return next(error);
     }
   };
