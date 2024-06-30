@@ -13,8 +13,8 @@ import { FILE_CUSTOM_REPOSITORY_SYMBOL, fileRepositoryFactory } from '../../../s
 import { createStringifiedFakeEntity } from '../entity/helpers/generators';
 import { EntityRequestSender } from '../entity/helpers/requestSender';
 import * as commonDbUtils from '../../../src/common/db';
-import { createStringifiedFakeFile } from './helpers/generators';
 import { TransactionFailureError } from '../../../src/changeset/models/errors';
+import { createStringifiedFakeFile } from './helpers/generators';
 
 describe('file', function () {
   let fileRequestSender: FileRequestSender;
@@ -308,7 +308,7 @@ describe('file', function () {
           provider: {
             useFactory: (container) => {
               const fileRepository = fileRepositoryFactory(container);
-              fileRepository.findFilesThatCanBeClosed = findFilesThatCanBeClosedMock
+              fileRepository.findFilesThatCanBeClosed = findFilesThatCanBeClosedMock;
               return fileRepository;
             },
           },

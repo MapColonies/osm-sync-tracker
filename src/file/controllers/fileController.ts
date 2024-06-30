@@ -71,7 +71,7 @@ export class FileController {
       const fileIds = await this.manager.tryCloseOpenPossibleFiles();
       return res.status(httpStatus.OK).json(fileIds);
     } catch (error) {
-      if(error instanceof TransactionFailureError) {
+      if (error instanceof TransactionFailureError) {
         (error as HttpError).status = StatusCodes.LOCKED;
       }
       return next(error);
