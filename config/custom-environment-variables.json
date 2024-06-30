@@ -50,6 +50,12 @@
         "__name": "APP_TRANSACTION_NUM_RETRIES",
         "__format": "number"
       }
+    },
+    "featureFlags": {
+      "closeFileCron": {
+        "__name": "CLOSE_FILE_CRON",
+        "__format": "boolean"
+      }
     }
   },
   "db": {
