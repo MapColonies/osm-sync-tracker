@@ -156,7 +156,7 @@ const createSyncRepo = (dataSource: DataSource) => {
       return this.createQueryBuilder('sync')
         .select('sync')
         .where(
-          `layer_id = :layerId and geometry_type = :geometryType and run_number = 0 and (not(metadata @> '{"isFixDiff": "true"}') or metadata is null)`,
+          `layer_id = :layerId and geometry_type = :geometryType and run_number = 0 and (not(metadata @> '{"isFixDiff": "true"}') or metadata is null or status = 'failed')`,
           { layerId, geometryType }
         )
         .orderBy('dump_date', 'DESC')
