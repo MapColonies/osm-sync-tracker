@@ -432,6 +432,30 @@ describe('sync', function () {
         expect(response.body).toMatchObject(earlierDumpDateSync);
       });
 
+      it('should return 200 status code and the sync with the FixDiff sync when its status is failed', async function () {
+        const dumpDate = faker.date.past().toISOString();
+
+        const earlierDumpDateSync = createStringifiedFakeSync({ dumpDate, geometryType: GeometryType.POLYGON, isFull: false });
+        const { layerId, geometryType } = earlierDumpDateSync;
+
+        const laterDumpDateFixDiffSync = createStringifiedFakeSync({
+          dumpDate: faker.date.between(dumpDate, new Date()).toISOString(),
+          layerId,
+          geometryType,
+          isFull: false,
+          status: Status.FAILED,
+        });
+        const metadata = { isFixDiff: 'true' };
+
+        expect(await syncRequestSender.postSync(earlierDumpDateSync)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync({ ...laterDumpDateFixDiffSync, metadata })).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await syncRequestSender.getLatestSync(layerId as number, geometryType as GeometryType);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.body).toMatchObject(laterDumpDateFixDiffSync);
+      });
+
       it(
         'should return 200 status code and the latest sync even if it has a rerun',
         async function () {
