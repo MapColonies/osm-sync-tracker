@@ -9,12 +9,11 @@ import { FileManager } from '../models/fileManager';
 import { HttpError } from '../../common/errors';
 import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from '../models/errors';
 import { SyncNotFoundError } from '../../sync/models/errors';
-import { ExceededNumberOfRetriesError, TransactionFailureError } from '../../changeset/models/errors';
+import { ExceededNumberOfRetriesError } from '../../changeset/models/errors';
 
 type PostFileHandler = RequestHandler<{ syncId: string }, string, File>;
 type PostFilesHandler = RequestHandler<{ syncId: string }, string, File[]>;
 type PatchFileHandler = RequestHandler<{ syncId: string; fileId: string }, string[], FileUpdate>;
-type GetTryCloseFilesHandler = RequestHandler<undefined, string[], undefined>;
 
 const txtplain = mime.contentType('text/plain') as string;
 
@@ -61,18 +60,6 @@ export class FileController {
       }
       if (error instanceof ExceededNumberOfRetriesError) {
         this.logger.warn({ err: error, msg: 'could not attempt to close file, number of retries exceeded', syncId, fileId });
-      }
-      return next(error);
-    }
-  };
-
-  public tryCloseOpenPossibleFiles: GetTryCloseFilesHandler = async (req, res, next) => {
-    try {
-      const fileIds = await this.manager.tryCloseOpenPossibleFiles();
-      return res.status(httpStatus.OK).json(fileIds);
-    } catch (error) {
-      if (error instanceof TransactionFailureError) {
-        (error as HttpError).status = StatusCodes.LOCKED;
       }
       return next(error);
     }

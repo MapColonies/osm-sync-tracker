@@ -23,7 +23,6 @@ type GetLatestSyncHandler = RequestHandler<undefined, BaseSync, undefined, { lay
 type PostSyncHandler = RequestHandler<undefined, string, Sync>;
 type PatchSyncHandler = RequestHandler<{ syncId: string }, string, SyncUpdate>;
 type RerunSyncHandler = RequestHandler<{ syncId: string }, string, { rerunId: string; startDate: Date; shouldRerunNotSynced?: boolean }>;
-type GetTryCloseSyncsHandler = RequestHandler<undefined, string[], undefined>;
 
 const txtplain = mime.contentType('text/plain') as string;
 
@@ -93,15 +92,6 @@ export class SyncController {
       if (error instanceof RerunAlreadyExistsError || error instanceof InvalidSyncForRerunError) {
         (error as HttpError).status = StatusCodes.CONFLICT;
       }
-      return next(error);
-    }
-  };
-
-  public tryCloseOpenPossibleSyncs: GetTryCloseSyncsHandler = async (req, res, next) => {
-    try {
-      const syncIds = await this.manager.tryCloseOpenPossibleSyncs();
-      return res.status(httpStatus.OK).json(syncIds);
-    } catch (error) {
       return next(error);
     }
   };

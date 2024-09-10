@@ -2,10 +2,7 @@
   "application": {
     "transactionRetryPolicy": {
       "enabled": true,
-      "numRetries": 3,
-      "featureFlags": {
-        "closeFileCron": true
-      }
+      "numRetries": 3
     }
   }
 }

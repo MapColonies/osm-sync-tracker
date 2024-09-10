@@ -147,12 +147,6 @@ export class EntityManager {
 
     await this.entityRepository.updateEntity(entityId, fileId, entity);
 
-    const closeFileCronFeature = Boolean(this.appConfig.featureFlags?.closeFileCron);
-    //Feature flag to Close File By Cron Job
-    if (closeFileCronFeature) {
-      return [];
-    }
-
     let completedSyncIds: string[] = [];
     if (entity.status === EntityStatus.NOT_SYNCED) {
       completedSyncIds = await this.closeFile(fileId);
@@ -197,13 +191,6 @@ export class EntityManager {
     }
 
     await this.entityRepository.updateEntities(entities);
-
-    const closeFileCronFeature = Boolean(this.appConfig.featureFlags?.closeFileCron);
-    //Feature flag to Close File By Cron Job
-    if (closeFileCronFeature) {
-      return;
-    }
-
     const possiblyFileClosingEntities = entities.filter(
       (entity) => entity.status === EntityStatus.NOT_SYNCED || entity.status === EntityStatus.FAILED || entity.status === EntityStatus.COMPLETED
     );
