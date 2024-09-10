@@ -20,7 +20,5 @@ export const syncRouterFactory: FactoryFunction<Router> = (dependencyContainer) 
   router.patch('/:syncId/file/:fileId', fileController.patchFile);
   router.post('/:syncId/rerun', syncController.rerunSync);
 
-  router.get('/tryCloseOpenPossibleSyncs', syncController.tryCloseOpenPossibleSyncs);
-
   return router;
 };
