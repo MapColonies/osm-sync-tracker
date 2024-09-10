@@ -3,7 +3,7 @@ import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
 import { EntityStatus, GeometryType } from '../../common/enums';
-import { BaseSync, CreateRerunRequest, Sync, SyncsFilter, SyncUpdate, SyncWithReruns } from '../models/sync';
+import { CreateRerunRequest, Sync, SyncsFilter, SyncUpdate, SyncWithReruns } from '../models/sync';
 import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
 import { TransactionFailureError } from '../../changeset/models/errors';
 import { getIsolationLevel } from '../../common/utils/db';
@@ -152,12 +152,17 @@ async function updateDanglingFilesAsCompleted(syncId: string, schema: string, tr
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const createSyncRepo = (dataSource: DataSource) => {
   return dataSource.getRepository(SyncDb).extend({
-    async getLatestSync(layerId: number, geometryType: GeometryType): Promise<BaseSync | null> {
-      return this.findOne({
-        where: { layerId, geometryType, runNumber: 0 },
-        order: { dumpDate: 'DESC', startDate: 'DESC' },
-        select: ['id', 'dumpDate', 'startDate', 'endDate', 'status', 'layerId', 'isFull', 'totalFiles', 'geometryType', 'metadata'],
-      });
+    async getLatestSync(layerId: number, geometryType: GeometryType): Promise<SyncDb | null> {
+      return this.createQueryBuilder('sync')
+        .select('sync')
+        .where(
+          `layer_id = :layerId and geometry_type = :geometryType and run_number = 0 and (not(metadata @> '{"isFixDiff": "true"}') or metadata is null or status = 'failed')`,
+          { layerId, geometryType }
+        )
+        .orderBy('dump_date', 'DESC')
+        .addOrderBy('start_date', 'DESC')
+        .limit(1)
+        .getOne();
     },
 
     async createSync(sync: Sync): Promise<void> {
