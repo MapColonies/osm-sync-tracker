@@ -29,6 +29,9 @@
     "isolationLevel": "SERIALIZABLE",
     "transactionRetryPolicy": {
       "enabled": false
+    },
+    "featureFlags": {
+      "closeFileCron": true
     }
   },
   "db": {

@@ -13,6 +13,8 @@ let fileRepository: FileRepository;
 let syncRepository: SyncRepository;
 
 let fileManager: FileManager;
+let fileManagerWithRetries: FileManager;
+
 describe('FileManager', () => {
   const createFile = jest.fn();
   const createFiles = jest.fn();
@@ -20,6 +22,7 @@ describe('FileManager', () => {
   const updateFile = jest.fn();
   const findManyFilesByIds = jest.fn();
   const tryClosingFile = jest.fn();
+  const tryCloseAllOpenFilesTransaction = jest.fn();
 
   const getLatestSync = jest.fn();
   const findOneSync = jest.fn();
@@ -28,11 +31,20 @@ describe('FileManager', () => {
   const findSyncs = jest.fn();
   const findOneSyncWithLastRerun = jest.fn();
   const createRerun = jest.fn();
+  const tryCloseAllOpenSyncTransaction = jest.fn();
 
   beforeEach(() => {
     jest.resetAllMocks();
 
-    fileRepository = { createFile, createFiles, findOneFile, findManyFilesByIds, tryClosingFile, updateFile } as unknown as FileRepository;
+    fileRepository = {
+      createFile,
+      createFiles,
+      findOneFile,
+      findManyFilesByIds,
+      tryClosingFile,
+      updateFile,
+      tryCloseAllOpenFilesTransaction,
+    } as unknown as FileRepository;
     syncRepository = {
       getLatestSync,
       createSync,
@@ -41,6 +53,7 @@ describe('FileManager', () => {
       findSyncs,
       findOneSyncWithLastRerun,
       createRerun,
+      tryCloseAllOpenSyncTransaction,
     } as unknown as SyncRepository;
 
     fileManager = new FileManager(
@@ -328,6 +341,57 @@ describe('FileManager', () => {
       const createBulkPromise = fileManager.createFiles(faker.datatype.uuid(), files);
 
       await expect(createBulkPromise).rejects.toThrow(SyncNotFoundError);
+    });
+  });
+
+  describe('#tryCloseOpenPossibleFiles', () => {
+    it('resolves without errors if a file exists in the db', async () => {
+      createFakeFile();
+
+      tryCloseAllOpenFilesTransaction.mockResolvedValue(undefined);
+
+      const closePromise = fileManager.tryCloseOpenPossibleFiles();
+
+      await expect(closePromise).resolves.not.toThrow();
+    });
+
+    it('resolves without errors if a file does not exists in the db', async () => {
+      tryCloseAllOpenFilesTransaction.mockResolvedValue(undefined);
+
+      const closePromise = fileManager.tryCloseOpenPossibleFiles();
+
+      await expect(closePromise).resolves.not.toThrow();
+    });
+
+    it('resolves if closing file fails only once while retries is configured', async () => {
+      createFakeFile();
+
+      tryCloseAllOpenFilesTransaction.mockRejectedValueOnce(new TransactionFailureError('transaction failure')).mockResolvedValueOnce([]);
+
+      const repository = {
+        createFile,
+        createFiles,
+        findOneFile,
+        findManyFilesByIds,
+        tryClosingFile,
+        updateFile,
+        tryCloseAllOpenFilesTransaction,
+      };
+      fileManagerWithRetries = new FileManager(
+        repository as unknown as FileRepository,
+        syncRepository,
+        jsLogger({ enabled: false }),
+        { get: jest.fn(), has: jest.fn() },
+        {
+          transactionRetryPolicy: { enabled: true, numRetries: 1 },
+          isolationLevel: DEFAULT_ISOLATION_LEVEL,
+        }
+      );
+
+      const closePromise = fileManagerWithRetries.tryCloseOpenPossibleFiles();
+
+      await expect(closePromise).resolves.not.toThrow();
+      expect(tryCloseAllOpenFilesTransaction).toHaveBeenCalledTimes(2);
     });
   });
 });

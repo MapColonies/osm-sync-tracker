@@ -108,11 +108,16 @@ export class FileManager {
 
     await this.fileRepository.updateFile(fileId, fileUpdate);
 
+    const closeFileCronFeature = Boolean(this.appConfig.featureFlags?.closeFileCron);
+    //Feature flag to Close File By Cron Job
+    if (closeFileCronFeature) {
+      return [];
+    }
     // try closing the file which in turn if if succeeded will try compliting the sync
     const completedSyncIds = await this.closeFile(fileId);
 
     this.logger.debug({
-      msg: 'closing file resulted in the complition of following syncs',
+      msg: 'closing file resulted in the completion of following syncs',
       fileId,
       syncId,
       completedSyncIds,
@@ -120,6 +125,17 @@ export class FileManager {
     });
 
     return completedSyncIds;
+  }
+
+  public async tryCloseOpenPossibleFiles(): Promise<string[]> {
+    this.logger.info({ msg: 'attempting to close all open files', transactionRetryPolicy: this.transactionRetryPolicy });
+
+    if (!this.transactionRetryPolicy.enabled) {
+      return this.fileRepository.tryCloseAllOpenFilesTransaction(this.dbSchema);
+    }
+    const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
+    const functionRef = this.fileRepository.tryCloseAllOpenFilesTransaction.bind(this.fileRepository);
+    return retryFunctionWrapper(retryOptions, functionRef, this.dbSchema);
   }
 
   private async createRerunFile(rerunSync: Sync, rerunFile: File): Promise<void> {

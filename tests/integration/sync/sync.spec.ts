@@ -5,8 +5,9 @@ import { DataSource, In, QueryFailedError, Repository } from 'typeorm';
 import { EntityRepository, ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/entity/DAL/entityRepository';
 import { getApp } from '../../../src/app';
 import { BEFORE_ALL_TIMEOUT, RERUN_TEST_TIMEOUT, getBaseRegisterOptions, DEFAULT_ISOLATION_LEVEL, LONG_RUNNING_TEST_TIMEOUT } from '../helpers';
-import { SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/sync/DAL/syncRepository';
-import { FILE_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/file/DAL/fileRepository';
+import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository, syncRepositoryFactory } from '../../../src/sync/DAL/syncRepository';
+import { FILE_CUSTOM_REPOSITORY_SYMBOL, fileRepositoryFactory, FileRepository } from '../../../src/file/DAL/fileRepository';
+import * as fileRepositoryFunctions from '../../../src/file/DAL/fileRepository';
 import { EntityStatus, GeometryType, Status } from '../../../src/common/enums';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { FileRequestSender } from '../file/helpers/requestSender';
@@ -19,6 +20,7 @@ import { EntityRequestSender } from '../entity/helpers/requestSender';
 import { ChangesetRequestSender } from '../changeset/helpers/requestSender';
 import { createStringifiedFakeEntity } from '../entity/helpers/generators';
 import { createStringifiedFakeChangeset } from '../changeset/helpers/generators';
+import * as commonDbUtils from '../../../src/common/db';
 import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from './helpers/generators';
 import { SyncRequestSender } from './helpers/requestSender';
 
@@ -357,7 +359,7 @@ describe('sync', function () {
     });
 
     describe('GET /sync/latest', function () {
-      it('should return 200 status code and the latest sync entity', async function () {
+      it('should return 200 status code and the latest sync entity with no additional full', async function () {
         const earlierDate = faker.date.past().toISOString();
         const earlierSync = createStringifiedFakeSync({ dumpDate: earlierDate, geometryType: GeometryType.POLYGON, isFull: false });
         const { layerId, geometryType } = earlierSync;
@@ -383,6 +385,123 @@ describe('sync', function () {
 
         expect(response.status).toBe(httpStatus.OK);
         expect(response.body).toMatchObject(laterSync);
+      });
+
+      it('should return 200 status code and the latest sync entity with 1 additional full', async function () {
+        const firstDate = faker.date.past().toISOString();
+        const secondDate = faker.date.between(firstDate, new Date()).toISOString();
+        const thirdDate = faker.date.between(secondDate, new Date()).toISOString();
+        const fourthDate = faker.date.between(thirdDate, new Date()).toISOString();
+        const lastDate = faker.date.between(fourthDate, new Date()).toISOString();
+
+        const beforeFullDiff1 = createStringifiedFakeSync({
+          dumpDate: secondDate,
+          startDate: secondDate,
+          geometryType: GeometryType.POLYGON,
+          isFull: false,
+        });
+        const { layerId, geometryType } = beforeFullDiff1;
+
+        const beforeFullDiff2 = createStringifiedFakeSync({
+          dumpDate: thirdDate,
+          startDate: thirdDate,
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+        const additionalFull = createStringifiedFakeSync({
+          dumpDate: firstDate,
+          startDate: fourthDate,
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+        const metadata = { isAdditionalFull: true };
+        const afterFullDiff1 = createStringifiedFakeSync({
+          dumpDate: secondDate,
+          startDate: lastDate,
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+
+        expect(await syncRequestSender.postSync(beforeFullDiff1)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(beforeFullDiff2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync({ ...additionalFull, metadata })).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(afterFullDiff1)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await syncRequestSender.getLatestSync(layerId as number, geometryType as GeometryType);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.body).toMatchObject(afterFullDiff1);
+      });
+
+      it('should return 200 status code and the latest sync entity with 2 additional fulls', async function () {
+        const firstDate = faker.date.past().toISOString();
+        const secondDate = faker.date.between(firstDate, new Date()).toISOString();
+        const thirdDate = faker.date.between(secondDate, new Date()).toISOString();
+        const fourthDate = faker.date.between(thirdDate, new Date()).toISOString();
+        const fifthDate = faker.date.between(fourthDate, new Date()).toISOString();
+        const sixthDate = faker.date.between(fifthDate, new Date()).toISOString();
+        const lastDate = faker.date.between(sixthDate, new Date()).toISOString();
+
+        const diff1 = createStringifiedFakeSync({
+          dumpDate: secondDate,
+          startDate: secondDate,
+          geometryType: GeometryType.POLYGON,
+          isFull: false,
+        });
+        const { layerId, geometryType } = diff1;
+
+        const additionalFull1 = createStringifiedFakeSync({
+          dumpDate: firstDate,
+          startDate: thirdDate,
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+        const metadata = { isAdditionalFull: true };
+
+        const diff1Run2 = createStringifiedFakeSync({
+          dumpDate: secondDate,
+          startDate: fourthDate,
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+        const diff2 = createStringifiedFakeSync({
+          dumpDate: fifthDate,
+          startDate: fifthDate,
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+        const additionalFull1Run2 = createStringifiedFakeSync({
+          dumpDate: firstDate,
+          startDate: sixthDate,
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+        const diff1Run3 = createStringifiedFakeSync({
+          dumpDate: secondDate,
+          startDate: lastDate,
+          layerId,
+          geometryType,
+          isFull: false,
+        });
+
+        expect(await syncRequestSender.postSync(diff1)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync({ ...additionalFull1, metadata })).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(diff1Run2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(diff2)).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync({ ...additionalFull1Run2, metadata })).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSync(diff1Run3)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await syncRequestSender.getLatestSync(layerId as number, geometryType as GeometryType);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.body).toMatchObject(diff1Run3);
       });
 
       it('should return 200 status code and the sync with the later startDate for multiple syncs with same dumpDate', async function () {
@@ -457,7 +576,6 @@ describe('sync', function () {
         RERUN_TEST_TIMEOUT
       );
 
-      //should return 200 if the sync to rerun was successfully closed by trying to rerun
       it(
         'should return 200 if the sync to rerun was successfully closed by trying to rerun',
         async function () {
@@ -868,7 +986,13 @@ describe('sync', function () {
           });
 
           expect(patchEntityResponse).toHaveStatus(StatusCodes.OK);
-          expect(patchEntityResponse.body).toMatchObject([baseSyncId]);
+
+          const closeFileResponse = await fileRequestSender.tryCloseOpenPossibleFiles();
+          expect(closeFileResponse.body).toEqual(expect.arrayContaining([file1.fileId, file3.fileId]));
+
+          expect((await syncRequestSender.tryToCloseOpenPossibleSyncs()).body).toEqual(
+            expect.arrayContaining([baseSyncId, firstRerunId, secondRerunId])
+          );
 
           // validate latest sync is the base as completed
           const latestSyncResponse = await syncRequestSender.getLatestSync(baseSync.layerId as number, baseSync.geometryType as GeometryType);
@@ -1263,7 +1387,6 @@ describe('sync', function () {
           });
 
           expect(patchEntityResponse).toHaveStatus(StatusCodes.OK);
-          expect(patchEntityResponse.body).toMatchObject([baseSyncId]);
 
           // validate entity history count
           const entityHistoryCount = await entityHistoryRepository.countBy({ syncId: In([baseSyncId, firstRerunId, secondRerunId]) });
@@ -1303,7 +1426,6 @@ describe('sync', function () {
         const response = await fileRequestSender.patchFile(syncId as string, fileId as string, { totalEntities: 0 });
 
         expect(response.status).toBe(httpStatus.OK);
-        expect(response.body).toEqual([syncId]);
       });
 
       it('should return 200 status code and a closed sync id from the patch when all other files is already completed', async function () {
@@ -1326,8 +1448,30 @@ describe('sync', function () {
         const response = await fileRequestSender.patchFile(sync.id as string, file2.fileId as string, { totalEntities: 0 });
 
         expect(response.status).toBe(httpStatus.OK);
-        expect(response.body).toEqual([sync.id]);
       });
+    });
+
+    it("should return 200 and empty array because it couldn't close a sync", async function () {
+      const findSyncsThatCanBeClosedMock = jest.fn().mockResolvedValueOnce(['{Some_sync_id}']);
+
+      const mockRegisterOptions = getBaseRegisterOptions();
+      mockRegisterOptions.override.push({
+        token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
+        provider: {
+          useFactory: (container): SyncRepository => {
+            const syncRepository = syncRepositoryFactory(container);
+            syncRepository.findSyncsThatCanBeClosed = findSyncsThatCanBeClosedMock;
+            return syncRepository;
+          },
+        },
+      });
+
+      const { app: mockApp } = await getApp(mockRegisterOptions);
+      mockSyncRequestSender = new SyncRequestSender(mockApp);
+      const response = await mockSyncRequestSender.tryToCloseOpenPossibleSyncs();
+
+      expect(response.status).toBe(httpStatus.OK);
+      expect(response.body).toStrictEqual([]);
     });
   });
 
@@ -1673,6 +1817,70 @@ describe('sync', function () {
         expect(response.status).toBe(httpStatus.NOT_FOUND);
       });
     });
+
+    it('should return 500 due to an error in findSyncsThatCanBeClosed', async function () {
+      const findSyncsThatCanBeClosedMock = jest.fn().mockRejectedValue(new TransactionFailureError(`this is an error test.`));
+
+      const mockRegisterOptions = getBaseRegisterOptions();
+      mockRegisterOptions.override.push({
+        token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
+        provider: {
+          useFactory: (container): SyncRepository => {
+            const syncRepository = syncRepositoryFactory(container);
+            syncRepository.findSyncsThatCanBeClosed = findSyncsThatCanBeClosedMock;
+            return syncRepository;
+          },
+        },
+      });
+
+      const { app: mockApp } = await getApp(mockRegisterOptions);
+      mockSyncRequestSender = new SyncRequestSender(mockApp);
+
+      expect((await mockSyncRequestSender.tryToCloseOpenPossibleSyncs()).status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
+
+      jest.spyOn(commonDbUtils, 'isTransactionFailure').mockReturnValueOnce(true);
+
+      // this is because the spyon only mocks return value once
+      expect((await mockSyncRequestSender.tryToCloseOpenPossibleSyncs()).status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
+    });
+
+    it('should return 500 due to an error in createRerun', async function () {
+      const createSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('this is a test', [], {}));
+      jest.spyOn(commonDbUtils, 'isTransactionFailure').mockReturnValueOnce(true);
+
+      const mockRegisterOptions = getBaseRegisterOptions();
+      mockRegisterOptions.override.push({
+        token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
+        provider: {
+          useFactory: (container): SyncRepository => {
+            const syncRepository = syncRepositoryFactory(container);
+            syncRepository.createSync = createSyncMock;
+            return syncRepository;
+          },
+        },
+      });
+
+      const { app: mockApp } = await getApp(mockRegisterOptions);
+      mockSyncRequestSender = new SyncRequestSender(mockApp);
+
+      const layerId = generateUniqueNumber();
+      // create the base sync
+      const sync1 = createStringifiedFakeSync({ layerId, isFull: false });
+      expect(await syncRequestSender.postSync(sync1)).toHaveStatus(StatusCodes.CREATED);
+      const { id: baseSyncId } = sync1;
+
+      // mark the base sync as failure and rerun
+      expect(await syncRequestSender.patchSync(baseSyncId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+      const rerunCreateBody = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
+
+      let response = await mockSyncRequestSender.rerunSync(baseSyncId as string, rerunCreateBody);
+
+      expect(response.status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
+
+      response = await mockSyncRequestSender.rerunSync(baseSyncId as string, rerunCreateBody);
+
+      expect(response.status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
+    });
   });
 
   describe('Sad Path', function () {
@@ -1856,7 +2064,11 @@ describe('sync', function () {
         });
 
         const retries = faker.datatype.number({ min: 1, max: 10 });
-        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
+        const appConfig: IApplication = {
+          transactionRetryPolicy: { enabled: true, numRetries: retries },
+          isolationLevel: DEFAULT_ISOLATION_LEVEL,
+          featureFlags: { closeFileCron: false },
+        };
         mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
         const { app: mockApp } = await getApp(mockRegisterOptions);
         const mockFileRequestSender = new FileRequestSender(mockApp);
@@ -1874,6 +2086,55 @@ describe('sync', function () {
         const message = (response.body as { message: string }).message;
         expect(message).toContain(`exceeded the number of retries (${retries}).`);
       });
+    });
+
+    it('should return 500 due to an error in updateFileAsCompleted', async function () {
+      jest.spyOn(fileRepositoryFunctions, 'updateFileAsCompleted').mockRejectedValue(new TransactionFailureError('transaction failure'));
+      const mockRegisterOptions = getBaseRegisterOptions();
+      mockRegisterOptions.override.push({
+        token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
+        provider: {
+          useValue: {
+            findOneSync: jest.fn().mockResolvedValue(true),
+          },
+        },
+      });
+      mockRegisterOptions.override.push({
+        token: FILE_CUSTOM_REPOSITORY_SYMBOL,
+        provider: {
+          useFactory: (container): FileRepository => {
+            const fileRepository = fileRepositoryFactory(container);
+            fileRepository.findOneFile = jest.fn().mockResolvedValue(true);
+            fileRepository.updateFile = jest.fn().mockResolvedValue(true);
+            return fileRepository;
+          },
+        },
+      });
+
+      const retries = faker.datatype.number({ min: 1, max: 10 });
+      const appConfig: IApplication = {
+        transactionRetryPolicy: { enabled: false, numRetries: retries },
+        isolationLevel: DEFAULT_ISOLATION_LEVEL,
+        featureFlags: { closeFileCron: false },
+      };
+      mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
+      const { app: mockApp } = await getApp(mockRegisterOptions);
+      const mockFileRequestSender = new FileRequestSender(mockApp);
+
+      const syncBody = createStringifiedFakeSync({ totalFiles: 1 });
+      const fileBody = createStringifiedFakeFile();
+
+      const { id: syncId } = syncBody;
+      const { fileId, totalEntities } = fileBody;
+
+      const request = async () =>
+        mockFileRequestSender.patchFile(syncId as string, fileId as string, { totalEntities: (totalEntities as number) - 1 });
+
+      expect((await request()).status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
+
+      jest.spyOn(commonDbUtils, 'isTransactionFailure').mockReturnValueOnce(true);
+
+      expect((await request()).status).toBe(httpStatus.INTERNAL_SERVER_ERROR);
     });
   });
 });

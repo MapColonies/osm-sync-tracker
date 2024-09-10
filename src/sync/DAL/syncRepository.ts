@@ -1,8 +1,9 @@
-import { DataSource, EntityManager, FindOptionsWhere, In, MoreThan } from 'typeorm';
+import { DataSource, EntityManager, FindOptionsWhere, In, MoreThan, MoreThanOrEqual } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
-import { EntityStatus, GeometryType } from '../../common/enums';
+import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
+import { EntityStatus, GeometryType, Status } from '../../common/enums';
 import { BaseSync, CreateRerunRequest, Sync, SyncsFilter, SyncUpdate, SyncWithReruns } from '../models/sync';
 import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
 import { TransactionFailureError } from '../../changeset/models/errors';
@@ -40,10 +41,10 @@ async function tryClosingSync(baseSyncId: string, schema: string, transactionalE
     `
     UPDATE ${schema}.sync AS sync_to_update
       SET status = 'completed', end_date = LOCALTIMESTAMP
-      WHERE sync_to_update.id = $1
+      WHERE (sync_to_update.id = $1 OR sync_to_update.base_sync_id = $1)
       AND sync_to_update.total_files = (
         SELECT COUNT(*) FROM osm_sync_tracker.file
-          WHERE sync_id = sync_to_update.id
+          WHERE sync_id = $1
           AND status = 'completed')
     RETURNING sync_to_update.id
   `,
@@ -149,15 +150,50 @@ async function updateDanglingFilesAsCompleted(syncId: string, schema: string, tr
   );
 }
 
+async function updateLastRerunAsCompleted(syncId: string, transactionalEntityManager: EntityManager): Promise<void> {
+  const completedSyncWithLastRerun = await transactionalEntityManager
+    .createQueryBuilder(SyncDb, 'sync')
+    .leftJoinAndSelect('sync.reruns', 'rerun')
+    .where('sync.id = :syncId', { syncId })
+    .orderBy('rerun.run_number', 'DESC')
+    .limit(1)
+    .getOne();
+
+  if (completedSyncWithLastRerun && completedSyncWithLastRerun.reruns.length > 0) {
+    const lastRerun = completedSyncWithLastRerun.reruns[0];
+    await transactionalEntityManager.update(SyncDb, { id: lastRerun.id }, { status: Status.COMPLETED, endDate: completedSyncWithLastRerun.endDate });
+  }
+}
+
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const createSyncRepo = (dataSource: DataSource) => {
   return dataSource.getRepository(SyncDb).extend({
     async getLatestSync(layerId: number, geometryType: GeometryType): Promise<BaseSync | null> {
+      const returnedFullDate = await this.getLatestFullStartDate(layerId, geometryType);
+      if (returnedFullDate) {
+        return this.findOne({
+          where: { layerId, geometryType, runNumber: 0, startDate: MoreThanOrEqual(returnedFullDate.startDate) },
+          order: { dumpDate: 'DESC', startDate: 'DESC' },
+          select: ['id', 'dumpDate', 'startDate', 'endDate', 'status', 'layerId', 'isFull', 'totalFiles', 'geometryType', 'metadata'],
+        });
+      }
       return this.findOne({
         where: { layerId, geometryType, runNumber: 0 },
         order: { dumpDate: 'DESC', startDate: 'DESC' },
         select: ['id', 'dumpDate', 'startDate', 'endDate', 'status', 'layerId', 'isFull', 'totalFiles', 'geometryType', 'metadata'],
       });
+    },
+
+    async getLatestFullStartDate(layerId: number, geometryType: GeometryType): Promise<SyncDb | null> {
+      return this.createQueryBuilder('sync')
+        .select('sync')
+        .where(
+          `layer_id = :layerId and geometry_type = :geometryType and run_number = 0 and (is_full = true or metadata -> 'isAdditionalFull' = 'true')`,
+          { layerId, geometryType }
+        )
+        .orderBy('start_date', 'DESC')
+        .limit(1)
+        .getOne();
     },
 
     async createSync(sync: Sync): Promise<void> {
@@ -312,6 +348,70 @@ const createSyncRepo = (dataSource: DataSource) => {
 
         if (isTransactionFailure(error)) {
           throw new TransactionFailureError(`rerun creation has failed due to read/write dependencies among transactions.`);
+        }
+        throw error;
+      }
+    },
+
+    async findSyncsThatCanBeClosed(): Promise<Pick<SyncDb, 'id'>[]> {
+      const syncIds: Pick<SyncDb, 'id'>[] = await this.createQueryBuilder('sync')
+        .select('sync.id', 'id')
+        .innerJoin('sync.files', 'file')
+        .where('file.status = :fileStatus', { fileStatus: Status.COMPLETED })
+        .andWhere('sync.status IN(:...statuses)', { statuses: [Status.IN_PROGRESS, Status.FAILED] })
+        .groupBy('sync.id')
+        .addGroupBy('sync.totalFiles')
+        .having('COUNT(file.fileId) = sync.totalFiles')
+        .getRawMany();
+      return syncIds;
+    },
+
+    async tryCloseSync(
+      syncId: string,
+      schema: string,
+      transactionalEntityManager: EntityManager,
+      transaction: {
+        transactionId: string;
+        transactionName: TransactionName;
+        isolationLevel: IsolationLevel;
+      }
+    ): Promise<string[]> {
+      logger.debug({ msg: 'attempting to close sync', syncId, transaction });
+
+      const completedSyncResult = await tryClosingSync(syncId, schema, transactionalEntityManager);
+
+      const completedSyncs = completedSyncResult[0].map((sync) => sync.id);
+      await Promise.all(completedSyncs.map(async (syncId) => updateLastRerunAsCompleted(syncId, transactionalEntityManager)));
+      logger.debug({ msg: 'updated sync as completed resulted in', completedSyncResult, syncId, transaction });
+      return completedSyncs;
+    },
+
+    async tryCloseAllOpenSyncTransaction(schema: string): Promise<string[]> {
+      const isolationLevel = getIsolationLevel();
+      const transaction = { transactionId: nanoid(), transactionName: TransactionName.TRY_CLOSING_FILE, isolationLevel };
+
+      let syncId = '';
+      try {
+        return await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager: EntityManager) => {
+          let completedSyncIds: string[] = [];
+
+          const inProgressSyncs = await this.findSyncsThatCanBeClosed();
+          for (const sync of inProgressSyncs) {
+            syncId = sync.id;
+
+            const completedSyncsIteration = await this.tryCloseSync(syncId, schema, transactionalEntityManager, transaction);
+            if (completedSyncsIteration.length === 0) {
+              break; // If sync can't be closed, cancel all closing procedure to prevent continues lock of the DB
+            }
+            completedSyncIds = [...completedSyncIds, ...completedSyncsIteration];
+          }
+          return completedSyncIds;
+        });
+      } catch (error) {
+        logger.error({ err: error, msg: 'failure occurred while trying to close sync in transaction', syncId, transaction });
+
+        if (isTransactionFailure(error)) {
+          throw new TransactionFailureError(`closing sync ${syncId} has failed due to read/write dependencies among transactions.`);
         }
         throw error;
       }

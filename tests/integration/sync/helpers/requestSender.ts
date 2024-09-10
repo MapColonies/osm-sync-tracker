@@ -27,4 +27,8 @@ export class SyncRequestSender {
   public async rerunSync(syncId: string, body: StringifiedRerunCreateBody): Promise<supertest.Response> {
     return supertest.agent(this.app).post(`/sync/${syncId}/rerun`).set('Content-Type', 'application/json').send(body);
   }
+
+  public async tryToCloseOpenPossibleSyncs(): Promise<supertest.Response> {
+    return supertest.agent(this.app).get(`/sync/tryCloseOpenPossibleSyncs`);
+  }
 }

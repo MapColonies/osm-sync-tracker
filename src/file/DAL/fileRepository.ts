@@ -1,30 +1,16 @@
-import { EntityManager, DataSource, In } from 'typeorm';
+import { EntityManager, DataSource, In, Brackets } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
+import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { TransactionFailureError } from '../../changeset/models/errors';
 import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
 import { File, FileUpdate } from '../models/file';
 import { SyncDb } from '../../sync/DAL/sync';
-import { Status } from '../../common/enums';
+import { EntityStatus, Status } from '../../common/enums';
 import { SERVICES } from '../../common/constants';
 import { getIsolationLevel } from '../../common/utils/db';
 import { File as FileDb } from './file';
-
-async function updateFileAsCompleted(
-  fileId: string,
-  schema: string,
-  transactionalEntityManager: EntityManager
-): Promise<ReturningResult<ReturningId>> {
-  return (await transactionalEntityManager.query(
-    `UPDATE ${schema}.file AS FILE SET status = 'completed', end_date = LOCALTIMESTAMP
-  WHERE FILE.file_id = $1 AND FILE.total_entities = (SELECT COUNT(*) AS CompletedEntities
-      FROM ${schema}.entity
-      WHERE file_id = $1 AND (status = 'completed' OR status = 'not_synced'))
-      RETURNING FILE.file_id AS id`,
-    [fileId]
-  )) as ReturningResult<ReturningId>;
-}
 
 async function updateSyncAsCompleted(
   fileId: string,
@@ -85,6 +71,27 @@ const createFileRepo = (dataSource: DataSource) => {
       return filesEntities;
     },
 
+    async findFilesThatCanBeClosed(): Promise<Pick<FileDb, 'fileId'>[]> {
+      const fileIds: Pick<FileDb, 'fileId'>[] = await this.createQueryBuilder('file')
+        .select('file.fileId', 'fileId')
+        .leftJoin('file.entities', 'entity')
+        .innerJoin('file.sync', 'sync')
+        .where(
+          new Brackets((qb) => {
+            qb.where('entity.status IN(:...statuses)', { statuses: [EntityStatus.COMPLETED, EntityStatus.NOT_SYNCED] }).orWhere(
+              'file.totalEntities = 0'
+            );
+          })
+        )
+        .andWhere('file.status = :inProgress and sync.status IN(:inProgress, :failed)', { inProgress: Status.IN_PROGRESS, failed: Status.FAILED })
+        .groupBy('file.fileId')
+        .addGroupBy('file.totalEntities')
+        .having('COUNT(entity.entityId) = file.totalEntities')
+        .getRawMany();
+
+      return fileIds;
+    },
+
     async tryClosingFile(fileId: string, schema: string): Promise<string[]> {
       const isolationLevel = getIsolationLevel();
       const transaction = { transactionId: nanoid(), transactionName: TransactionName.TRY_CLOSING_FILE, isolationLevel };
@@ -94,7 +101,15 @@ const createFileRepo = (dataSource: DataSource) => {
       try {
         return await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager) => {
           let completedSyncIds: string[] = [];
-          const completedFilesResult = await updateFileAsCompleted(fileId, schema, transactionalEntityManager);
+          const completedFilesResult: ReturningResult<ReturningId> = await (
+            exports as {
+              updateFileAsCompleted: (
+                fileId: string,
+                schema: string,
+                transactionalEntityManager: EntityManager
+              ) => Promise<ReturningResult<ReturningId>>;
+            }
+          ).updateFileAsCompleted(fileId, schema, transactionalEntityManager);
 
           logger.debug({ msg: 'updated file as completed resulted in', completedFilesResult, fileId, transaction });
 
@@ -121,6 +136,55 @@ const createFileRepo = (dataSource: DataSource) => {
         throw error;
       }
     },
+
+    async tryCloseFile(
+      fileId: string,
+      schema: string,
+      transactionalEntityManager: EntityManager,
+      transaction: {
+        transactionId: string;
+        transactionName: TransactionName;
+        isolationLevel: IsolationLevel;
+      }
+    ): Promise<string[]> {
+      logger.debug({ msg: 'attempting to close files in transaction', fileId, transaction });
+
+      const completedFilesResult = await updateFileAsCompleted(fileId, schema, transactionalEntityManager);
+
+      logger.debug({ msg: 'updated file as completed resulted in', completedFilesResult, fileId, transaction });
+      return completedFilesResult[0].map((file) => file.id);
+    },
+
+    async tryCloseAllOpenFilesTransaction(schema: string): Promise<string[]> {
+      const isolationLevel = getIsolationLevel();
+      const transaction = { transactionId: nanoid(), transactionName: TransactionName.TRY_CLOSING_FILE, isolationLevel };
+
+      let fileId = '';
+      try {
+        return await this.manager.connection.transaction(isolationLevel, async (transactionalEntityManager: EntityManager) => {
+          let completedFiles: string[] = [];
+
+          const inProgressFiles = await this.findFilesThatCanBeClosed();
+          for (const file of inProgressFiles) {
+            fileId = file.fileId;
+
+            const completedFilesIteration = await this.tryCloseFile(fileId, schema, transactionalEntityManager, transaction);
+            if (completedFilesIteration.length === 0) {
+              break; // If file can't be closed, cancel all closing procedure to prevent continues lock of the DB
+            }
+            completedFiles = [...completedFiles, ...completedFilesIteration];
+          }
+          return completedFiles;
+        });
+      } catch (error) {
+        logger.error({ err: error, msg: 'failure occurred while trying to close file in transaction', fileId, transaction });
+
+        if (isTransactionFailure(error)) {
+          throw new TransactionFailureError(`closing file ${fileId} has failed due to read/write dependencies among transactions.`);
+        }
+        throw error;
+      }
+    },
   });
 };
 
@@ -134,3 +198,18 @@ export const fileRepositoryFactory: FactoryFunction<FileRepository> = (depContai
 };
 
 export const FILE_CUSTOM_REPOSITORY_SYMBOL = Symbol('FILE_CUSTOM_REPOSITORY_SYMBOL');
+
+export async function updateFileAsCompleted(
+  fileId: string,
+  schema: string,
+  transactionalEntityManager: EntityManager
+): Promise<ReturningResult<ReturningId>> {
+  return (await transactionalEntityManager.query(
+    `UPDATE ${schema}.file AS FILE SET status = 'completed', end_date = LOCALTIMESTAMP
+  WHERE FILE.file_id = $1 AND FILE.total_entities = (SELECT COUNT(*) AS CompletedEntities
+      FROM ${schema}.entity
+      WHERE file_id = $1 AND (status = 'completed' OR status = 'not_synced'))
+      RETURNING FILE.file_id AS id`,
+    [fileId]
+  )) as ReturningResult<ReturningId>;
+}

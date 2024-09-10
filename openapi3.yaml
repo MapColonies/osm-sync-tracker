@@ -269,6 +269,48 @@ paths:
           $ref: '#/components/responses/Conflict'
         5XX:
           $ref: '#/components/responses/UnexpectedError'
+  /sync/tryCloseOpenPossibleSyncs:
+    get:
+      summary: start trying to close all possible syncs
+      tags:
+        - sync
+      responses:
+        '200':
+          description: array of closed sync id
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/uniqueId'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        5XX:
+          $ref: '#/components/responses/UnexpectedError'
+  /file/tryCloseOpenPossibleFiles:
+    get:
+      summary: start trying to close all possible files
+      tags:
+        - file
+      responses:
+        '200':
+          description: array of closed file id
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/uniqueId'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '423':
+          $ref: '#/components/responses/Locked'
+        5XX:
+          $ref: '#/components/responses/UnexpectedError'
   /file/{fileId}/entity:
     post:
       summary: add a new entity to the file
@@ -542,6 +584,12 @@ components:
             $ref: '#/components/schemas/Error'
     Conflict:
       description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Locked:
+      description: Locked
       content:
         application/json:
           schema:

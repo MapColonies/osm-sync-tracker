@@ -2,21 +2,26 @@ import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
 import { SERVICES } from '../../common/constants';
 import { GeometryType, Status } from '../../common/enums';
-import { IConfig } from '../../common/interfaces';
+import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../DAL/syncRepository';
+import { TransactionFailureError } from '../../changeset/models/errors';
+import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
 import { FullSyncAlreadyExistsError, InvalidSyncForRerunError, RerunAlreadyExistsError, SyncAlreadyExistsError, SyncNotFoundError } from './errors';
 import { BaseSync, CreateRerunRequest, Sync, SyncsFilter, SyncUpdate } from './sync';
 
 @injectable()
 export class SyncManager {
   private readonly dbSchema: string;
+  private readonly transactionRetryPolicy: TransactionRetryPolicy;
 
   public constructor(
     @inject(SYNC_CUSTOM_REPOSITORY_SYMBOL) private readonly syncRepository: SyncRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
-    @inject(SERVICES.CONFIG) private readonly config: IConfig
+    @inject(SERVICES.CONFIG) private readonly config: IConfig,
+    @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication
   ) {
     this.dbSchema = this.config.get('db.schema');
+    this.transactionRetryPolicy = this.appConfig.transactionRetryPolicy;
   }
 
   public async getSyncs(filter: SyncsFilter): Promise<BaseSync[]> {
@@ -135,5 +140,16 @@ export class SyncManager {
     };
 
     return this.syncRepository.createRerun(rerunSyncForCreation, this.dbSchema);
+  }
+
+  public async tryCloseOpenPossibleSyncs(): Promise<string[]> {
+    this.logger.info({ msg: 'attempting to close all open files', transactionRetryPolicy: this.transactionRetryPolicy });
+
+    if (!this.transactionRetryPolicy.enabled) {
+      return this.syncRepository.tryCloseAllOpenSyncTransaction(this.dbSchema);
+    }
+    const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
+    const functionRef = this.syncRepository.tryCloseAllOpenSyncTransaction.bind(this.syncRepository);
+    return retryFunctionWrapper(retryOptions, functionRef, this.dbSchema);
   }
 }
