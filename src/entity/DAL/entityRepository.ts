@@ -1,7 +1,5 @@
 import { In, DataSource, EntityManager } from 'typeorm';
-import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { FactoryFunction } from 'tsyringe';
-import { nanoid } from 'nanoid';
 import { Logger } from '@map-colonies/js-logger';
 import { Entity, UpdateEntities, UpdateEntity } from '../models/entity';
 import { Status } from '../../common/enums';
@@ -10,25 +8,23 @@ import { DATA_SOURCE_PROVIDER } from '../../common/db';
 import { ILogger } from '../../common/interfaces';
 import { TransactionFailureError } from '../../common/errors';
 import { SERVICES } from '../../common/constants';
-import { isTransactionFailure, TransactionFn } from '../../common/db/transactions';
+import { isTransactionFailure, TransactionFn, TransactionParams } from '../../common/db/transactions';
 import { Entity as EntityDb } from './entity';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const createEntityRepository = (dataSource: DataSource) => {
   return dataSource.getRepository(EntityDb).extend({
-    async transactionify<T>(isolationLevel: IsolationLevel, fn: TransactionFn<T>): Promise<T> {
-      const transaction = { transactionId: nanoid(), isolationLevel };
-
-      logger.info({ msg: 'attempting to run transaction', transaction });
+    async transactionify<T>(params: TransactionParams, fn: TransactionFn<T>): Promise<T> {
+      logger.info({ msg: 'attempting to run transaction', ...params });
 
       try {
-        const result = await this.manager.connection.transaction(isolationLevel, fn);
+        const result = await this.manager.connection.transaction(params.isolationLevel, fn);
 
-        logger.info({ msg: 'transaction completed', transaction });
+        logger.info({ msg: 'transaction completed', ...params });
 
         return result;
       } catch (error) {
-        logger.error({ msg: 'failure occurred while running transaction', transaction, err: error });
+        logger.error({ msg: 'failure occurred while running transaction', ...params, err: error });
 
         if (isTransactionFailure(error)) {
           throw new TransactionFailureError(`running transaction has failed due to read/write dependencies among transactions.`);

@@ -4,6 +4,7 @@ import IORedis from 'ioredis';
 import { BullMQOtel } from 'bullmq-otel';
 import { Logger } from '@map-colonies/js-logger';
 import { CleanupRegistry } from '@map-colonies/cleanup-registry';
+import { nanoid } from 'nanoid';
 import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME } from '../constants';
 import { SERVICES } from '../../common/constants';
 import { BatchClosureJob, ClosureJob, ClosureReturn } from '../types';
@@ -13,6 +14,7 @@ import { Status } from '../../common/enums';
 import { JobQueueProvider } from '../interfaces';
 import { TransactionFailureError } from '../../common/errors';
 import { delayJob } from '../helpers';
+import { TransactionName } from '../../common/db/transactions';
 import { ExtendedWorkerOptions } from './options';
 
 export const CHANGESETS_QUEUE_WORKER_NAME = 'ChangesetsQueueWorker';
@@ -53,9 +55,12 @@ export const changesetsQueueWorkerFactory: FactoryFunction<Worker> = (container)
       try {
         const isBatch = Array.isArray(batchIds) && batchIds.every((id) => typeof id === 'string');
         const changesetIds = isBatch ? (batchIds as string[]) : [id];
-        const fileIds = await entityRepository.transactionify(transactionIsolationLevel, async () => {
-          return entityRepository.findFilesByChangesets(changesetIds, [Status.IN_PROGRESS]);
-        });
+        const fileIds = await entityRepository.transactionify(
+          { transactionId: nanoid(), transactionName: TransactionName.FIND_FILES_BY_CHANGESETS, isolationLevel: transactionIsolationLevel },
+          async () => {
+            return entityRepository.findFilesByChangesets(changesetIds, [Status.IN_PROGRESS]);
+          }
+        );
 
         workerLogger.info({ msg: 'found the following files in the changeset', jobId: id, fileIds });
 

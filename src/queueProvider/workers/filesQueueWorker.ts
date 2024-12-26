@@ -4,6 +4,7 @@ import { FactoryFunction } from 'tsyringe';
 import { BullMQOtel } from 'bullmq-otel';
 import { Logger } from '@map-colonies/js-logger';
 import { CleanupRegistry } from '@map-colonies/cleanup-registry';
+import { nanoid } from 'nanoid';
 import { FILES_QUEUE_NAME, SYNCS_QUEUE_NAME } from '../constants';
 import { SERVICES } from '../../common/constants';
 import { ClosureJob, ClosureReturn } from '../types';
@@ -12,6 +13,7 @@ import { IConfig } from '../../common/interfaces';
 import { BullQueueProvider } from '../queues/bullQueueProvider';
 import { TransactionFailureError } from '../../common/errors';
 import { delayJob } from '../helpers';
+import { TransactionName } from '../../common/db/transactions';
 import { ExtendedWorkerOptions } from './options';
 
 export const FILES_QUEUE_WORKER_NAME = 'FilesQueueWorker';
@@ -50,9 +52,12 @@ export const filesQueueWorkerFactory: FactoryFunction<Worker> = (container) => {
       workerLogger.debug({ msg: 'started job processing', ...baseLoggedObject });
 
       try {
-        const [closedIds, closedCount] = await fileRepository.transactionify(transactionIsolationLevel, async () => {
-          return fileRepository.attemptFileClosure(id);
-        });
+        const [closedIds, closedCount] = await fileRepository.transactionify(
+          { transactionId: nanoid(), transactionName: TransactionName.ATTEMPT_FILE_CLOSURE, isolationLevel: transactionIsolationLevel },
+          async () => {
+            return fileRepository.attemptFileClosure(id);
+          }
+        );
 
         workerLogger.debug({ msg: 'attempting to close file resulted in', jobId: id, fileId: id, closedIds, closedCount });
 

@@ -4,6 +4,7 @@ import IORedis from 'ioredis';
 import { BullMQOtel } from 'bullmq-otel';
 import { Logger } from '@map-colonies/js-logger';
 import { CleanupRegistry } from '@map-colonies/cleanup-registry';
+import { nanoid } from 'nanoid';
 import { SYNCS_QUEUE_NAME } from '../constants';
 import { SERVICES } from '../../common/constants';
 import { TransactionFailureError } from '../../common/errors';
@@ -11,6 +12,7 @@ import { ClosureJob, ClosureReturn } from '../types';
 import { IConfig } from '../../common/interfaces';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../../sync/DAL/syncRepository';
 import { delayJob } from '../helpers';
+import { TransactionName } from '../../common/db/transactions';
 import { ExtendedWorkerOptions } from './options';
 
 export const SYNCS_QUEUE_WORKER_NAME = 'SyncsQueueWorker';
@@ -48,9 +50,12 @@ export const syncsQueueWorkerFactory: FactoryFunction<Worker> = (container) => {
       workerLogger.debug({ msg: 'started job processing', ...baseLoggedObject });
 
       try {
-        const [closedIds, closedCount] = await syncRepository.transactionify(transactionIsolationLevel, async () => {
-          return syncRepository.attemptSyncClosure(id);
-        });
+        const [closedIds, closedCount] = await syncRepository.transactionify(
+          { transactionId: nanoid(), transactionName: TransactionName.ATTEMPT_SYNC_CLOSURE, isolationLevel: transactionIsolationLevel },
+          async () => {
+            return syncRepository.attemptSyncClosure(id);
+          }
+        );
 
         workerLogger.debug({ msg: 'attempting to close sync resulted in', jobId: id, syncId: id, closedIds, closedCount });
 

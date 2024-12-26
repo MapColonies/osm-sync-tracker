@@ -1,15 +1,14 @@
 import { EntityManager, DataSource, In } from 'typeorm';
-import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
-import { DATA_SOURCE_PROVIDER, ReturningId, ReturningResult } from '../../common/db';
+import { CLOSED_PARAMS, DATA_SOURCE_PROVIDER, ReturningId, ReturningResult } from '../../common/db';
 import { File, FileUpdate } from '../models/file';
 import { SyncDb } from '../../sync/DAL/sync';
 import { Entity as EntityDb } from '../../entity/DAL/entity';
 import { EntityStatus, Status } from '../../common/enums';
 import { TransactionFailureError } from '../../common/errors';
-import { isTransactionFailure, TransactionFn, TransactionName } from '../../common/db/transactions';
+import { isTransactionFailure, TransactionFn, TransactionName, TransactionParams } from '../../common/db/transactions';
 import { SERVICES } from '../../common/constants';
 import { getIsolationLevel } from '../../common/utils/db';
 import { ILogger } from '../../common/interfaces';
@@ -70,19 +69,17 @@ async function updateLastRerunAsCompleted(syncId: string, transactionalEntityMan
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const createFileRepo = (dataSource: DataSource) => {
   return dataSource.getRepository(FileDb).extend({
-    async transactionify<T>(isolationLevel: IsolationLevel, fn: TransactionFn<T>): Promise<T> {
-      const transaction = { transactionId: nanoid(), isolationLevel };
-
-      logger.info({ msg: 'attempting to run transaction', transaction });
+    async transactionify<T>(params: TransactionParams, fn: TransactionFn<T>): Promise<T> {
+      logger.info({ msg: 'attempting to run transaction', ...params });
 
       try {
-        const result = await this.manager.connection.transaction(isolationLevel, fn);
+        const result = await this.manager.connection.transaction(params.isolationLevel, fn);
 
-        logger.info({ msg: 'transaction completed successfully', transaction });
+        logger.info({ msg: 'transaction completed successfully', ...params });
 
         return result;
       } catch (error) {
-        logger.error({ msg: 'failure occurred while running transaction', transaction, err: error });
+        logger.error({ msg: 'failure occurred while running transaction', ...params, err: error });
 
         if (isTransactionFailure(error)) {
           throw new TransactionFailureError(`running transaction has failed due to read/write dependencies among transactions.`);
@@ -136,10 +133,7 @@ const createFileRepo = (dataSource: DataSource) => {
       const result = await scopedManager
         .createQueryBuilder(FileDb, 'file')
         .update(FileDb)
-        .set({
-          status: Status.COMPLETED,
-          endDate: () => 'LOCALTIMESTAMP',
-        })
+        .set(CLOSED_PARAMS)
         .andWhere((qb) => {
           // a workaround due to UpdateQueryBuilder not supporting subQuery function
           const subQuery = scopedManager

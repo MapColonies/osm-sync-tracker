@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import { HealthCheck } from '@godaddy/terminus';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { DependencyContainer, FactoryFunction } from 'tsyringe';
+import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { DbConfig, IConfig } from '../interfaces';
 import { promiseTimeout } from '../utils/promiseTimeout';
 import { SyncDb } from '../../sync/DAL/sync';
@@ -10,6 +11,7 @@ import { Changeset } from '../../changeset/DAL/changeset';
 import { File } from '../../file/DAL/file';
 import { EntityHistory } from '../../entity/DAL/entityHistory';
 import { SERVICES } from '../constants';
+import { Status } from '../enums';
 
 let connectionSingleton: DataSource | undefined;
 
@@ -43,6 +45,11 @@ export const getDbHealthCheckFunction = (connection: DataSource): HealthCheck =>
     });
     return promiseTimeout<void>(DB_TIMEOUT, check);
   };
+};
+
+export const CLOSED_PARAMS: QueryDeepPartialEntity<File | SyncDb> = {
+  status: Status.COMPLETED,
+  endDate: (): string => 'LOCALTIMESTAMP',
 };
 
 export interface ReturningId {
