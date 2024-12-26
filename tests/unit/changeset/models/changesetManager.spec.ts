@@ -4,16 +4,15 @@ import { QueryFailedError } from 'typeorm';
 import { ChangesetManager } from '../../../../src/changeset/models/changesetManager';
 import { ChangesetRepository } from '../../../../src/changeset/DAL/changesetRepository';
 import { createFakeChangeset } from '../../../helpers/helper';
-import {
-  ChangesetAlreadyExistsError,
-  ChangesetNotFoundError,
-  ExceededNumberOfRetriesError,
-  TransactionFailureError,
-} from '../../../../src/changeset/models/errors';
+import { ChangesetAlreadyExistsError, ChangesetNotFoundError } from '../../../../src/changeset/models/errors';
 import { DEFAULT_ISOLATION_LEVEL } from '../../../integration/helpers';
+import { ExceededNumberOfRetriesError, TransactionFailureError } from '../../../../src/common/errors';
+import { JobQueueProvider } from '../../../../src/queueProvider/interfaces';
+import { ClosureJob } from '../../../../src/queueProvider/types';
 
 let changesetManager: ChangesetManager;
 let changesetManagerWithRetries: ChangesetManager;
+let queue: JobQueueProvider<ClosureJob>;
 
 describe('ChangesetManager', () => {
   const createChangeset = jest.fn();
@@ -34,6 +33,11 @@ describe('ChangesetManager', () => {
       updateEntitiesOfChangesetAsCompleted,
       tryClosingChangesets,
     } as unknown as ChangesetRepository;
+
+    queue = {
+      push: jest.fn(),
+    } as unknown as JobQueueProvider<ClosureJob>;
+
     changesetManager = new ChangesetManager(
       repository as unknown as ChangesetRepository,
       jsLogger({ enabled: false }),
@@ -41,7 +45,8 @@ describe('ChangesetManager', () => {
       {
         transactionRetryPolicy: { enabled: false },
         isolationLevel: DEFAULT_ISOLATION_LEVEL,
-      }
+      },
+      queue
     );
   });
 
@@ -147,7 +152,8 @@ describe('ChangesetManager', () => {
         {
           transactionRetryPolicy: { enabled: true, numRetries: 1 },
           isolationLevel: DEFAULT_ISOLATION_LEVEL,
-        }
+        },
+        queue
       );
 
       const closePromise = changesetManagerWithRetries.closeChangeset(entity.changesetId);
@@ -189,7 +195,8 @@ describe('ChangesetManager', () => {
         {
           transactionRetryPolicy: { enabled: true, numRetries: retries },
           isolationLevel: DEFAULT_ISOLATION_LEVEL,
-        }
+        },
+        queue
       );
 
       const closePromise = changesetManagerWithRetries.closeChangeset(entity.changesetId);
@@ -220,7 +227,8 @@ describe('ChangesetManager', () => {
         {
           transactionRetryPolicy: { enabled: true, numRetries: retries },
           isolationLevel: DEFAULT_ISOLATION_LEVEL,
-        }
+        },
+        queue
       );
 
       const closePromise = changesetManagerWithRetries.closeChangeset(entity.changesetId);
@@ -272,7 +280,8 @@ describe('ChangesetManager', () => {
         {
           transactionRetryPolicy: { enabled: true, numRetries: 1 },
           isolationLevel: DEFAULT_ISOLATION_LEVEL,
-        }
+        },
+        queue
       );
 
       const closePromise = changesetManagerWithRetries.closeChangesets([entity.changesetId]);
@@ -314,7 +323,8 @@ describe('ChangesetManager', () => {
         {
           transactionRetryPolicy: { enabled: true, numRetries: retries },
           isolationLevel: DEFAULT_ISOLATION_LEVEL,
-        }
+        },
+        queue
       );
 
       const closePromise = changesetManagerWithRetries.closeChangesets([entity1.changesetId, entity2.changesetId]);
@@ -344,7 +354,8 @@ describe('ChangesetManager', () => {
         {
           transactionRetryPolicy: { enabled: true, numRetries: retries },
           isolationLevel: DEFAULT_ISOLATION_LEVEL,
-        }
+        },
+        queue
       );
 
       const closePromise = changesetManagerWithRetries.closeChangesets([entity.changesetId]);

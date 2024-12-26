@@ -22,6 +22,7 @@ type GetSyncsHandler = RequestHandler<undefined, BaseSync[], undefined, SnakeCas
 type GetLatestSyncHandler = RequestHandler<undefined, BaseSync, undefined, { layerId: number; geometryType: GeometryType }>;
 type PostSyncHandler = RequestHandler<undefined, string, Sync>;
 type PatchSyncHandler = RequestHandler<{ syncId: string }, string, SyncUpdate>;
+type PostSyncsClosureHandler = RequestHandler<undefined, string, string[]>;
 type RerunSyncHandler = RequestHandler<{ syncId: string }, string, { rerunId: string; startDate: Date; shouldRerunNotSynced?: boolean }>;
 
 const txtplain = mime.contentType('text/plain') as string;
@@ -73,6 +74,16 @@ export class SyncController {
       if (error instanceof SyncNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
+      return next(error);
+    }
+  };
+
+  public postSyncsClosure: PostSyncsClosureHandler = async (req, res, next) => {
+    const syncIds = req.body;
+    try {
+      await this.manager.createClosures(syncIds);
+      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
+    } catch (error) {
       return next(error);
     }
   };

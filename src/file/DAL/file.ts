@@ -4,6 +4,9 @@ import { Entity } from '../../entity/DAL/entity';
 import { SyncDb } from '../../sync/DAL/sync';
 import { File as IFile } from '../models/file';
 
+export const FILE_IDENTIFIER_COLUMN = 'fileId';
+export const SYNC_OF_FILE_IDENTIFIER_COLUMN = 'syncId';
+
 @EntityDecorator()
 export class File implements IFile {
   @PrimaryColumn({ name: 'file_id', type: 'uuid' })

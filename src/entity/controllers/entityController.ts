@@ -6,10 +6,9 @@ import mime from 'mime-types';
 import { SERVICES } from '../../common/constants';
 import { Entity, UpdateEntities, UpdateEntity } from '../models/entity';
 import { EntityBulkCreationResult, EntityManager } from '../models/entityManager';
-import { HttpError } from '../../common/errors';
+import { ExceededNumberOfRetriesError, HttpError } from '../../common/errors';
 import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } from '../models/errors';
 import { FileNotFoundError } from '../../file/models/errors';
-import { ExceededNumberOfRetriesError } from '../../changeset/models/errors';
 
 type PostEntityHandler = RequestHandler<{ fileId: string }, string, Entity>;
 type PostEntitiesHandler = RequestHandler<{ fileId: string }, EntityBulkCreationResult, Entity[]>;

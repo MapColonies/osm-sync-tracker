@@ -1,15 +1,24 @@
 import { EntityManager, DataSource, In } from 'typeorm';
+import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
-import { TransactionFailureError } from '../../changeset/models/errors';
-import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
+import { DATA_SOURCE_PROVIDER, ReturningId, ReturningResult } from '../../common/db';
 import { File, FileUpdate } from '../models/file';
 import { SyncDb } from '../../sync/DAL/sync';
-import { Status } from '../../common/enums';
+import { Entity as EntityDb } from '../../entity/DAL/entity';
+import { EntityStatus, Status } from '../../common/enums';
+import { TransactionFailureError } from '../../common/errors';
+import { isTransactionFailure, TransactionFn, TransactionName } from '../../common/db/transactions';
 import { SERVICES } from '../../common/constants';
 import { getIsolationLevel } from '../../common/utils/db';
-import { File as FileDb } from './file';
+import { ILogger } from '../../common/interfaces';
+import { FILE_IDENTIFIER_COLUMN, File as FileDb, SYNC_OF_FILE_IDENTIFIER_COLUMN } from './file';
+
+interface FileClosureIds {
+  [FILE_IDENTIFIER_COLUMN]: string;
+  [SYNC_OF_FILE_IDENTIFIER_COLUMN]: string;
+}
 
 async function updateFileAsCompleted(
   fileId: string,
@@ -61,6 +70,28 @@ async function updateLastRerunAsCompleted(syncId: string, transactionalEntityMan
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const createFileRepo = (dataSource: DataSource) => {
   return dataSource.getRepository(FileDb).extend({
+    async transactionify<T>(isolationLevel: IsolationLevel, fn: TransactionFn<T>): Promise<T> {
+      const transaction = { transactionId: nanoid(), isolationLevel };
+
+      logger.info({ msg: 'attempting to run transaction', transaction });
+
+      try {
+        const result = await this.manager.connection.transaction(isolationLevel, fn);
+
+        logger.info({ msg: 'transaction completed successfully', transaction });
+
+        return result;
+      } catch (error) {
+        logger.error({ msg: 'failure occurred while running transaction', transaction, err: error });
+
+        if (isTransactionFailure(error)) {
+          throw new TransactionFailureError(`running transaction has failed due to read/write dependencies among transactions.`);
+        }
+
+        throw error;
+      }
+    },
+
     async createFile(file: File): Promise<void> {
       await this.insert(file);
     },
@@ -83,6 +114,50 @@ const createFileRepo = (dataSource: DataSource) => {
         return null;
       }
       return filesEntities;
+    },
+
+    /**
+     * Attempting to close a file by its id.
+     * file is up for closure if it matches the following parameters:
+     * 1. Its id is the given fileId
+     * 2. Its status is not already completed
+     * 3. Its totalEntities amount matches the number of entities in the
+     * file that are are already closed, meaning have completed or not synced status
+     *
+     * Once closed the file will be updated to have completed status and an endDate.
+     *
+     * @param fileId - The file id
+     * @param transactionManager - Optional typeorm transacation manager
+     * @returns The affected fileId, syncId pair
+     */
+    async attemptFileClosure(fileId: string, transactionManager?: EntityManager): Promise<ReturningResult<FileClosureIds>> {
+      const scopedManager = transactionManager ?? this.manager;
+
+      const result = await scopedManager
+        .createQueryBuilder(FileDb, 'file')
+        .update(FileDb)
+        .set({
+          status: Status.COMPLETED,
+          endDate: () => 'LOCALTIMESTAMP',
+        })
+        .andWhere((qb) => {
+          // a workaround due to UpdateQueryBuilder not supporting subQuery function
+          const subQuery = scopedManager
+            .createQueryBuilder(EntityDb, 'entity')
+            .select('COUNT(*)')
+            .where('entity.file_id = :fileId', { fileId })
+            .andWhere('entity.status = ANY(:statuses)', { statuses: [EntityStatus.COMPLETED, EntityStatus.NOT_SYNCED] });
+          qb.setParameters(subQuery.getParameters());
+
+          return qb
+            .whereEntity({ fileId } as FileDb)
+            .andWhere('file.status != :completed', { completed: Status.COMPLETED })
+            .andWhere(`file.total_entities = (${subQuery.getQuery()})`);
+        })
+        .returning([FILE_IDENTIFIER_COLUMN, SYNC_OF_FILE_IDENTIFIER_COLUMN])
+        .execute();
+
+      return [result.generatedMaps as FileClosureIds[], result.affected ?? 0];
     },
 
     async tryClosingFile(fileId: string, schema: string): Promise<string[]> {
@@ -124,13 +199,19 @@ const createFileRepo = (dataSource: DataSource) => {
   });
 };
 
-let logger: Logger;
+let logger: ILogger;
+
+export interface FileId {
+  [FILE_IDENTIFIER_COLUMN]: string;
+}
 
 export type FileRepository = ReturnType<typeof createFileRepo>;
 
 export const fileRepositoryFactory: FactoryFunction<FileRepository> = (depContainer) => {
-  logger = depContainer.resolve<Logger>(SERVICES.LOGGER);
-  return createFileRepo(depContainer.resolve<DataSource>(DataSource));
+  const baseLogger = depContainer.resolve<Logger>(SERVICES.LOGGER);
+  logger = baseLogger.child({ component: 'fileRepository' });
+
+  return createFileRepo(depContainer.resolve<DataSource>(DATA_SOURCE_PROVIDER));
 };
 
 export const FILE_CUSTOM_REPOSITORY_SYMBOL = Symbol('FILE_CUSTOM_REPOSITORY_SYMBOL');

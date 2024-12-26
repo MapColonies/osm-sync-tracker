@@ -11,7 +11,6 @@ import { EntityStatus, GeometryType, Status } from '../../../src/common/enums';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { FileRequestSender } from '../file/helpers/requestSender';
 import { generateUniqueNumber } from '../../helpers/helper';
-import { TransactionFailureError } from '../../../src/changeset/models/errors';
 import { SERVICES } from '../../../src/common/constants';
 import { IApplication } from '../../../src/common/interfaces';
 import { EntityHistory } from '../../../src/entity/DAL/entityHistory';
@@ -19,6 +18,7 @@ import { EntityRequestSender } from '../entity/helpers/requestSender';
 import { ChangesetRequestSender } from '../changeset/helpers/requestSender';
 import { createStringifiedFakeEntity } from '../entity/helpers/generators';
 import { createStringifiedFakeChangeset } from '../changeset/helpers/generators';
+import { TransactionFailureError } from '../../../src/common/errors';
 import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from './helpers/generators';
 import { SyncRequestSender } from './helpers/requestSender';
 

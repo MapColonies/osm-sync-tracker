@@ -6,14 +6,14 @@ import mime from 'mime-types';
 import { SERVICES } from '../../common/constants';
 import { File, FileUpdate } from '../models/file';
 import { FileManager } from '../models/fileManager';
-import { HttpError } from '../../common/errors';
+import { ExceededNumberOfRetriesError, HttpError } from '../../common/errors';
 import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from '../models/errors';
 import { SyncNotFoundError } from '../../sync/models/errors';
-import { ExceededNumberOfRetriesError } from '../../changeset/models/errors';
 
 type PostFileHandler = RequestHandler<{ syncId: string }, string, File>;
 type PostFilesHandler = RequestHandler<{ syncId: string }, string, File[]>;
 type PatchFileHandler = RequestHandler<{ syncId: string; fileId: string }, string[], FileUpdate>;
+type PostFilesClosureHandler = RequestHandler<undefined, string, string[]>;
 
 const txtplain = mime.contentType('text/plain') as string;
 
@@ -61,6 +61,16 @@ export class FileController {
       if (error instanceof ExceededNumberOfRetriesError) {
         this.logger.warn({ err: error, msg: 'could not attempt to close file, number of retries exceeded', syncId, fileId });
       }
+      return next(error);
+    }
+  };
+
+  public postFilesClosure: PostFilesClosureHandler = async (req, res, next) => {
+    const fileIds = req.body;
+    try {
+      await this.manager.createClosures(fileIds);
+      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
+    } catch (error) {
       return next(error);
     }
   };

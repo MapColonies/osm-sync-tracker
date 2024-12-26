@@ -52,6 +52,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ $releaseName }}-{{ $chartName }}-configmap
+            - configMapRef:
+                name: {{ $releaseName }}-{{ $chartName }}-closure-configmap
             - secretRef:
                 name: {{ $releaseName }}-{{ $chartName }}-secret
           env:

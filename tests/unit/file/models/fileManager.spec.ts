@@ -7,12 +7,16 @@ import { createFakeFile, createFakeSync, createFakeFiles, createFakeRerunSync } 
 import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from '../../../../src/file/models/errors';
 import { SyncNotFoundError } from '../../../../src/sync/models/errors';
 import { DEFAULT_ISOLATION_LEVEL } from '../../../integration/helpers';
-import { ExceededNumberOfRetriesError, TransactionFailureError } from '../../../../src/changeset/models/errors';
+import { ExceededNumberOfRetriesError, TransactionFailureError } from '../../../../src/common/errors';
+import { JobQueueProvider } from '../../../../src/queueProvider/interfaces';
+import { ClosureJob } from '../../../../src/queueProvider/types';
+
+let fileManager: FileManager;
 
 let fileRepository: FileRepository;
 let syncRepository: SyncRepository;
+let queue: JobQueueProvider<ClosureJob>;
 
-let fileManager: FileManager;
 describe('FileManager', () => {
   const createFile = jest.fn();
   const createFiles = jest.fn();
@@ -33,6 +37,7 @@ describe('FileManager', () => {
     jest.resetAllMocks();
 
     fileRepository = { createFile, createFiles, findOneFile, findManyFilesByIds, tryClosingFile, updateFile } as unknown as FileRepository;
+
     syncRepository = {
       getLatestSync,
       createSync,
@@ -43,12 +48,17 @@ describe('FileManager', () => {
       createRerun,
     } as unknown as SyncRepository;
 
+    queue = {
+      push: jest.fn(),
+    } as unknown as JobQueueProvider<ClosureJob>;
+
     fileManager = new FileManager(
       fileRepository,
       syncRepository,
       jsLogger({ enabled: false }),
       { get: jest.fn(), has: jest.fn() },
-      { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
+      { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
+      queue
     );
   });
 
@@ -82,7 +92,8 @@ describe('FileManager', () => {
         syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
+        { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
+        queue
       );
       const updatePromise = fileManagerWithRetries.updateFile(sync.id, file.fileId, { totalEntities: 1 });
 
@@ -130,7 +141,8 @@ describe('FileManager', () => {
         syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
+        { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
+        queue
       );
 
       const updatePromise = fileManagerWithRetries.updateFile(sync.id, file.fileId, { totalEntities: 1 });
@@ -153,7 +165,8 @@ describe('FileManager', () => {
         syncRepository,
         jsLogger({ enabled: false }),
         { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
+        { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL },
+        queue
       );
 
       const closePromise = fileManagerWithRetries.updateFile(sync.id, file.fileId, { totalEntities: 1 });

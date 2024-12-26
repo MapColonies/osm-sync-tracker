@@ -14,6 +14,7 @@ import { fileRouterSymbol } from './file/routes/fileRouter';
 import { syncRouterSymbol } from './sync/routes/syncRouter';
 import { entityRouterSymbol } from './entity/routes/entityRouter';
 import { changesetRouterSymbol } from './changeset/routes/changesetRouter';
+import { BullBoard } from './queueProvider/ui/bullBoard';
 
 @injectable()
 export class ServerBuilder {
@@ -25,7 +26,8 @@ export class ServerBuilder {
     @inject(fileRouterSymbol) private readonly fileRouter: Router,
     @inject(syncRouterSymbol) private readonly syncRouter: Router,
     @inject(entityRouterSymbol) private readonly entityRouter: Router,
-    @inject(changesetRouterSymbol) private readonly changesetRouter: Router
+    @inject(changesetRouterSymbol) private readonly changesetRouter: Router,
+    private readonly bullBoard: BullBoard
   ) {
     this.serverInstance = express();
   }
@@ -62,6 +64,9 @@ export class ServerBuilder {
 
     this.serverInstance.use(bodyParser.json(this.config.get<bodyParser.Options>('server.request.payload')));
     this.serverInstance.use(getTraceContexHeaderMiddleware());
+
+    /* eslint-disable-next-line @typescript-eslint/no-unsafe-argument */ // bull-board types are insufficient
+    this.serverInstance.use(this.config.get<string>('closure.uiPath'), this.bullBoard.getBullBoardRouter());
 
     const ignorePathRegex = new RegExp(`^${this.config.get<string>('openapiConfig.basePath')}/.*`, 'i');
     const apiSpecPath = this.config.get<string>('openapiConfig.filePath');

@@ -9,6 +9,7 @@ export const changesetRouterFactory: FactoryFunction<Router> = (dependencyContai
   const controller = dependencyContainer.resolve(ChangesetController);
 
   router.post('', controller.postChangeset);
+  router.post('/closure', controller.postChangesetsClosure);
   router.patch('/:changesetId', controller.patchChangeset);
   router.patch('/:changesetId/entities', controller.patchChangesetEntities);
   router.put('/:changesetId/close', controller.putChangeset);

@@ -71,6 +71,104 @@ dbConfig:
     keyFileName: postgresql.key
     caFileName: root.crt
 
+redisConfig:
+  host: localhost
+  username: ""
+  password: ""
+  db: 0
+  port: 6379
+  sslAuth:
+    enabled: false
+    secretName: secret-name
+    certFileName: postgresql.crt
+    keyFileName: postgresql.key
+    caFileName: root.crt
+
+closure:
+  uiPath: /closure
+  queues:
+    changesets:
+      queueOptions:
+        enabledBatchJobs: true
+        maxBatchSize: 10
+      jobOptions:
+        attempts: 10
+        delay: 60000
+        deduplicationDelay: 60000
+        backoff:
+          type: fixed
+          delay: 60000
+      workerOptions:
+        concurrency: 1
+        limiter:
+          enabled: false
+          # max: 10
+          # duration: 1000
+        maxStalledCount: 1
+        stalledInterval: 30000
+        removeOnComplete:
+          age: 604800
+          # count: 100000
+        removeOnFail:
+          age: 2419200
+          # count: 100000
+        transactionIsolationLevel: 'SERIALIZABLE'
+        transactionFailureDelay: 10000
+    files:
+      queueOptions:
+        enabledBatchJobs: false
+        # maxBatchSize: 100
+      jobOptions:
+        attempts: 10
+        delay: 60000
+        deduplicationDelay: 60000
+        backoff:
+          type: fixed
+          delay: 60000
+      workerOptions:
+        concurrency: 1
+        limiter:
+          enabled: false
+          # max: 10
+          # duration: 1000
+        maxStalledCount: 1
+        stalledInterval: 30000
+        removeOnComplete:
+          age: 604800
+          # count: 100000
+        removeOnFail:
+          age: 2419200
+          # count: 100000
+        transactionIsolationLevel: 'SERIALIZABLE'
+        transactionFailureDelay: 10000
+    syncs:
+      queueOptions:
+        enabledBatchJobs: false
+        # maxBatchSize: 100
+      jobOptions:
+        attempts: 10
+        delay: 60000
+        deduplicationDelay: 60000
+        backoff:
+          type: fixed
+          delay: 60000
+      workerOptions:
+        concurrency: 1
+        limiter:
+          enabled: false
+          # max: 10
+          # duration: 1000
+        maxStalledCount: 1
+        stalledInterval: 30000
+        removeOnComplete:
+          age: 604800
+          # count: 100000
+        removeOnFail:
+          age: 2419200
+          # count: 100000
+        transactionIsolationLevel: 'SERIALIZABLE'
+        transactionFailureDelay: 10000
+
 route:
   enabled: true
   path: /

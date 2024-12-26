@@ -2,14 +2,16 @@ import { EntityManager, DataSource } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
-import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
+import { DATA_SOURCE_PROVIDER, ReturningId, ReturningResult } from '../../common/db';
 import { EntityStatus, Status } from '../../common/enums';
 import { Entity } from '../../entity/DAL/entity';
 import { Changeset, UpdateChangeset } from '../models/changeset';
 import { SERVICES } from '../../common/constants';
-import { TransactionFailureError } from '../models/errors';
+import { TransactionFailureError } from '../../common/errors';
+import { isTransactionFailure, TransactionName } from '../../common/db/transactions';
 import { SyncDb } from '../../sync/DAL/sync';
 import { getIsolationLevel } from '../../common/utils/db';
+import { ILogger } from '../../common/interfaces';
 import { Changeset as ChangesetDb } from './changeset';
 
 async function updateLastRerunAsCompleted(syncId: string, transactionalEntityManager: EntityManager): Promise<void> {
@@ -206,14 +208,15 @@ const createChangesetRepository = (dataSource: DataSource) => {
   });
 };
 
-let logger: Logger;
+let logger: ILogger;
 
 export type ChangesetRepository = ReturnType<typeof createChangesetRepository>;
 
 export const changesetRepositoryFactory: FactoryFunction<ChangesetRepository> = (depContainer) => {
-  logger = depContainer.resolve<Logger>(SERVICES.LOGGER);
+  const baseLogger = depContainer.resolve<Logger>(SERVICES.LOGGER);
+  logger = baseLogger.child({ component: 'changesetRepository' });
 
-  return createChangesetRepository(depContainer.resolve<DataSource>(DataSource));
+  return createChangesetRepository(depContainer.resolve<DataSource>(DATA_SOURCE_PROVIDER));
 };
 
 export const CHANGESET_CUSTOM_REPOSITORY_SYMBOL = Symbol('CHANGESET_CUSTOM_REPOSITORY_SYMBOL');

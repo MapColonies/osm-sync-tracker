@@ -3,6 +3,8 @@ import { GeometryType, Status } from '../../common/enums';
 import { File } from '../../file/DAL/file';
 import { Sync as ISync } from '../models/sync';
 
+export const SYNC_IDENTIFIER_COLUMN = 'id';
+
 @Entity({ name: 'sync' })
 export class SyncDb implements ISync {
   @PrimaryColumn({ type: 'uuid' })

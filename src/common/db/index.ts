@@ -1,45 +1,25 @@
 import { readFileSync } from 'fs';
 import { HealthCheck } from '@godaddy/terminus';
-import { DataSource, DataSourceOptions, QueryFailedError } from 'typeorm';
-import { DbConfig } from '../interfaces';
+import { DataSource, DataSourceOptions } from 'typeorm';
+import { DependencyContainer, FactoryFunction } from 'tsyringe';
+import { DbConfig, IConfig } from '../interfaces';
 import { promiseTimeout } from '../utils/promiseTimeout';
 import { SyncDb } from '../../sync/DAL/sync';
 import { Entity } from '../../entity/DAL/entity';
 import { Changeset } from '../../changeset/DAL/changeset';
 import { File } from '../../file/DAL/file';
 import { EntityHistory } from '../../entity/DAL/entityHistory';
+import { SERVICES } from '../constants';
 
 let connectionSingleton: DataSource | undefined;
 
 const DB_TIMEOUT = 5000;
 
-enum TransactionFailure {
-  SERIALIZATION_FAILURE = '40001',
-  DEADLOCK_DETECTED = '40P01',
-}
-
-interface QueryFailedErrorWithCode extends QueryFailedError {
-  code: string | undefined;
-}
-
-export enum TransactionName {
-  TRY_CLOSING_FILE = 'TryClosingFile',
-  CREATE_RERUN = 'CreateRerun',
-  TRY_CLOSING_CHANGESET = 'TryClosingChangeset',
-  TRY_CLOSING_CHANGESETS = 'TryClosingChangesets',
-}
-
-export const isTransactionFailure = (error: unknown): boolean => {
-  if (error instanceof QueryFailedError) {
-    const code = (error as QueryFailedErrorWithCode).code;
-    return code === TransactionFailure.SERIALIZATION_FAILURE || code === TransactionFailure.DEADLOCK_DETECTED;
-  }
-  return false;
-};
+export const DATA_SOURCE_PROVIDER = Symbol('dataSourceProvider');
 
 export const DB_ENTITIES = [Changeset, Entity, File, SyncDb, EntityHistory];
 
-export const createConnectionOptions = (dbConfig: DbConfig): DataSourceOptions => {
+export const createDataSourceOptions = (dbConfig: DbConfig): DataSourceOptions => {
   const { enableSslAuth, sslPaths, ...connectionOptions } = dbConfig;
   if (enableSslAuth && connectionOptions.type === 'postgres') {
     connectionOptions.password = undefined;
@@ -50,7 +30,7 @@ export const createConnectionOptions = (dbConfig: DbConfig): DataSourceOptions =
 
 export const initDataSource = async (dbConfig: DbConfig): Promise<DataSource> => {
   if (connectionSingleton === undefined || !connectionSingleton.isInitialized) {
-    connectionSingleton = new DataSource(createConnectionOptions(dbConfig));
+    connectionSingleton = new DataSource(createDataSourceOptions(dbConfig));
     await connectionSingleton.initialize();
   }
   return connectionSingleton;
@@ -70,3 +50,10 @@ export interface ReturningId {
 }
 
 export type ReturningResult<T> = [T[], number];
+
+export const dataSourceFactory: FactoryFunction<DataSource> = (container: DependencyContainer): DataSource => {
+  const config = container.resolve<IConfig>(SERVICES.CONFIG);
+  const dbConfig = config.get<DbConfig>('db');
+  const dataSourceOptions = createDataSourceOptions(dbConfig);
+  return new DataSource(dataSourceOptions);
+};

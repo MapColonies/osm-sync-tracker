@@ -6,9 +6,12 @@ import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../../sync/DAL/sy
 import { SyncNotFoundError } from '../../sync/models/errors';
 import { FILE_CUSTOM_REPOSITORY_SYMBOL, FileRepository } from '../DAL/fileRepository';
 import { Sync } from '../../sync/models/sync';
-import { TransactionFailureError } from '../../changeset/models/errors';
 import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
+import { TransactionFailureError } from '../../common/errors';
 import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
+import { JobQueueProvider } from '../../queueProvider/interfaces';
+import { ClosureJob } from '../../queueProvider/types';
+import { FILES_QUEUE_NAME } from '../../queueProvider/constants';
 import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from './errors';
 import { File, FileUpdate } from './file';
 
@@ -22,7 +25,8 @@ export class FileManager {
     @inject(SYNC_CUSTOM_REPOSITORY_SYMBOL) private readonly syncRepository: SyncRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
     @inject(SERVICES.CONFIG) private readonly config: IConfig,
-    @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication
+    @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication,
+    @inject(FILES_QUEUE_NAME) private readonly filesQueue: JobQueueProvider<ClosureJob>
   ) {
     this.dbSchema = this.config.get('db.schema');
     this.transactionRetryPolicy = this.appConfig.transactionRetryPolicy;
@@ -120,6 +124,16 @@ export class FileManager {
     });
 
     return completedSyncIds;
+  }
+
+  public async createClosures(fileIds: string[]): Promise<void> {
+    this.logger.info({ msg: 'creating file closures', amount: fileIds.length, fileIds });
+
+    const uniqueFileIds = Array.from(new Set(fileIds));
+
+    const jobs: ClosureJob[] = uniqueFileIds.map((id) => ({ id, kind: 'file' }));
+
+    await this.filesQueue.push(jobs);
   }
 
   private async createRerunFile(rerunSync: Sync, rerunFile: File): Promise<void> {

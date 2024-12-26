@@ -4,8 +4,12 @@ import { SERVICES } from '../../common/constants';
 import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
 import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
 import { ChangesetRepository, CHANGESET_CUSTOM_REPOSITORY_SYMBOL } from '../DAL/changesetRepository';
+import { TransactionFailureError } from '../../common/errors';
+import { JobQueueProvider } from '../../queueProvider/interfaces';
+import { ClosureJob } from '../../queueProvider/types';
+import { CHANGESETS_QUEUE_NAME } from '../../queueProvider/constants';
+import { ChangesetAlreadyExistsError, ChangesetNotFoundError } from './errors';
 import { Changeset, UpdateChangeset } from './changeset';
-import { ChangesetAlreadyExistsError, ChangesetNotFoundError, TransactionFailureError } from './errors';
 
 @injectable()
 export class ChangesetManager {
@@ -16,7 +20,8 @@ export class ChangesetManager {
     @inject(CHANGESET_CUSTOM_REPOSITORY_SYMBOL) private readonly changesetRepository: ChangesetRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
     @inject(SERVICES.CONFIG) private readonly config: IConfig,
-    @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication
+    @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication,
+    @inject(CHANGESETS_QUEUE_NAME) private readonly changesetsQueue: JobQueueProvider<ClosureJob>
   ) {
     this.dbSchema = this.config.get('db.schema');
     this.transactionRetryPolicy = this.appConfig.transactionRetryPolicy;
@@ -96,5 +101,15 @@ export class ChangesetManager {
     const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
     const functionRef = this.changesetRepository.tryClosingChangeset.bind(this.changesetRepository);
     await retryFunctionWrapper(retryOptions, functionRef, changesetId, this.dbSchema);
+  }
+
+  public async createClosures(changesetIds: string[]): Promise<void> {
+    this.logger.info({ msg: 'creating changeset closures', amount: changesetIds.length, changesetIds });
+
+    const uniqueChangesetIds = Array.from(new Set(changesetIds));
+
+    const jobs: ClosureJob[] = uniqueChangesetIds.map((id) => ({ id, kind: 'changeset' }));
+
+    await this.changesetsQueue.push(jobs);
   }
 }

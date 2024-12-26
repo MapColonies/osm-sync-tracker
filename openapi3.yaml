@@ -10,6 +10,7 @@ tags:
   - name: file
   - name: entity
   - name: changeset
+  - name: closure
 paths:
   /sync:
     get:
@@ -115,6 +116,28 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
+        5XX:
+          $ref: '#/components/responses/UnexpectedError'
+  /sync/closure:
+    post:
+      summary: creates closure jobs for selected syncs
+      description: closure jobs will attempt to close the sync
+      requestBody:
+        description: the sync ids to create closure jobs to
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/uniqueId'
+      operationId: postSyncsClosure
+      tags:
+        - closure
+      responses:
+        '201':
+          description: Created
+        '400':
+          $ref: '#/components/responses/BadRequest'
         5XX:
           $ref: '#/components/responses/UnexpectedError'
   /sync/{syncId}:
@@ -267,6 +290,28 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        5XX:
+          $ref: '#/components/responses/UnexpectedError'
+  /file/closure:
+    post:
+      summary: creates closure jobs for selected files
+      description: closure jobs will attempt to close the file and it's sync
+      requestBody:
+        description: the file ids to create closure jobs to
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/uniqueId'
+      operationId: postFilesClosure
+      tags:
+        - closure
+      responses:
+        '201':
+          description: Created
+        '400':
+          $ref: '#/components/responses/BadRequest'
         5XX:
           $ref: '#/components/responses/UnexpectedError'
   /file/{fileId}/entity:
@@ -522,6 +567,28 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/uniqueId'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        5XX:
+          $ref: '#/components/responses/UnexpectedError'
+  /changeset/closure:
+    post:
+      summary: creates closure jobs for selected changesets
+      description: closure jobs will attempt to close the whole sync
+      requestBody:
+        description: the changeset ids to create closure jobs to
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/uniqueId'
+      operationId: postChangesetClosure
+      tags:
+        - closure
+      responses:
+        '201':
+          description: Created
         '400':
           $ref: '#/components/responses/BadRequest'
         5XX:

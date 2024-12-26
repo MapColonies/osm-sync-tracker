@@ -6,7 +6,7 @@ export const HOSTNAME = hostname();
 export const DEFAULT_SERVER_PORT = 80;
 
 export const IGNORED_OUTGOING_TRACE_ROUTES = [/^.*\/v1\/metrics.*$/];
-export const IGNORED_INCOMING_TRACE_ROUTES = [/^.*\/docs.*$/, /^.*\/metrics.*/];
+export const IGNORED_INCOMING_TRACE_ROUTES = [/^.*\/docs.*$/, /^.*\/metrics.*/, /^.*\/ui.*$/];
 
 /* eslint-disable @typescript-eslint/naming-convention */
 export const SERVICES: Record<string, symbol> = {
@@ -15,6 +15,8 @@ export const SERVICES: Record<string, symbol> = {
   TRACER: Symbol('TRACER'),
   METER: Symbol('METER'),
   APPLICATION: Symbol('APPLICATION'),
+  CLEANUP_REGISTRY: Symbol('CLEANUP_REGISTRY'),
+  REDIS: Symbol('REDIS'),
 };
 /* eslint-enable @typescript-eslint/naming-convention */
 

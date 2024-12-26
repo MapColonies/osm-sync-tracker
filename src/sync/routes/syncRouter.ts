@@ -13,6 +13,7 @@ export const syncRouterFactory: FactoryFunction<Router> = (dependencyContainer) 
   router.get('/', syncController.getSyncs);
   router.post('/', syncController.postSync);
   router.get('/latest', syncController.getLatestSync);
+  router.post('/closure', syncController.postSyncsClosure);
   router.patch('/:syncId', syncController.patchSync);
 
   router.post('/:syncId/file', fileController.postFile);

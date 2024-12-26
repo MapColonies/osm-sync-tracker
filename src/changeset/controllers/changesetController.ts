@@ -6,14 +6,15 @@ import mime from 'mime-types';
 import { SERVICES } from '../../common/constants';
 import { Changeset, UpdateChangeset } from '../models/changeset';
 import { ChangesetManager } from '../models/changesetManager';
-import { HttpError } from '../../common/errors';
-import { ChangesetAlreadyExistsError, ChangesetNotFoundError, ExceededNumberOfRetriesError } from '../models/errors';
+import { ExceededNumberOfRetriesError, HttpError } from '../../common/errors';
+import { ChangesetAlreadyExistsError, ChangesetNotFoundError } from '../models/errors';
 
 type PostChangesetHandler = RequestHandler<undefined, string, Changeset>;
 type PatchChangesetHandler = RequestHandler<{ changesetId: string }, string, UpdateChangeset>;
 type PutChangesetHandler = RequestHandler<{ changesetId: string }, string, undefined>;
 type PatchChangesetEntitiesHandler = RequestHandler<{ changesetId: string }, string, undefined>;
 type PutChangesetsHandler = RequestHandler<undefined, string[], string[]>;
+type PostChangesetsClosureHandler = RequestHandler<undefined, string, string[]>;
 
 const txtplain = mime.contentType('text/plain') as string;
 
@@ -82,6 +83,16 @@ export class ChangesetController {
       if (error instanceof ExceededNumberOfRetriesError) {
         this.logger.warn({ err: error, msg: 'could not close changesets, number of retries exceeded', count: changesetIds.length, changesetIds });
       }
+      return next(error);
+    }
+  };
+
+  public postChangesetsClosure: PostChangesetsClosureHandler = async (req, res, next) => {
+    const changesetIds = req.body;
+    try {
+      await this.manager.createClosures(changesetIds);
+      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
+    } catch (error) {
       return next(error);
     }
   };

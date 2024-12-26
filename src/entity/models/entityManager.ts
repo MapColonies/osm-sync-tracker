@@ -1,7 +1,6 @@
 import { Logger } from '@map-colonies/js-logger';
 import lodash from 'lodash';
 import { inject, injectable } from 'tsyringe';
-import { TransactionFailureError } from '../../changeset/models/errors';
 import { SERVICES } from '../../common/constants';
 import { EntityStatus } from '../../common/enums';
 import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
@@ -10,6 +9,7 @@ import { FileRepository, FILE_CUSTOM_REPOSITORY_SYMBOL } from '../../file/DAL/fi
 import { FileNotFoundError } from '../../file/models/errors';
 import { SyncRepository, SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../sync/DAL/syncRepository';
 import { EntityRepository, ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../DAL/entityRepository';
+import { TransactionFailureError } from '../../common/errors';
 import { Entity, UpdateEntities, UpdateEntity } from './entity';
 import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } from './errors';
 

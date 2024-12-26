@@ -1,11 +1,43 @@
-import { In, DataSource } from 'typeorm';
+import { In, DataSource, EntityManager } from 'typeorm';
+import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { FactoryFunction } from 'tsyringe';
+import { nanoid } from 'nanoid';
+import { Logger } from '@map-colonies/js-logger';
 import { Entity, UpdateEntities, UpdateEntity } from '../models/entity';
+import { Status } from '../../common/enums';
+import { FileId } from '../../file/DAL/fileRepository';
+import { DATA_SOURCE_PROVIDER } from '../../common/db';
+import { ILogger } from '../../common/interfaces';
+import { TransactionFailureError } from '../../common/errors';
+import { SERVICES } from '../../common/constants';
+import { isTransactionFailure, TransactionFn } from '../../common/db/transactions';
 import { Entity as EntityDb } from './entity';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const createEntityRepository = (dataSource: DataSource) => {
   return dataSource.getRepository(EntityDb).extend({
+    async transactionify<T>(isolationLevel: IsolationLevel, fn: TransactionFn<T>): Promise<T> {
+      const transaction = { transactionId: nanoid(), isolationLevel };
+
+      logger.info({ msg: 'attempting to run transaction', transaction });
+
+      try {
+        const result = await this.manager.connection.transaction(isolationLevel, fn);
+
+        logger.info({ msg: 'transaction completed', transaction });
+
+        return result;
+      } catch (error) {
+        logger.error({ msg: 'failure occurred while running transaction', transaction, err: error });
+
+        if (isTransactionFailure(error)) {
+          throw new TransactionFailureError(`running transaction has failed due to read/write dependencies among transactions.`);
+        }
+
+        throw error;
+      }
+    },
+
     async createEntity(entity: Entity): Promise<void> {
       await this.insert(entity);
     },
@@ -39,16 +71,46 @@ const createEntityRepository = (dataSource: DataSource) => {
       return entityEntities;
     },
 
+    /**
+     * Returns the fileIds that have entities under them that also belong to one of the given changesets,
+     * the files should also match one of the statuses in the given fileStatuses array.
+     *
+     * @param changesetIds - The changeset ids
+     * @param fileStatuses - Any returned fileId will have one of the given statuses
+     * @param transactionManager - Optional transaction manager
+     * @returns A distinct fileIds array matching the parameters
+     *
+     */
+    async findFilesByChangesets(changesetIds: string[], fileStatuses: Status[], transactionManager?: EntityManager): Promise<FileId[]> {
+      const scopedManager = transactionManager ?? this.manager;
+
+      const result = await scopedManager
+        .createQueryBuilder(EntityDb, 'entity')
+        .select(`entity.fileId`)
+        .leftJoin('entity.file', 'file')
+        .where('entity.changeset_id = ANY(:changesetIds)', { changesetIds })
+        .andWhere('file.status IN(:...fileStatuses)', { fileStatuses })
+        .distinctOn(['entity.fileId'])
+        .getMany();
+
+      return result as FileId[];
+    },
+
     async countEntitiesByIds(ids: Pick<Entity, 'entityId' | 'fileId'>[]): Promise<number> {
       return this.createQueryBuilder().whereInIds(ids).getCount();
     },
   });
 };
 
+let logger: ILogger;
+
 export type EntityRepository = ReturnType<typeof createEntityRepository>;
 
 export const entityRepositoryFactory: FactoryFunction<EntityRepository> = (depContainer) => {
-  return createEntityRepository(depContainer.resolve<DataSource>(DataSource));
+  const baseLogger = depContainer.resolve<Logger>(SERVICES.LOGGER);
+  logger = baseLogger.child({ component: 'entityRepository' });
+
+  return createEntityRepository(depContainer.resolve<DataSource>(DATA_SOURCE_PROVIDER));
 };
 
 export const ENTITY_CUSTOM_REPOSITORY_SYMBOL = Symbol('ENTITY_CUSTOM_REPOSITORY_SYMBOL');

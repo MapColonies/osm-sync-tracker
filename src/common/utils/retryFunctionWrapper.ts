@@ -1,5 +1,5 @@
 import { constructor } from 'tsyringe/dist/typings/types';
-import { ExceededNumberOfRetriesError } from '../../changeset/models/errors';
+import { ExceededNumberOfRetriesError } from '../errors';
 
 interface RetryOptions<E extends constructor<Error>> {
   numberOfRetries: number;

@@ -12,6 +12,8 @@ import {
 } from '../../../../src/sync/models/errors';
 import { GeometryType, Status } from '../../../../src/common/enums';
 import { CreateRerunRequest } from '../../../../src/sync/models/sync';
+import { JobQueueProvider } from '../../../../src/queueProvider/interfaces';
+import { ClosureJob } from '../../../../src/queueProvider/types';
 
 let syncManager: SyncManager;
 
@@ -38,7 +40,12 @@ describe('SyncManager', () => {
       findOneSyncWithLastRerun,
       createRerun,
     } as unknown as SyncRepository;
-    syncManager = new SyncManager(syncRepository, jsLogger({ enabled: false }), { get: jest.fn(), has: jest.fn() });
+
+    const queue = {
+      push: jest.fn(),
+    } as unknown as JobQueueProvider<ClosureJob>;
+
+    syncManager = new SyncManager(syncRepository, jsLogger({ enabled: false }), { get: jest.fn(), has: jest.fn() }, queue);
   });
 
   describe('#getSyncs', () => {

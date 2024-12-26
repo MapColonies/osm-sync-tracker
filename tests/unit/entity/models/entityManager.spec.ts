@@ -8,11 +8,11 @@ import { EntityNotFoundError } from '../../../../src/entity/models/errors';
 import { FileNotFoundError } from '../../../../src/file/models/errors';
 import { UpdateEntities } from '../../../../src/entity/models/entity';
 import { EntityStatus } from '../../../../src/common/enums';
-import { ExceededNumberOfRetriesError, TransactionFailureError } from '../../../../src/changeset/models/errors';
 import { DEFAULT_ISOLATION_LEVEL } from '../../../integration/helpers';
 import { SyncRepository } from '../../../../src/sync/DAL/syncRepository';
 import { EntityRepository } from '../../../../src/entity/DAL/entityRepository';
 import { FileRepository } from '../../../../src/file/DAL/fileRepository';
+import { ExceededNumberOfRetriesError, TransactionFailureError } from '../../../../src/common/errors';
 
 let entityManager: EntityManager;
 let entityManagerWithRetries: EntityManager;
