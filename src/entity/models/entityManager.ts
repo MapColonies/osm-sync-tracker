@@ -130,7 +130,7 @@ export class EntityManager {
     return result;
   }
 
-  public async updateEntity(fileId: string, entityId: string, entity: UpdateEntity): Promise<string[]> {
+  public async updateEntity(fileId: string, entityId: string, entity: UpdateEntity): Promise<void> {
     this.logger.info({ msg: 'updating entity', fileId, entityId });
 
     const fileEntity = await this.fileRepository.findOneFile(fileId);
@@ -141,26 +141,11 @@ export class EntityManager {
 
     const entityEntity = await this.entityRepository.findOneEntity(entityId, fileId);
     if (!entityEntity) {
-      this.logger.error({ msg: 'could not create entity due to entity with the same id already existing', fileId, entityId });
+      this.logger.error({ msg: 'could not update entity due to entity with the same id not already existing', fileId, entityId });
       throw new EntityNotFoundError(`entity = ${entityId} not found`);
     }
 
     await this.entityRepository.updateEntity(entityId, fileId, entity);
-
-    let completedSyncIds: string[] = [];
-    if (entity.status === EntityStatus.NOT_SYNCED) {
-      completedSyncIds = await this.closeFile(fileId);
-
-      this.logger.debug({
-        msg: 'updating entity resulted in the complition of following syncs',
-        entityId,
-        fileId,
-        completedSyncIds,
-        completedSyncsCount: completedSyncIds.length,
-      });
-    }
-
-    return completedSyncIds;
   }
 
   public async updateEntities(entities: UpdateEntities): Promise<void> {

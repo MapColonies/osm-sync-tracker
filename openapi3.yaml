@@ -409,13 +409,7 @@ paths:
         - entity
       responses:
         '200':
-          description: the sync ids that were completed due to the request
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/uniqueId'
+          description: OK
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':

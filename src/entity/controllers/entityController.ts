@@ -12,7 +12,7 @@ import { FileNotFoundError } from '../../file/models/errors';
 
 type PostEntityHandler = RequestHandler<{ fileId: string }, string, Entity>;
 type PostEntitiesHandler = RequestHandler<{ fileId: string }, EntityBulkCreationResult, Entity[]>;
-type PatchEntityHandler = RequestHandler<{ fileId: string; entityId: string }, string[], UpdateEntity>;
+type PatchEntityHandler = RequestHandler<{ fileId: string; entityId: string }, string, UpdateEntity>;
 type PatchEntitiesHandler = RequestHandler<undefined, string, UpdateEntities>;
 
 const txtplain = mime.contentType('text/plain') as string;
@@ -52,8 +52,8 @@ export class EntityController {
   public patchEntity: PatchEntityHandler = async (req, res, next) => {
     const { fileId, entityId } = req.params;
     try {
-      const completedSyncIds = await this.manager.updateEntity(fileId, entityId, req.body);
-      return res.status(httpStatus.OK).json(completedSyncIds);
+      await this.manager.updateEntity(fileId, entityId, req.body);
+      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.OK));
     } catch (error) {
       if (error instanceof EntityNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
