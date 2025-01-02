@@ -241,13 +241,7 @@ paths:
         - file
       responses:
         '200':
-          description: the possible sync id that was completed due to the request
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/uniqueId'
+          description: OK
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':

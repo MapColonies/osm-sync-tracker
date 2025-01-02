@@ -8,7 +8,7 @@ kind: ConfigMap
 metadata:
   name: {{ $releaseName }}-{{ $chartName }}-closure-configmap
 data:
-  {{- with .Values.redisConfig }}
+  {{- with .Values.redis }}
   REDIS_HOST: {{ .host }}
   REDIS_DB: {{ .db | quote}}
   REDIS_PORT: {{ .port | quote }}

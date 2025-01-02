@@ -6,8 +6,6 @@ import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../../sync/DAL/sy
 import { SyncNotFoundError } from '../../sync/models/errors';
 import { FILE_CUSTOM_REPOSITORY_SYMBOL, FileRepository } from '../DAL/fileRepository';
 import { Sync } from '../../sync/models/sync';
-import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
-import { TransactionFailureError } from '../../common/errors';
 import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
 import { JobQueueProvider } from '../../queueProvider/interfaces';
 import { ClosureJob } from '../../queueProvider/types';
@@ -93,7 +91,7 @@ export class FileManager {
     await this.fileRepository.createFiles(filesWithSyncId);
   }
 
-  public async updateFile(syncId: string, fileId: string, fileUpdate: FileUpdate): Promise<string[]> {
+  public async updateFile(syncId: string, fileId: string, fileUpdate: FileUpdate): Promise<void> {
     this.logger.info({ msg: 'updating file on sync', syncId, fileId: fileId, fileUpdate });
 
     const syncEntity = await this.syncRepository.findOneSync(syncId);
@@ -111,19 +109,6 @@ export class FileManager {
     }
 
     await this.fileRepository.updateFile(fileId, fileUpdate);
-
-    // try closing the file which in turn if if succeeded will try compliting the sync
-    const completedSyncIds = await this.closeFile(fileId);
-
-    this.logger.debug({
-      msg: 'closing file resulted in the complition of following syncs',
-      fileId,
-      syncId,
-      completedSyncIds,
-      completedSyncIdsCount: completedSyncIds.length,
-    });
-
-    return completedSyncIds;
   }
 
   public async createClosures(fileIds: string[]): Promise<void> {
@@ -173,17 +158,5 @@ export class FileManager {
       });
       throw new ConflictingRerunFileError(`rerun file = ${rerunFile.fileId} conflicting total entities`);
     }
-  }
-
-  private async closeFile(fileId: string): Promise<string[]> {
-    this.logger.info({ msg: 'attempting to close file', fileId, transactionRetryPolicy: this.transactionRetryPolicy });
-
-    if (!this.transactionRetryPolicy.enabled) {
-      return this.fileRepository.tryClosingFile(fileId, this.dbSchema);
-    }
-
-    const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
-    const functionRef = this.fileRepository.tryClosingFile.bind(this.fileRepository);
-    return retryFunctionWrapper(retryOptions, functionRef, fileId, this.dbSchema);
   }
 }

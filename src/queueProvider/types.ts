@@ -1,6 +1,6 @@
 import { Identifiable } from './interfaces';
 
-export type ClosureKind = 'entity' | 'changeset' | 'file' | 'sync';
+export type ClosureKind = 'changeset' | 'file' | 'sync';
 
 export interface ClosureJob extends Identifiable {
   kind: ClosureKind;

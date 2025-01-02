@@ -71,7 +71,7 @@ dbConfig:
     keyFileName: postgresql.key
     caFileName: root.crt
 
-redisConfig:
+redis:
   host: localhost
   username: ""
   password: ""

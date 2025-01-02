@@ -12,7 +12,7 @@ import { SyncNotFoundError } from '../../sync/models/errors';
 
 type PostFileHandler = RequestHandler<{ syncId: string }, string, File>;
 type PostFilesHandler = RequestHandler<{ syncId: string }, string, File[]>;
-type PatchFileHandler = RequestHandler<{ syncId: string; fileId: string }, string[], FileUpdate>;
+type PatchFileHandler = RequestHandler<{ syncId: string; fileId: string }, string, FileUpdate>;
 type PostFilesClosureHandler = RequestHandler<undefined, string, string[]>;
 
 const txtplain = mime.contentType('text/plain') as string;
@@ -52,8 +52,8 @@ export class FileController {
   public patchFile: PatchFileHandler = async (req, res, next) => {
     const { syncId, fileId } = req.params;
     try {
-      const completedSyncIds = await this.manager.updateFile(syncId, fileId, req.body);
-      return res.status(httpStatus.OK).json(completedSyncIds);
+      await this.manager.updateFile(syncId, fileId, req.body);
+      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.OK));
     } catch (error) {
       if (error instanceof SyncNotFoundError || error instanceof FileNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;

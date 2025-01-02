@@ -65,7 +65,7 @@
       "changesets": {
         "queueOptions": {
           "enabledBatchJobs": true,
-          "maxBatchSize": 100
+          "maxBatchSize": 10
         },
         "jobOptions": {
           "attempts": 10,
