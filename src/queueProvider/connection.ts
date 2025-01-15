@@ -6,6 +6,12 @@ import { SERVICES } from '../common/constants';
 import { IConfig, RedisConfig } from '../common/interfaces';
 import { CONSTANT_BULLMQ_CONNECTION_OPTIONS, REDIS_CONNECTION_OPTIONS_SYMBOL } from './constants';
 
+const RETRY_CONNECTION_DELAY = 1000;
+
+const isTestEnv = (): boolean => {
+  return process.env.JEST_WORKER_ID !== undefined;
+};
+
 export const createConnectionOptionsFactory: FactoryFunction<RedisOptions> = (container) => {
   const config = container.resolve<IConfig>(SERVICES.CONFIG);
   const redisConfig = config.get<RedisConfig>('redis');
@@ -17,6 +23,13 @@ export const createConnectionOptionsFactory: FactoryFunction<RedisOptions> = (co
     port,
     ...clientOptions,
     ...CONSTANT_BULLMQ_CONNECTION_OPTIONS,
+    retryStrategy: () => {
+      if (isTestEnv()) {
+        return null;
+      }
+
+      return RETRY_CONNECTION_DELAY;
+    },
   };
 
   if (enableSslAuth) {

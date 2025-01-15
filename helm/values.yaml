@@ -52,10 +52,6 @@ env:
   metrics:
     enabled: false
     url: 'http://localhost:55681/v1/metrics'
-  transactionRetryPolicy:
-    enabled: false
-    numRetries: 3
-  isolationLevel: 'SERIALIZABLE' #'READ UNCOMMITTED' | 'READ COMMITTED' | 'REPEATABLE READ' | 'SERIALIZABLE'
 
 # external
 dbConfig:

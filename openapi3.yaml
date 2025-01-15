@@ -493,26 +493,6 @@ paths:
           $ref: '#/components/responses/NotFound'
         5XX:
           $ref: '#/components/responses/UnexpectedError'
-  /changeset/{changesetId}/close:
-    put:
-      summary: close the changeset
-      description: >-
-        closes the changeset, sets all its entities as done, and checks if the
-        sync is completed
-      parameters:
-        - $ref: '#/components/parameters/changesetId'
-      operationId: closeChangeset
-      tags:
-        - changeset
-      responses:
-        '200':
-          description: OK
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        5XX:
-          $ref: '#/components/responses/UnexpectedError'
   /changeset/{changesetId}/entities:
     patch:
       summary: close the entities of the changeset
@@ -529,34 +509,6 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
-        5XX:
-          $ref: '#/components/responses/UnexpectedError'
-  /changeset/close/_bulk:
-    put:
-      summary: close the changeset file or sync if needed
-      description: checks if the file or sync are completed
-      requestBody:
-        description: the changeset ids to check for close
-        content:
-          application/json:
-            schema:
-              type: array
-              items:
-                $ref: '#/components/schemas/uniqueId'
-      operationId: closeChangesets
-      tags:
-        - changeset
-      responses:
-        '200':
-          description: the sync ids that were completed due to the request
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/uniqueId'
-        '400':
-          $ref: '#/components/responses/BadRequest'
         5XX:
           $ref: '#/components/responses/UnexpectedError'
   /changeset/closure:

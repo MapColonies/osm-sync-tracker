@@ -1,3 +1,4 @@
+import { Job } from 'bullmq';
 import { Identifiable } from './interfaces';
 
 export type ClosureKind = 'changeset' | 'file' | 'sync';
@@ -20,3 +21,5 @@ export interface ClosureReturn {
   invokedJobCount: number;
   invokedJobs: ClosureJob[];
 }
+
+export type ProcessFn<T = ClosureJob | BatchClosureJob, R = ClosureReturn> = (job: Job<T, R>) => R;

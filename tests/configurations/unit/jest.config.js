@@ -14,6 +14,8 @@ module.exports = {
     '!**/routes/**',
     '!**/DAL/**',
     '!<rootDir>/src/*',
+    '!<rootDir>/src/queueProvider/connection.ts',
+    '!<rootDir>/src/queueProvider/ui/bullBoard.ts',
   ],
   coverageDirectory: '<rootDir>/coverage',
   reporters: [

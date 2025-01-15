@@ -2,7 +2,6 @@ import { Queue } from 'bullmq';
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
-import { BullMQOtel } from 'bullmq-otel';
 import IORedis from 'ioredis';
 import { inject, injectable } from 'tsyringe';
 import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, SYNCS_QUEUE_NAME } from '../constants';
@@ -21,7 +20,7 @@ export class BullBoard {
 
   public getBullBoardRouter(): ReturnType<ExpressAdapter['getRouter']> {
     const queues = [CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, SYNCS_QUEUE_NAME].map(
-      (queueName) => new Queue(queueName, { connection: this.redisConnection, telemetry: new BullMQOtel('temp') })
+      (queueName) => new Queue(queueName, { connection: this.redisConnection })
     );
 
     createBullBoard({

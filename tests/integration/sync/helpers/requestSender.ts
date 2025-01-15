@@ -24,6 +24,10 @@ export class SyncRequestSender {
     return supertest.agent(this.app).get(`/sync/latest`).query({ layerId, geometryType });
   }
 
+  public async postSyncsClosure(syncIds: string[]): Promise<supertest.Response> {
+    return supertest.agent(this.app).post(`/sync/closure`).set('Content-Type', 'application/json').send(syncIds);
+  }
+
   public async rerunSync(syncId: string, body: StringifiedRerunCreateBody): Promise<supertest.Response> {
     return supertest.agent(this.app).post(`/sync/${syncId}/rerun`).set('Content-Type', 'application/json').send(body);
   }

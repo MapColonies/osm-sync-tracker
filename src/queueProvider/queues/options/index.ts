@@ -1,5 +1,4 @@
-import { JobsOptions, QueueEvents } from 'bullmq';
-import IORedis from 'ioredis';
+import { JobsOptions, Queue, QueueEvents } from 'bullmq';
 import { ILogger } from '../../../common/interfaces';
 
 export interface ExtendedJobOptions extends JobsOptions {
@@ -12,10 +11,10 @@ export interface QueueOptions {
 }
 
 export interface QueueConfig {
+  queue: Queue;
   queueName: string;
   queueEvents?: QueueEvents;
-  jobOptions: ExtendedJobOptions;
   queueOptions: QueueOptions;
-  connection: IORedis;
+  jobOptions: ExtendedJobOptions;
   logger?: ILogger;
 }

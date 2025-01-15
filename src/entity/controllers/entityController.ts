@@ -6,7 +6,7 @@ import mime from 'mime-types';
 import { SERVICES } from '../../common/constants';
 import { Entity, UpdateEntities, UpdateEntity } from '../models/entity';
 import { EntityBulkCreationResult, EntityManager } from '../models/entityManager';
-import { ExceededNumberOfRetriesError, HttpError } from '../../common/errors';
+import { HttpError } from '../../common/errors';
 import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } from '../models/errors';
 import { FileNotFoundError } from '../../file/models/errors';
 
@@ -58,9 +58,6 @@ export class EntityController {
       if (error instanceof EntityNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
-      if (error instanceof ExceededNumberOfRetriesError) {
-        this.logger.warn({ err: error, msg: 'could not attempt to close file, number of retries exceeded', fileId, entityId });
-      }
       return next(error);
     }
   };
@@ -74,9 +71,6 @@ export class EntityController {
         (error as HttpError).status = StatusCodes.CONFLICT;
       } else if (error instanceof EntityNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
-      }
-      if (error instanceof ExceededNumberOfRetriesError) {
-        this.logger.warn({ err: error, msg: 'could not attempt to close file, number of retries exceeded', entitiesCount: req.body.length });
       }
       return next(error);
     }

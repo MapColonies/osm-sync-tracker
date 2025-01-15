@@ -16,4 +16,8 @@ export class FileRequestSender {
   public async postFileBulk(syncId: string, body: StringifiedFile[]): Promise<supertest.Response> {
     return supertest.agent(this.app).post(`/sync/${syncId}/file/_bulk`).set('Content-Type', 'application/json').send(body);
   }
+
+  public async postFilesClosure(fileIds: string[]): Promise<supertest.Response> {
+    return supertest.agent(this.app).post(`/file/closure`).set('Content-Type', 'application/json').send(fileIds);
+  }
 }

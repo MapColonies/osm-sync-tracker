@@ -1,12 +1,12 @@
 import { EntityManager, QueryFailedError } from 'typeorm';
 import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 
-enum TransactionFailure {
+export enum TransactionFailure {
   SERIALIZATION_FAILURE = '40001',
   DEADLOCK_DETECTED = '40P01',
 }
 
-interface QueryFailedErrorWithCode extends QueryFailedError {
+export interface QueryFailedErrorWithCode extends QueryFailedError {
   code: string | undefined;
 }
 
@@ -19,10 +19,7 @@ export interface TransactionParams {
 }
 
 export enum TransactionName {
-  TRY_CLOSING_FILE = 'TryClosingFile',
   CREATE_RERUN = 'CreateRerun',
-  TRY_CLOSING_CHANGESET = 'TryClosingChangeset',
-  TRY_CLOSING_CHANGESETS = 'TryClosingChangesets',
   ATTEMPT_FILE_CLOSURE = 'AttemptFileClosure',
   ATTEMPT_SYNC_CLOSURE = 'AttemptSyncClosure',
   FIND_FILES_BY_CHANGESETS = 'FindFilesByChangesets',

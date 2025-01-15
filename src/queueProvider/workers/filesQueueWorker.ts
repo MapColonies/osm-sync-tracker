@@ -1,7 +1,6 @@
 import IORedis from 'ioredis';
 import { Worker, Job, DelayedError } from 'bullmq';
 import { FactoryFunction } from 'tsyringe';
-import { BullMQOtel } from 'bullmq-otel';
 import { Logger } from '@map-colonies/js-logger';
 import { CleanupRegistry } from '@map-colonies/cleanup-registry';
 import { nanoid } from 'nanoid';
@@ -12,7 +11,7 @@ import { FILE_CUSTOM_REPOSITORY_SYMBOL, FileRepository } from '../../file/DAL/fi
 import { IConfig } from '../../common/interfaces';
 import { BullQueueProvider } from '../queues/bullQueueProvider';
 import { TransactionFailureError } from '../../common/errors';
-import { delayJob } from '../helpers';
+import { delayJob, updateJobCounter } from '../helpers';
 import { TransactionName } from '../../common/db/transactions';
 import { ExtendedWorkerOptions } from './options';
 
@@ -54,15 +53,13 @@ export const filesQueueWorkerFactory: FactoryFunction<Worker> = (container) => {
       try {
         const [closedIds, closedCount] = await fileRepository.transactionify(
           { transactionId: nanoid(), transactionName: TransactionName.ATTEMPT_FILE_CLOSURE, isolationLevel: transactionIsolationLevel },
-          async () => {
-            return fileRepository.attemptFileClosure(id);
-          }
+          async () => fileRepository.attemptFileClosure(id)
         );
 
         workerLogger.debug({ msg: 'attempting to close file resulted in', jobId: id, fileId: id, closedIds, closedCount });
 
         if (closedCount === 0) {
-          return { closedCount, invokedJobCount: 0, invokedJobs: [] };
+          return { closedCount, closedIds: [], invokedJobCount: 0, invokedJobs: [] };
         }
 
         // currently maximum of one file is expected to be closed
@@ -86,6 +83,8 @@ export const filesQueueWorkerFactory: FactoryFunction<Worker> = (container) => {
             transactionFailureDelay,
           });
 
+          await updateJobCounter(job, 'transactionFailure');
+
           await delayJob(job, transactionFailureDelay);
 
           throw new DelayedError();
@@ -98,7 +97,6 @@ export const filesQueueWorkerFactory: FactoryFunction<Worker> = (container) => {
       ...workerOptions,
       name: FILES_QUEUE_WORKER_NAME,
       connection: redisConnection,
-      telemetry: new BullMQOtel('temp'),
       autorun: false,
     }
   );

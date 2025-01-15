@@ -39,19 +39,6 @@
       }
     }
   },
-  "application": {
-    "isolationLevel": "APP_TRANSACTION_ISOLATION_LEVEL",
-    "transactionRetryPolicy": {
-      "enabled": {
-        "__name": "APP_TRANSACTION_RETRIES_ENABLED",
-        "__format": "boolean"
-      },
-      "numRetries": {
-        "__name": "APP_TRANSACTION_NUM_RETRIES",
-        "__format": "number"
-      }
-    }
-  },
   "db": {
     "type": "DB_TYPE",
     "host": "DB_HOST",

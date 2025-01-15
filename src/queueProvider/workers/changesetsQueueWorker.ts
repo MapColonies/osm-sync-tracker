@@ -1,7 +1,6 @@
 import { Worker, Job, DelayedError } from 'bullmq';
 import { FactoryFunction } from 'tsyringe';
 import IORedis from 'ioredis';
-import { BullMQOtel } from 'bullmq-otel';
 import { Logger } from '@map-colonies/js-logger';
 import { CleanupRegistry } from '@map-colonies/cleanup-registry';
 import { nanoid } from 'nanoid';
@@ -13,7 +12,7 @@ import { ENTITY_CUSTOM_REPOSITORY_SYMBOL, EntityRepository } from '../../entity/
 import { Status } from '../../common/enums';
 import { JobQueueProvider } from '../interfaces';
 import { TransactionFailureError } from '../../common/errors';
-import { delayJob } from '../helpers';
+import { delayJob, updateJobCounter } from '../helpers';
 import { TransactionName } from '../../common/db/transactions';
 import { ExtendedWorkerOptions } from './options';
 
@@ -50,16 +49,12 @@ export const changesetsQueueWorkerFactory: FactoryFunction<Worker> = (container)
         workerOptions,
       };
 
-      workerLogger.debug({ msg: 'started job processing', ...baseLoggedObject });
-
       try {
         const isBatch = Array.isArray(batchIds) && batchIds.every((id) => typeof id === 'string');
         const changesetIds = isBatch ? (batchIds as string[]) : [id];
         const fileIds = await entityRepository.transactionify(
           { transactionId: nanoid(), transactionName: TransactionName.FIND_FILES_BY_CHANGESETS, isolationLevel: transactionIsolationLevel },
-          async () => {
-            return entityRepository.findFilesByChangesets(changesetIds, [Status.IN_PROGRESS]);
-          }
+          async () => entityRepository.findFilesByChangesets(changesetIds, [Status.IN_PROGRESS])
         );
 
         workerLogger.info({ msg: 'found the following files in the changeset', jobId: id, fileIds });
@@ -88,6 +83,8 @@ export const changesetsQueueWorkerFactory: FactoryFunction<Worker> = (container)
             transactionFailureDelay,
           });
 
+          await updateJobCounter(job, 'transactionFailure');
+
           await delayJob(job, transactionFailureDelay);
 
           throw new DelayedError();
@@ -100,7 +97,6 @@ export const changesetsQueueWorkerFactory: FactoryFunction<Worker> = (container)
       ...workerOptions,
       name: CHANGESETS_QUEUE_WORKER_NAME,
       connection: redisConnection,
-      telemetry: new BullMQOtel('temp'),
       autorun: false,
     }
   );

@@ -25,12 +25,6 @@
       }
     }
   },
-  "application": {
-    "isolationLevel": "SERIALIZABLE",
-    "transactionRetryPolicy": {
-      "enabled": false
-    }
-  },
   "db": {
     "type": "postgres",
     "host": "localhost",
@@ -70,7 +64,6 @@
         "jobOptions": {
           "attempts": 10,
           "delay": 60000,
-          "deduplicationDelay": 60000,
           "backoff": {
             "type": "fixed",
             "delay": 60000
@@ -95,7 +88,6 @@
         "jobOptions": {
           "attempts": 10,
           "delay": 60000,
-          "deduplicationDelay": 60000,
           "backoff": {
             "type": "fixed",
             "delay": 60000
@@ -120,7 +112,6 @@
         "jobOptions": {
           "attempts": 10,
           "delay": 60000,
-          "deduplicationDelay": 60000,
           "backoff": {
             "type": "fixed",
             "delay": 60000

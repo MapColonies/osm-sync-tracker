@@ -1,5 +1,4 @@
 import { DataSourceOptions } from 'typeorm';
-import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 import { RedisOptions } from 'ioredis';
 
 interface LogFn {
@@ -15,11 +14,6 @@ export interface IConfig {
 export interface TransactionRetryPolicy {
   enabled: boolean;
   numRetries?: number;
-}
-
-export interface IApplication {
-  isolationLevel: IsolationLevel;
-  transactionRetryPolicy: TransactionRetryPolicy;
 }
 
 export interface IServerConfig {

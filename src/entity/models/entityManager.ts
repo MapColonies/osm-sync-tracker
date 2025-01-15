@@ -3,13 +3,10 @@ import lodash from 'lodash';
 import { inject, injectable } from 'tsyringe';
 import { SERVICES } from '../../common/constants';
 import { EntityStatus } from '../../common/enums';
-import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
-import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
 import { FileRepository, FILE_CUSTOM_REPOSITORY_SYMBOL } from '../../file/DAL/fileRepository';
 import { FileNotFoundError } from '../../file/models/errors';
 import { SyncRepository, SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../sync/DAL/syncRepository';
 import { EntityRepository, ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../DAL/entityRepository';
-import { TransactionFailureError } from '../../common/errors';
 import { Entity, UpdateEntities, UpdateEntity } from './entity';
 import { DuplicateEntityError, EntityAlreadyExistsError, EntityNotFoundError } from './errors';
 
@@ -20,20 +17,12 @@ export interface EntityBulkCreationResult {
 
 @injectable()
 export class EntityManager {
-  private readonly dbSchema: string;
-  private readonly transactionRetryPolicy: TransactionRetryPolicy;
-
   public constructor(
     @inject(ENTITY_CUSTOM_REPOSITORY_SYMBOL) private readonly entityRepository: EntityRepository,
     @inject(FILE_CUSTOM_REPOSITORY_SYMBOL) private readonly fileRepository: FileRepository,
     @inject(SYNC_CUSTOM_REPOSITORY_SYMBOL) private readonly syncRepository: SyncRepository,
-    @inject(SERVICES.LOGGER) private readonly logger: Logger,
-    @inject(SERVICES.CONFIG) private readonly config: IConfig,
-    @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication
-  ) {
-    this.dbSchema = this.config.get('db.schema');
-    this.transactionRetryPolicy = this.appConfig.transactionRetryPolicy;
-  }
+    @inject(SERVICES.LOGGER) private readonly logger: Logger
+  ) {}
 
   public async createEntity(fileId: string, entity: Entity): Promise<void> {
     this.logger.info({ msg: 'creating entity on file', fileId, entityId: entity.entityId });
@@ -176,21 +165,5 @@ export class EntityManager {
     }
 
     await this.entityRepository.updateEntities(entities);
-    const possiblyFileClosingEntities = entities.filter(
-      (entity) => entity.status === EntityStatus.NOT_SYNCED || entity.status === EntityStatus.FAILED || entity.status === EntityStatus.COMPLETED
-    );
-    const uniqueFileIds = lodash.uniqBy(possiblyFileClosingEntities, 'fileId');
-    await Promise.all(uniqueFileIds.map(async (entity) => this.closeFile(entity.fileId)));
-  }
-
-  private async closeFile(fileId: string): Promise<string[]> {
-    this.logger.info({ msg: 'attempting to close file', fileId, transactionRetryPolicy: this.transactionRetryPolicy });
-
-    if (!this.transactionRetryPolicy.enabled) {
-      return this.fileRepository.tryClosingFile(fileId, this.dbSchema);
-    }
-    const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
-    const functionRef = this.fileRepository.tryClosingFile.bind(this.fileRepository);
-    return retryFunctionWrapper(retryOptions, functionRef, fileId, this.dbSchema);
   }
 }

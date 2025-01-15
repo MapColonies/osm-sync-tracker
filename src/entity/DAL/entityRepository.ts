@@ -1,4 +1,4 @@
-import { In, DataSource, EntityManager } from 'typeorm';
+import { In, DataSource } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { Entity, UpdateEntities, UpdateEntity } from '../models/entity';
@@ -77,10 +77,8 @@ const createEntityRepository = (dataSource: DataSource) => {
      * @returns A distinct fileIds array matching the parameters
      *
      */
-    async findFilesByChangesets(changesetIds: string[], fileStatuses: Status[], transactionManager?: EntityManager): Promise<FileId[]> {
-      const scopedManager = transactionManager ?? this.manager;
-
-      const result = await scopedManager
+    async findFilesByChangesets(changesetIds: string[], fileStatuses: Status[]): Promise<FileId[]> {
+      const result = await this.manager
         .createQueryBuilder(EntityDb, 'entity')
         .select(`entity.fileId`)
         .leftJoin('entity.file', 'file')

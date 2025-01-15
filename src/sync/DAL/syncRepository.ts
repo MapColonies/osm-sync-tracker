@@ -6,7 +6,6 @@ import { EntityStatus, GeometryType, Status } from '../../common/enums';
 import { isTransactionFailure, TransactionFn, TransactionName, TransactionParams } from '../../common/db/transactions';
 import { CreateRerunRequest, Sync, SyncsFilter, SyncUpdate, SyncWithReruns } from '../models/sync';
 import { CLOSED_PARAMS, DATA_SOURCE_PROVIDER, ReturningId, ReturningResult } from '../../common/db';
-import { getIsolationLevel } from '../../common/utils/db';
 import { TransactionFailureError } from '../../common/errors';
 import { SERVICES } from '../../common/constants';
 import { File as FileDb } from '../../file/DAL/file';
@@ -265,16 +264,14 @@ const createSyncRepo = (dataSource: DataSource) => {
      * @param transactionManager - Optional typeorm transacation manager
      * @returns The affected syncId or the sync and possibly reruns
      */
-    async attemptSyncClosure(syncId: string, transactionManager?: EntityManager): Promise<ReturningResult<SyncId>> {
-      const scopedManager = transactionManager ?? this.manager;
-
-      const result = await scopedManager
+    async attemptSyncClosure(syncId: string): Promise<ReturningResult<SyncId>> {
+      const result = await this.manager
         .createQueryBuilder(SyncDb, 'sync')
         .update(SyncDb)
         .set(CLOSED_PARAMS)
         .andWhere((qb) => {
           // a workaround due to UpdateQueryBuilder not supporting subQuery function
-          const subQuery = scopedManager
+          const subQuery = this.manager
             .createQueryBuilder(FileDb, 'file')
             .select('COUNT(*)')
             .where('file.sync_id = :syncId', { syncId })
@@ -300,7 +297,7 @@ const createSyncRepo = (dataSource: DataSource) => {
     },
 
     async createRerun(rerunRequest: CreateRerunRequest, schema: string): Promise<boolean> {
-      const isolationLevel = getIsolationLevel();
+      const isolationLevel = 'SERIALIZABLE';
       const transaction = { transactionId: nanoid(), transactionName: TransactionName.CREATE_RERUN, isolationLevel };
 
       const { shouldRerunNotSynced, ...rerunSync } = rerunRequest;

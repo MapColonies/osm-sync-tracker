@@ -10,13 +10,6 @@ metadata:
 data:
   REQUEST_PAYLOAD_LIMIT: {{ .Values.env.requestPayloadLimit | quote }}
   RESPONSE_COMPRESSION_ENABLED: {{ .Values.env.responseCompressionEnabled | quote }}
-  {{- if .Values.env.transactionRetryPolicy.enabled }}
-  APP_TRANSACTION_RETRIES_ENABLED: "true"
-  APP_TRANSACTION_NUM_RETRIES: {{ .Values.env.transactionRetryPolicy.numRetries | quote }}
-  {{- else }}
-  APP_TRANSACTION_RETRIES_ENABLED: "false"
-  {{- end }}
-  APP_TRANSACTION_ISOLATION_LEVEL: {{ .Values.env.isolationLevel | quote }}
   LOG_LEVEL: {{ .Values.env.logLevel | quote }}
   LOG_PRETTY_PRINT_ENABLED: "false"
   {{ if .Values.global.tracing.enabled }}

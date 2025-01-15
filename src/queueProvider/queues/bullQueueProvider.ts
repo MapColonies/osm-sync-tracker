@@ -1,9 +1,9 @@
 import { injectable } from 'tsyringe';
 import { Queue, QueueEvents } from 'bullmq';
-import { BullMQOtel } from 'bullmq-otel';
 import { Identifiable, JobQueueProvider } from '../interfaces';
 import { ILogger } from '../../common/interfaces';
-import { hashList } from '../../common/utils';
+import { hashBatch } from '../../common/utils';
+import { updateJobCounter } from '../helpers';
 import { ExtendedJobOptions, QueueConfig, QueueOptions } from './options';
 
 @injectable()
@@ -16,7 +16,8 @@ export class BullQueueProvider<T extends Identifiable> implements JobQueueProvid
   private readonly logger: ILogger | undefined;
 
   public constructor(options: QueueConfig) {
-    const { queueName, queueEvents, queueOptions, jobOptions, connection: connection, logger } = options;
+    const { queue, queueName, queueEvents, queueOptions, jobOptions, logger } = options;
+    this.queue = queue as Queue<T, unknown, string, T, unknown, string>;
     this.queueName = queueName;
     this.queueEvents = queueEvents;
     this.queueOptions = queueOptions;
@@ -24,11 +25,6 @@ export class BullQueueProvider<T extends Identifiable> implements JobQueueProvid
     this.logger = logger;
 
     this.logger?.info({ msg: 'initializing queue', queueName, queueOptions, jobOptions, enabledQueueEvents: queueEvents !== undefined });
-
-    this.queue = new Queue<T, unknown, string, T, unknown, string>(this.queueName, {
-      connection,
-      telemetry: new BullMQOtel('temp'),
-    });
 
     this.queueEvents?.on('deduplicated', async ({ jobId, deduplicationId }) => {
       this.logger?.info({ msg: 'deduplicated detected, changing delay', queueName, jobId, deduplicationId });
@@ -66,14 +62,33 @@ export class BullQueueProvider<T extends Identifiable> implements JobQueueProvid
     for (let i = 0; i < jobs.length; i += maxBatchSize) {
       const batchIds = jobs.slice(i, i + maxBatchSize).map((job) => job.id);
 
-      const id = hashList(batchIds);
+      const batchId = hashBatch(batchIds);
 
-      const batchJob = { ...jobs[0], id, batchIds };
+      const batchJob = { ...jobs[0], id: batchId, batchIds };
 
       bulk.push(batchJob as unknown as T);
     }
 
     await this.addBulk(bulk);
+  }
+
+  public async changeJobDelay(jobId: string, delay: number): Promise<void> {
+    try {
+      this.logger?.info({ msg: 'attempting to change job delay', queueName: this.queueName, jobId, delay });
+
+      const job = await this.queue.getJob(jobId);
+
+      if (job === undefined) {
+        return;
+      }
+
+      await job.changeDelay(delay);
+
+      await updateJobCounter(job, 'deduplication');
+    } catch (err) {
+      this.logger?.error({ msg: 'an error accord during job delay change', queueName: this.queueName, jobId, delay, err: err });
+      // throw err;
+    }
   }
 
   private async addJob(job: T): Promise<void> {
@@ -94,24 +109,5 @@ export class BullQueueProvider<T extends Identifiable> implements JobQueueProvid
     }));
 
     await this.queue.addBulk(jobBulk);
-  }
-
-  private async changeJobDelay(jobId: string, delay: number): Promise<void> {
-    try {
-      this.logger?.info({ msg: 'attempting to change job delay', queueName: this.queueName, jobId, delay });
-
-      const job = await this.queue.getJob(jobId);
-
-      if (job === undefined) {
-        return;
-      }
-
-      await job.changeDelay(delay);
-
-      const previousDeduplicationCount = (job.data.deduplicationCount as number | undefined) ?? 0;
-      await job.updateData({ ...job.data, deduplicationCount: previousDeduplicationCount + 1 });
-    } catch (err) {
-      this.logger?.error({ msg: 'an error accord during job delay change', queueName: this.queueName, jobId, delay, err: err });
-    }
   }
 }

@@ -58,6 +58,18 @@ jobs:
             --health-timeout 5s
             --health-retries 5
 
+        redis:
+          # Docker Hub image
+          image: redis
+          ports:
+            - 6379:6379
+          # Set health checks to wait until redis has started
+          options: >-
+            --health-cmd "redis-cli ping"
+            --health-interval 10s
+            --health-timeout 5s
+            --health-retries 5
+
       strategy:
         matrix:
           node: [14.x, 16.x]

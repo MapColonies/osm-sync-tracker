@@ -27,6 +27,8 @@ describe('SyncManager', () => {
   const findOneSyncWithLastRerun = jest.fn();
   const createRerun = jest.fn();
 
+  const pushMock = jest.fn();
+
   beforeEach(() => {
     jest.resetAllMocks();
 
@@ -42,7 +44,7 @@ describe('SyncManager', () => {
     } as unknown as SyncRepository;
 
     const queue = {
-      push: jest.fn(),
+      push: pushMock,
     } as unknown as JobQueueProvider<ClosureJob>;
 
     syncManager = new SyncManager(syncRepository, jsLogger({ enabled: false }), { get: jest.fn(), has: jest.fn() }, queue);
@@ -213,6 +215,32 @@ describe('SyncManager', () => {
       const getLatestPromise = syncManager.getLatestSync(sync.layerId, sync.geometryType);
 
       await expect(getLatestPromise).rejects.toThrow(SyncNotFoundError);
+    });
+  });
+
+  describe('#createClosures', () => {
+    it('resolves without errors and push changesets to the queue', async () => {
+      pushMock.mockResolvedValueOnce(undefined);
+      const closurePromise = syncManager.createClosures(['1', '2', '2', '3']);
+
+      await expect(closurePromise).resolves.not.toThrow();
+
+      expect(pushMock).toHaveBeenCalledTimes(1);
+      expect(pushMock).toHaveBeenCalledWith([
+        { id: '1', kind: 'sync' },
+        { id: '2', kind: 'sync' },
+        { id: '3', kind: 'sync' },
+      ]);
+    });
+
+    it('rejects if queue push has failed', async () => {
+      const queueError = new Error('queue error');
+      pushMock.mockRejectedValueOnce(queueError);
+
+      const closurePromise = syncManager.createClosures(['1']);
+
+      await expect(closurePromise).rejects.toThrow(queueError);
+      expect(pushMock).toHaveBeenCalledWith([{ id: '1', kind: 'sync' }]);
     });
   });
 

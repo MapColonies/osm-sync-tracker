@@ -1,7 +1,6 @@
 import { Worker, Job, DelayedError } from 'bullmq';
 import { FactoryFunction } from 'tsyringe';
 import IORedis from 'ioredis';
-import { BullMQOtel } from 'bullmq-otel';
 import { Logger } from '@map-colonies/js-logger';
 import { CleanupRegistry } from '@map-colonies/cleanup-registry';
 import { nanoid } from 'nanoid';
@@ -11,7 +10,7 @@ import { TransactionFailureError } from '../../common/errors';
 import { ClosureJob, ClosureReturn } from '../types';
 import { IConfig } from '../../common/interfaces';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../../sync/DAL/syncRepository';
-import { delayJob } from '../helpers';
+import { delayJob, updateJobCounter } from '../helpers';
 import { TransactionName } from '../../common/db/transactions';
 import { ExtendedWorkerOptions } from './options';
 
@@ -52,14 +51,12 @@ export const syncsQueueWorkerFactory: FactoryFunction<Worker> = (container) => {
       try {
         const [closedIds, closedCount] = await syncRepository.transactionify(
           { transactionId: nanoid(), transactionName: TransactionName.ATTEMPT_SYNC_CLOSURE, isolationLevel: transactionIsolationLevel },
-          async () => {
-            return syncRepository.attemptSyncClosure(id);
-          }
+          async () => syncRepository.attemptSyncClosure(id)
         );
 
         workerLogger.debug({ msg: 'attempting to close sync resulted in', jobId: id, syncId: id, closedIds, closedCount });
 
-        const closedSyncAndRerunIds = closedIds.map((c) => c.id);
+        const closedSyncAndRerunIds = closedIds.map((closedSync) => closedSync.id);
 
         return { closedCount, closedIds: closedSyncAndRerunIds, invokedJobCount: 0, invokedJobs: [] };
       } catch (error) {
@@ -77,6 +74,8 @@ export const syncsQueueWorkerFactory: FactoryFunction<Worker> = (container) => {
             transactionFailureDelay,
           });
 
+          await updateJobCounter(job, 'transactionFailure');
+
           await delayJob(job, transactionFailureDelay);
 
           throw new DelayedError();
@@ -89,7 +88,6 @@ export const syncsQueueWorkerFactory: FactoryFunction<Worker> = (container) => {
       ...workerOptions,
       name: SYNCS_QUEUE_WORKER_NAME,
       connection: redisConnection,
-      telemetry: new BullMQOtel('temp'),
       autorun: false,
     }
   );

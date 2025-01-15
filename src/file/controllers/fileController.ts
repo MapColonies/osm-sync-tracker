@@ -6,7 +6,7 @@ import mime from 'mime-types';
 import { SERVICES } from '../../common/constants';
 import { File, FileUpdate } from '../models/file';
 import { FileManager } from '../models/fileManager';
-import { ExceededNumberOfRetriesError, HttpError } from '../../common/errors';
+import { HttpError } from '../../common/errors';
 import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from '../models/errors';
 import { SyncNotFoundError } from '../../sync/models/errors';
 
@@ -58,9 +58,6 @@ export class FileController {
       if (error instanceof SyncNotFoundError || error instanceof FileNotFoundError) {
         (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
-      if (error instanceof ExceededNumberOfRetriesError) {
-        this.logger.warn({ err: error, msg: 'could not attempt to close file, number of retries exceeded', syncId, fileId });
-      }
       return next(error);
     }
   };
@@ -69,7 +66,7 @@ export class FileController {
     const fileIds = req.body;
     try {
       await this.manager.createClosures(fileIds);
-      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
+      return res.status(httpStatus.CREATED).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
       return next(error);
     }

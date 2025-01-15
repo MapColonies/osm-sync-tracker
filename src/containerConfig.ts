@@ -1,13 +1,13 @@
 import { DependencyContainer, instancePerContainerCachingFactory, Lifecycle } from 'tsyringe';
 import config from 'config';
 import { getOtelMixin } from '@map-colonies/telemetry';
-import jsLogger, { LoggerOptions } from '@map-colonies/js-logger';
+import jsLogger, { Logger, LoggerOptions } from '@map-colonies/js-logger';
 import { DataSource } from 'typeorm';
 import { CleanupRegistry } from '@map-colonies/cleanup-registry';
 import { trace } from '@opentelemetry/api';
 import { HealthCheck } from '@godaddy/terminus';
 import { DB_SCHEMA, HEALTHCHECK, ON_SIGNAL, SERVICES, SERVICE_NAME } from './common/constants';
-import { IApplication, IConfig } from './common/interfaces';
+import { IConfig } from './common/interfaces';
 import { DATA_SOURCE_PROVIDER, dataSourceFactory, getDbHealthCheckFunction } from './common/db';
 import { tracing } from './common/tracing';
 import { syncRepositoryFactory, SYNC_CUSTOM_REPOSITORY_SYMBOL } from './sync/DAL/syncRepository';
@@ -22,7 +22,7 @@ import { fileRepositoryFactory, FILE_CUSTOM_REPOSITORY_SYMBOL } from './file/DAL
 import { FILES_QUEUE_WORKER_FACTORY, filesQueueWorkerFactory } from './queueProvider/workers/filesQueueWorker';
 import { CHANGESETS_QUEUE_WORKER_FACTORY, changesetsQueueWorkerFactory } from './queueProvider/workers/changesetsQueueWorker';
 import { SYNCS_QUEUE_WORKER_FACTORY, syncsQueueWorkerFactory } from './queueProvider/workers/syncsQueueWorker';
-import { QueueProviderFactory } from './queueProvider/queues/queueProviderFactory';
+import { BullQueueProviderFactory } from './queueProvider/queues/bullQueueProviderFactory';
 import {
   CHANGESETS_QUEUE_NAME,
   FILES_QUEUE_NAME,
@@ -43,7 +43,18 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
   try {
     const dependencies: InjectionObject<unknown>[] = [
       { token: SERVICES.CONFIG, provider: { useValue: config } },
-      { token: SERVICES.CLEANUP_REGISTRY, provider: { useValue: cleanupRegistry } },
+      {
+        token: SERVICES.CLEANUP_REGISTRY,
+        provider: { useValue: cleanupRegistry },
+        afterAllInjectionHook(container): void {
+          const logger = container.resolve<Logger>(SERVICES.LOGGER);
+          const cleanupRegistryLogger = logger.child({ subComponent: 'cleanupRegistry' });
+
+          cleanupRegistry.on('itemFailed', (id, error, msg) => cleanupRegistryLogger.error({ msg, itemId: id, err: error }));
+          cleanupRegistry.on('itemCompleted', (id) => cleanupRegistryLogger.info({ itemId: id, msg: 'cleanup finished for item' }));
+          cleanupRegistry.on('finished', (status) => cleanupRegistryLogger.info({ msg: `cleanup registry finished cleanup`, status }));
+        },
+      },
       { token: DB_SCHEMA, provider: { useValue: config.get('db.schema') } },
       {
         token: SERVICES.LOGGER,
@@ -51,13 +62,7 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
           useFactory: instancePerContainerCachingFactory((container) => {
             const config = container.resolve<IConfig>(SERVICES.CONFIG);
             const loggerConfig = config.get<LoggerOptions>('telemetry.logger');
-
             const logger = jsLogger({ ...loggerConfig, mixin: getOtelMixin() });
-            const cleanupRegistryLogger = logger.child({ subComponent: 'cleanupRegistry' });
-
-            cleanupRegistry.on('itemFailed', (id, error, msg) => cleanupRegistryLogger.error({ msg, itemId: id, err: error }));
-            cleanupRegistry.on('finished', (status) => cleanupRegistryLogger.info({ msg: `cleanup registry finished cleanup`, status }));
-
             return logger;
           }),
         },
@@ -73,7 +78,6 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
           }),
         },
       },
-      { token: SERVICES.APPLICATION, provider: { useValue: config.get<IApplication>('application') } },
       {
         token: DATA_SOURCE_PROVIDER,
         provider: { useFactory: instancePerContainerCachingFactory(dataSourceFactory) },
@@ -91,10 +95,10 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
       { token: ENTITY_CUSTOM_REPOSITORY_SYMBOL, provider: { useFactory: entityRepositoryFactory } },
       {
         token: QUEUE_PROVIDER_FACTORY,
-        provider: { useClass: QueueProviderFactory },
+        provider: { useClass: BullQueueProviderFactory },
         options: { lifecycle: Lifecycle.Singleton },
         postInjectionHook: (deps: DependencyContainer): void => {
-          const queueFactory = deps.resolve<QueueProviderFactory>(QUEUE_PROVIDER_FACTORY);
+          const queueFactory = deps.resolve<BullQueueProviderFactory>(QUEUE_PROVIDER_FACTORY);
           const cleanupRegistry = deps.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
 
           for (const queueName of [CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, SYNCS_QUEUE_NAME]) {

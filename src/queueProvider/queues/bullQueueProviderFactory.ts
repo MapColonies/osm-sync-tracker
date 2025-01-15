@@ -1,7 +1,7 @@
 import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
 import IORedis from 'ioredis';
-import { ConnectionOptions, QueueEvents } from 'bullmq';
+import { ConnectionOptions, Queue, QueueEvents } from 'bullmq';
 import { IConfig } from '../../common/interfaces';
 import { SERVICES } from '../../common/constants';
 import { REDIS_CONNECTION_OPTIONS_SYMBOL } from '../constants';
@@ -10,7 +10,7 @@ import { BullQueueProvider } from './bullQueueProvider';
 import { ExtendedJobOptions, QueueOptions } from './options';
 
 @injectable()
-export class QueueProviderFactory {
+export class BullQueueProviderFactory {
   public constructor(
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
     @inject(SERVICES.CONFIG) private readonly config: IConfig,
@@ -30,13 +30,17 @@ export class QueueProviderFactory {
       queueEvents = new QueueEvents(queueName, { connection: this.connectionOptions });
     }
 
-    return new BullQueueProvider<T>({
-      queueName,
-      logger: queueLogger,
+    const queue = new Queue<T, unknown, string, T, unknown, string>(queueName, {
       connection: this.reusableRedis,
+    });
+
+    return new BullQueueProvider<T>({
+      queue,
+      queueName,
       queueEvents,
       queueOptions,
       jobOptions,
+      logger: queueLogger,
     });
   }
 }

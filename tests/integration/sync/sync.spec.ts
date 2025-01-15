@@ -2,25 +2,39 @@ import httpStatus, { StatusCodes } from 'http-status-codes';
 import { DependencyContainer } from 'tsyringe';
 import { faker } from '@faker-js/faker';
 import { DataSource, In, QueryFailedError, Repository } from 'typeorm';
+import { DelayedError, Worker } from 'bullmq';
+import IORedis from 'ioredis';
 import { EntityRepository, ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/entity/DAL/entityRepository';
 import { getApp } from '../../../src/app';
-import { BEFORE_ALL_TIMEOUT, RERUN_TEST_TIMEOUT, getBaseRegisterOptions, DEFAULT_ISOLATION_LEVEL, LONG_RUNNING_TEST_TIMEOUT } from '../helpers';
-import { SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/sync/DAL/syncRepository';
-import { FILE_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/file/DAL/fileRepository';
+import {
+  BEFORE_ALL_TIMEOUT,
+  RERUN_TEST_TIMEOUT,
+  getBaseRegisterOptions,
+  LONG_RUNNING_TEST_TIMEOUT,
+  waitForJobToBeResolved,
+  clearQueues,
+} from '../helpers';
+import * as queueHelpers from '../../../src/queueProvider/helpers';
+import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../../../src/sync/DAL/syncRepository';
 import { EntityStatus, GeometryType, Status } from '../../../src/common/enums';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { FileRequestSender } from '../file/helpers/requestSender';
 import { generateUniqueNumber } from '../../helpers/helper';
 import { SERVICES } from '../../../src/common/constants';
-import { IApplication } from '../../../src/common/interfaces';
 import { EntityHistory } from '../../../src/entity/DAL/entityHistory';
 import { EntityRequestSender } from '../entity/helpers/requestSender';
 import { ChangesetRequestSender } from '../changeset/helpers/requestSender';
 import { createStringifiedFakeEntity } from '../entity/helpers/generators';
 import { createStringifiedFakeChangeset } from '../changeset/helpers/generators';
-import { TransactionFailureError } from '../../../src/common/errors';
-import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from './helpers/generators';
+import { CHANGESETS_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/changesetsQueueWorker';
+import { FILES_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/filesQueueWorker';
+import { SYNCS_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/syncsQueueWorker';
+import { DATA_SOURCE_PROVIDER } from '../../../src/common/db';
+import { DEDUPLICATION_COUNT_KEY, TRANSACTIONAL_FAILURE_COUNT_KEY } from '../../../src/queueProvider/helpers';
+import { QUEUE_PROVIDER_FACTORY } from '../../../src/queueProvider/constants';
+import { QueryFailedErrorWithCode, TransactionFailure } from '../../../src/common/db/transactions';
 import { SyncRequestSender } from './helpers/requestSender';
+import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from './helpers/generators';
 
 describe('sync', function () {
   let syncRequestSender: SyncRequestSender;
@@ -30,7 +44,9 @@ describe('sync', function () {
   let mockSyncRequestSender: SyncRequestSender;
   let entityRepository: EntityRepository;
   let entityHistoryRepository: Repository<EntityHistory>;
-
+  let changesetWorker: Worker;
+  let fileWorker: Worker;
+  let syncWorker: Worker;
   let depContainer: DependencyContainer;
 
   beforeAll(async function () {
@@ -41,12 +57,22 @@ describe('sync', function () {
     entityRequestSender = new EntityRequestSender(app);
     changesetRequestSender = new ChangesetRequestSender(app);
     entityRepository = depContainer.resolve<EntityRepository>(ENTITY_CUSTOM_REPOSITORY_SYMBOL);
-    const connection = depContainer.resolve(DataSource);
+    const connection = depContainer.resolve<DataSource>(DATA_SOURCE_PROVIDER);
     entityHistoryRepository = connection.getRepository(EntityHistory);
+
+    changesetWorker = container.resolve<Worker>(CHANGESETS_QUEUE_WORKER_FACTORY);
+    fileWorker = container.resolve<Worker>(FILES_QUEUE_WORKER_FACTORY);
+    syncWorker = container.resolve<Worker>(SYNCS_QUEUE_WORKER_FACTORY);
   }, BEFORE_ALL_TIMEOUT);
 
+  beforeEach(function () {
+    jest.resetAllMocks();
+  });
+
   afterAll(async function () {
-    const connection = depContainer.resolve(DataSource);
+    const redis = depContainer.resolve<IORedis>(SERVICES.REDIS);
+    await clearQueues(redis);
+    const connection = depContainer.resolve<DataSource>(DATA_SOURCE_PROVIDER);
     await connection.destroy();
     depContainer.reset();
   });
@@ -480,6 +506,48 @@ describe('sync', function () {
       );
     });
 
+    describe('POST /sync/closure', function () {
+      it('should return 201 status code and created body', async function () {
+        const response = await syncRequestSender.postSyncsClosure([faker.datatype.uuid(), faker.datatype.uuid()]);
+
+        expect(response.status).toBe(httpStatus.CREATED);
+        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
+      });
+
+      it('should return 201 status code and created body for non unique payload', async function () {
+        const syncId = faker.datatype.uuid();
+
+        const response = await syncRequestSender.postSyncsClosure([syncId, syncId, syncId]);
+
+        expect(response.status).toBe(httpStatus.CREATED);
+        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
+      });
+
+      it('should return 201 status code and process the job even if sync is not found', async function () {
+        const syncId = faker.datatype.uuid();
+
+        const response = await syncRequestSender.postSyncsClosure([syncId]);
+
+        expect(response.status).toBe(httpStatus.CREATED);
+        expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
+
+        const syncClosure = await waitForJobToBeResolved(syncWorker, syncId);
+        expect(syncClosure?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
+      });
+
+      it('should return 201 status code and process the job with deduplication counter', async function () {
+        const syncId = faker.datatype.uuid();
+
+        expect(await syncRequestSender.postSyncsClosure([syncId])).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSyncsClosure([syncId])).toHaveStatus(StatusCodes.CREATED);
+        expect(await syncRequestSender.postSyncsClosure([syncId])).toHaveStatus(StatusCodes.CREATED);
+
+        const syncClosure = await waitForJobToBeResolved(syncWorker, syncId);
+        expect(syncClosure?.data).toMatchObject({ id: syncId, kind: 'sync', [DEDUPLICATION_COUNT_KEY]: 2 });
+        expect(syncClosure?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
+      });
+    });
+
     describe('POST /sync/:syncId/rerun', function () {
       it(
         'should return 201 if the sync to rerun is a full failed sync',
@@ -504,7 +572,6 @@ describe('sync', function () {
         RERUN_TEST_TIMEOUT
       );
 
-      //should return 200 if the sync to rerun was successfully closed by trying to rerun
       it(
         'should return 200 if the sync to rerun was successfully closed by trying to rerun',
         async function () {
@@ -512,28 +579,43 @@ describe('sync', function () {
             isFull: true,
             totalFiles: 1,
           });
-          const { id } = sync;
+          const { id: syncId } = sync;
 
           expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
 
           const file1 = createStringifiedFakeFile({ totalEntities: 1 });
-          expect(await fileRequestSender.postFile(id as string, file1)).toHaveStatus(StatusCodes.CREATED);
+          expect(await fileRequestSender.postFile(syncId as string, file1)).toHaveStatus(StatusCodes.CREATED);
 
           const changeset1 = createStringifiedFakeChangeset();
           expect(await changesetRequestSender.postChangeset(changeset1)).toHaveStatus(StatusCodes.CREATED);
 
           const file1Entity = [createStringifiedFakeEntity({ status: EntityStatus.COMPLETED, changesetId: changeset1.changesetId })];
           expect(await entityRequestSender.postEntityBulk(file1.fileId as string, file1Entity)).toHaveStatus(StatusCodes.CREATED);
-          expect(await changesetRequestSender.putChangesets([changeset1.changesetId as string])).toHaveStatus(StatusCodes.OK);
 
           // file2 will be empty thus deleted on rerun action
           const file2 = createStringifiedFakeFile({ totalEntities: 1 });
-          expect(await fileRequestSender.postFile(id as string, file2)).toHaveStatus(StatusCodes.CREATED);
+          expect(await fileRequestSender.postFile(syncId as string, file2)).toHaveStatus(StatusCodes.CREATED);
 
-          expect(await syncRequestSender.patchSync(id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
+          // post changeset closure
+          expect(await changesetRequestSender.postChangesetClosure([changeset1.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
+
+          // get file for closure from changest
+          const changesetClosure = await waitForJobToBeResolved(changesetWorker, changeset1.changesetId as string);
+          expect(changesetClosure?.returnValue).toMatchObject({ invokedJobCount: 1, invokedJobs: [{ kind: 'file', id: file1.fileId }] });
+
+          // close file1
+          const fileClosure = await waitForJobToBeResolved(fileWorker, file1.fileId as string);
+          expect(fileClosure?.returnValue).toMatchObject({
+            closedCount: 1,
+            closedIds: [file1.fileId],
+            invokedJobCount: 1,
+            invokedJobs: [{ kind: 'sync', id: syncId }],
+          });
+
+          expect(await syncRequestSender.patchSync(syncId as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
 
           const rerunCreateBody = createStringifiedFakeRerunCreateBody({ shouldRerunNotSynced: true });
-          const response = await syncRequestSender.rerunSync(id as string, rerunCreateBody);
+          const response = await syncRequestSender.rerunSync(syncId as string, rerunCreateBody);
 
           expect(response).toHaveProperty('status', StatusCodes.OK);
 
@@ -541,8 +623,12 @@ describe('sync', function () {
           expect(fetchedEntity).toMatchObject({ ...file1Entity[0], status: EntityStatus.COMPLETED, fileId: file1.fileId, failReason: null });
 
           // validate entity history count
-          const entityHistoryCount = await entityHistoryRepository.countBy({ syncId: id });
+          const entityHistoryCount = await entityHistoryRepository.countBy({ syncId });
           expect(entityHistoryCount).toBe(0);
+
+          // attempt to close the sync and fail due to already closed
+          const syncClosure = await waitForJobToBeResolved(syncWorker, syncId as string);
+          expect(syncClosure?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
         },
         RERUN_TEST_TIMEOUT
       );
@@ -563,11 +649,22 @@ describe('sync', function () {
 
           const entity1 = createStringifiedFakeEntity({ status: EntityStatus.COMPLETED, changesetId: changeset1.changesetId });
           const entity2 = createStringifiedFakeEntity({ status: EntityStatus.FAILED });
+
           // post entities of the file and changeset, one entitiy failed
           const file1Entities = [entity1, entity2];
           expect(await entityRequestSender.postEntityBulk(file1.fileId as string, file1Entities)).toHaveStatus(StatusCodes.CREATED);
           expect(await changesetRequestSender.patchChangesetEntities(changeset1.changesetId as string)).toHaveStatus(StatusCodes.OK);
-          expect(await changesetRequestSender.putChangesets([changeset1.changesetId as string])).toHaveStatus(StatusCodes.OK);
+
+          // post changeset1 closure
+          expect(await changesetRequestSender.postChangesetClosure([changeset1.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
+
+          // get file for closure from changest2
+          const changeset1Closure = await waitForJobToBeResolved(changesetWorker, changeset1.changesetId as string);
+          expect(changeset1Closure?.returnValue).toMatchObject({ invokedJobCount: 1, invokedJobs: [{ kind: 'file', id: file1.fileId }] });
+
+          // close file1 and get sync for closure
+          const file1Closure1 = await waitForJobToBeResolved(fileWorker, file1.fileId as string);
+          expect(file1Closure1?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
 
           // validate base sync is still in progress
           expect(await syncRequestSender.getLatestSync(baseSync.layerId as number, baseSync.geometryType as GeometryType)).toHaveProperty(
@@ -642,9 +739,37 @@ describe('sync', function () {
 
           // close the changeset
           expect(await changesetRequestSender.patchChangesetEntities(changeset1.changesetId as string)).toHaveStatus(StatusCodes.OK);
-          const putChangesetsResponse = await changesetRequestSender.putChangesets([changeset2.changesetId as string]);
-          expect(putChangesetsResponse).toHaveStatus(StatusCodes.OK);
-          expect(putChangesetsResponse.body).toMatchObject([baseSyncId]);
+
+          // post changeset2 closure
+          expect(await changesetRequestSender.postChangesetClosure([changeset2.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
+
+          // get file for closure from changest2
+          const changeset2Closure = await waitForJobToBeResolved(changesetWorker, changeset2.changesetId as string);
+          expect(changeset2Closure?.returnValue).toMatchObject({
+            invokedJobCount: 2,
+            invokedJobs: expect.arrayContaining([
+              { kind: 'file', id: file1.fileId },
+              { kind: 'file', id: file2.fileId },
+            ]) as string[],
+          });
+
+          // close file1 and get sync for closure
+          const file1Closure2 = await waitForJobToBeResolved(fileWorker, file1.fileId as string);
+          expect(file1Closure2?.returnValue).toMatchObject({ closedCount: 1, invokedJobCount: 1, invokedJobs: [{ kind: 'sync', id: baseSyncId }] });
+
+          // close file2 and get sync for closure
+          const file2Closure = await waitForJobToBeResolved(fileWorker, file2.fileId as string);
+          expect(file2Closure?.returnValue).toMatchObject({ closedCount: 1, invokedJobCount: 1, invokedJobs: [{ kind: 'sync', id: baseSyncId }] });
+
+          // attempt to close the sync and its rerun
+          const syncClosure = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          expect(syncClosure?.returnValue).toMatchObject({
+            closedCount: 2,
+            closedIds: expect.arrayContaining([baseSyncId, rerunId]) as string[],
+            invokedJobCount: 0,
+            invokedJobs: [],
+          });
+          expect(syncClosure?.data).toMatchObject({ id: baseSyncId, kind: 'sync', deduplicationCount: 1 });
 
           const latestSyncResponse = await syncRequestSender.getLatestSync(baseSync.layerId as number, baseSync.geometryType as GeometryType);
           expect(latestSyncResponse.status).toBe(httpStatus.OK);
@@ -689,7 +814,17 @@ describe('sync', function () {
           expect(await entityRequestSender.postEntityBulk(file2.fileId as string, [entity4])).toHaveStatus(StatusCodes.CREATED);
 
           expect(await changesetRequestSender.patchChangesetEntities(changeset1.changesetId as string)).toHaveStatus(StatusCodes.OK);
-          expect(await changesetRequestSender.putChangesets([changeset1.changesetId as string])).toHaveStatus(StatusCodes.OK);
+
+          // post changeset1 closure
+          expect(await changesetRequestSender.postChangesetClosure([changeset1.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
+
+          // get file for closure from changest2
+          const changeset1Closure = await waitForJobToBeResolved(changesetWorker, changeset1.changesetId as string);
+          expect(changeset1Closure?.returnValue).toMatchObject({ invokedJobCount: 1, invokedJobs: [{ kind: 'file', id: file1.fileId }] });
+
+          // attempt close file1
+          const fileClosure1 = await waitForJobToBeResolved(fileWorker, file1.fileId as string);
+          expect(fileClosure1?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
 
           // validate base sync is still in progress
           expect(await syncRequestSender.getLatestSync(baseSync.layerId as number, baseSync.geometryType as GeometryType)).toHaveProperty(
@@ -810,7 +945,34 @@ describe('sync', function () {
 
           // close the changeset
           expect(await changesetRequestSender.patchChangesetEntities(changeset2.changesetId as string)).toHaveStatus(StatusCodes.OK);
-          expect(await changesetRequestSender.putChangesets([changeset2.changesetId as string])).toHaveStatus(StatusCodes.OK);
+
+          // post changeset2 closure
+          expect(await changesetRequestSender.postChangesetClosure([changeset2.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
+
+          // get files for closure from changest2
+          const changeset2Closure = await waitForJobToBeResolved(changesetWorker, changeset2.changesetId as string);
+          expect(changeset2Closure?.returnValue).toMatchObject({
+            invokedJobCount: 3,
+            invokedJobs: expect.arrayContaining([
+              { kind: 'file', id: file1.fileId },
+              { kind: 'file', id: file2.fileId },
+              { kind: 'file', id: file4.fileId },
+            ]) as string[],
+          });
+
+          // get a single sync closure from the 3 file closures
+          const fileClosure2 = await waitForJobToBeResolved(fileWorker, file1.fileId as string);
+          const fileClosure3 = await waitForJobToBeResolved(fileWorker, file2.fileId as string);
+          const fileClosure4 = await waitForJobToBeResolved(fileWorker, file4.fileId as string);
+          expect([
+            ...(fileClosure2?.returnValue?.closedIds ?? []),
+            ...(fileClosure3?.returnValue?.closedIds ?? []),
+            ...(fileClosure4?.returnValue?.closedIds ?? []),
+          ]).toStrictEqual([file4.fileId]);
+
+          // attempt to close the sync
+          const syncClosure = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          expect(syncClosure?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
 
           // validate base sync is still failed
           expect(await syncRequestSender.getLatestSync(baseSync.layerId as number, baseSync.geometryType as GeometryType)).toHaveProperty(
@@ -907,15 +1069,67 @@ describe('sync', function () {
           expect(await fileRequestSender.postFile(firstRerunId as string, file3)).toHaveStatus(StatusCodes.CREATED);
           expect(await entityRequestSender.postEntityBulk(file3.fileId as string, [entity7])).toHaveStatus(StatusCodes.CREATED);
           expect(await changesetRequestSender.patchChangesetEntities(changeset3.changesetId as string)).toHaveStatus(StatusCodes.OK);
-          expect(await changesetRequestSender.putChangesets([changeset3.changesetId as string])).toHaveStatus(StatusCodes.OK);
 
-          const patchEntityResponse = await entityRequestSender.patchEntity(file3.fileId as string, entity7.entityId as string, {
-            ...entity7,
-            status: EntityStatus.NOT_SYNCED,
+          // post changeset3 closure
+          expect(await changesetRequestSender.postChangesetClosure([changeset3.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
+
+          // get file for closure from changest3
+          const changeset3Closure = await waitForJobToBeResolved(changesetWorker, changeset3.changesetId as string);
+          expect(changeset3Closure?.returnValue).toMatchObject({ invokedJobCount: 1, invokedJobs: [{ kind: 'file', id: file2.fileId }] });
+
+          // close file2 and get sync for closure
+          const file2Closure = await waitForJobToBeResolved(fileWorker, file2.fileId as string);
+          expect(file2Closure?.returnValue).toMatchObject({
+            closedCount: 1,
+            closedIds: [file2.fileId],
+            invokedJobCount: 1,
+            invokedJobs: [{ kind: 'sync', id: baseSyncId }],
           });
 
-          expect(patchEntityResponse).toHaveStatus(StatusCodes.OK);
-          expect(patchEntityResponse.body).toMatchObject([baseSyncId]);
+          // attempt to close the sync
+          const syncClosure2 = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          expect(syncClosure2?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
+
+          expect(
+            await entityRequestSender.patchEntity(file3.fileId as string, entity7.entityId as string, {
+              ...entity7,
+              status: EntityStatus.NOT_SYNCED,
+            })
+          ).toHaveStatus(StatusCodes.OK);
+
+          // post file3 closure
+          expect(await fileRequestSender.postFilesClosure([file3.fileId as string])).toHaveStatus(StatusCodes.CREATED);
+
+          // close file3 and get sync for closure
+          const file3Closure = await waitForJobToBeResolved(fileWorker, file3.fileId as string);
+          expect(file3Closure?.returnValue).toMatchObject({
+            closedCount: 1,
+            closedIds: [file3.fileId],
+            invokedJobCount: 1,
+            invokedJobs: [{ kind: 'sync', id: baseSyncId }],
+          });
+
+          // post file1 closure
+          expect(await fileRequestSender.postFilesClosure([file1.fileId as string])).toHaveStatus(StatusCodes.CREATED);
+
+          // close file3 and get sync for closure
+          const file1Closure = await waitForJobToBeResolved(fileWorker, file1.fileId as string);
+          expect(file1Closure?.returnValue).toMatchObject({
+            closedCount: 1,
+            closedIds: [file1.fileId],
+            invokedJobCount: 1,
+            invokedJobs: [{ kind: 'sync', id: baseSyncId }],
+          });
+
+          // close the sync
+          const syncClosure3 = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          expect(syncClosure3?.returnValue).toMatchObject({
+            closedCount: 2,
+            closedIds: expect.arrayContaining([baseSyncId, secondRerunId]) as string[],
+            invokedJobCount: 0,
+            invokedJobs: [],
+          });
+          expect(syncClosure3?.data).toMatchObject({ id: baseSyncId, kind: 'sync', deduplicationCount: 1 });
 
           // validate latest sync is the base as completed
           const latestSyncResponse = await syncRequestSender.getLatestSync(baseSync.layerId as number, baseSync.geometryType as GeometryType);
@@ -979,9 +1193,31 @@ describe('sync', function () {
           expect(await entityRequestSender.postEntityBulk(file.fileId as string, [entity])).toHaveStatus(StatusCodes.CREATED);
 
           expect(await changesetRequestSender.patchChangesetEntities(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
-          const putChangesetsResponse = await changesetRequestSender.putChangesets([changeset.changesetId as string]);
-          expect(putChangesetsResponse).toHaveStatus(StatusCodes.OK);
-          expect(putChangesetsResponse.body).toMatchObject([baseSyncId]);
+
+          // post changeset closure
+          expect(await changesetRequestSender.postChangesetClosure([changeset.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
+
+          // get file for closure from changest
+          const changesetClosure = await waitForJobToBeResolved(changesetWorker, changeset.changesetId as string);
+          expect(changesetClosure?.returnValue).toMatchObject({ invokedJobCount: 1, invokedJobs: [{ kind: 'file', id: file.fileId }] });
+
+          // get sync for closure from file
+          const fileClosure = await waitForJobToBeResolved(fileWorker, file.fileId as string);
+          expect(fileClosure?.returnValue).toMatchObject({
+            closedCount: 1,
+            closedIds: [file.fileId],
+            invokedJobCount: 1,
+            invokedJobs: [{ kind: 'sync', id: baseSyncId }],
+          });
+
+          // close the sync and its rerun
+          const syncClosure = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          expect(syncClosure?.returnValue).toMatchObject({
+            closedCount: 2,
+            closedIds: expect.arrayContaining([baseSyncId, rerunId3]) as string[],
+            invokedJobCount: 0,
+            invokedJobs: [],
+          });
 
           const latestSyncResponse = await syncRequestSender.getLatestSync(baseSync.layerId as number, baseSync.geometryType as GeometryType);
           expect(latestSyncResponse.status).toBe(httpStatus.OK);
@@ -1076,9 +1312,31 @@ describe('sync', function () {
 
           // close the changeset
           expect(await changesetRequestSender.patchChangesetEntities(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
-          const putChangesetsResponse = await changesetRequestSender.putChangesets([changeset.changesetId as string]);
-          expect(putChangesetsResponse).toHaveStatus(StatusCodes.OK);
-          expect(putChangesetsResponse.body).toMatchObject([baseSyncId]);
+
+          // post changeset closure
+          expect(await changesetRequestSender.postChangesetClosure([changeset.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
+
+          // get file for closure from changest
+          const changesetClosure = await waitForJobToBeResolved(changesetWorker, changeset.changesetId as string);
+          expect(changesetClosure?.returnValue).toMatchObject({ invokedJobCount: 1, invokedJobs: [{ kind: 'file', id: file.fileId }] });
+
+          // get sync for closure from file
+          const fileClosure = await waitForJobToBeResolved(fileWorker, file.fileId as string);
+          expect(fileClosure?.returnValue).toMatchObject({
+            closedCount: 1,
+            closedIds: [file.fileId],
+            invokedJobCount: 1,
+            invokedJobs: [{ kind: 'sync', id: baseSyncId }],
+          });
+
+          // close the sync and its rerun
+          const syncClosure = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          expect(syncClosure?.returnValue).toMatchObject({
+            closedCount: 2,
+            closedIds: expect.arrayContaining([baseSyncId, rerunId]) as string[],
+            invokedJobCount: 0,
+            invokedJobs: [],
+          });
 
           const latestSyncResponse = await syncRequestSender.getLatestSync(baseSync.layerId as number, baseSync.geometryType as GeometryType);
           expect(latestSyncResponse.status).toBe(httpStatus.OK);
@@ -1178,9 +1436,31 @@ describe('sync', function () {
 
           // close the changeset
           expect(await changesetRequestSender.patchChangesetEntities(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
-          const putChangesetsResponse = await changesetRequestSender.putChangesets([changeset.changesetId as string]);
-          expect(putChangesetsResponse).toHaveStatus(StatusCodes.OK);
-          expect(putChangesetsResponse.body).toMatchObject([baseSyncId]);
+
+          // post changeset closure
+          expect(await changesetRequestSender.postChangesetClosure([changeset.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
+
+          // get file for closure from changest
+          const changesetClosure = await waitForJobToBeResolved(changesetWorker, changeset.changesetId as string);
+          expect(changesetClosure?.returnValue).toMatchObject({ invokedJobCount: 1, invokedJobs: [{ kind: 'file', id: file2.fileId }] });
+
+          // get sync for closure from file
+          const file2Closure = await waitForJobToBeResolved(fileWorker, file2.fileId as string);
+          expect(file2Closure?.returnValue).toMatchObject({
+            closedCount: 1,
+            closedIds: [file2.fileId],
+            invokedJobCount: 1,
+            invokedJobs: [{ kind: 'sync', id: baseSyncId }],
+          });
+
+          // close the sync and its rerun
+          const syncClosure = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          expect(syncClosure?.returnValue).toMatchObject({
+            closedCount: 2,
+            closedIds: expect.arrayContaining([baseSyncId, rerunId]) as string[],
+            invokedJobCount: 0,
+            invokedJobs: [],
+          });
 
           const latestSyncResponse = await syncRequestSender.getLatestSync(baseSync.layerId as number, baseSync.geometryType as GeometryType);
           expect(latestSyncResponse.status).toBe(httpStatus.OK);
@@ -1261,7 +1541,26 @@ describe('sync', function () {
           expect(await entityRequestSender.postEntityBulk(file2.fileId as string, [entity2])).toHaveStatus(StatusCodes.CREATED);
 
           expect(await changesetRequestSender.patchChangesetEntities(changeset.changesetId as string)).toHaveStatus(StatusCodes.OK);
-          expect(await changesetRequestSender.putChangesets([changeset.changesetId as string])).toHaveStatus(StatusCodes.OK);
+
+          // post changeset closure
+          expect(await changesetRequestSender.postChangesetClosure([changeset.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
+
+          // get file for closure from changest
+          const changesetClosure = await waitForJobToBeResolved(changesetWorker, changeset.changesetId as string);
+          expect(changesetClosure?.returnValue).toMatchObject({ invokedJobCount: 1, invokedJobs: [{ kind: 'file', id: file2.fileId }] });
+
+          // get sync for closure from file
+          const file2Closure = await waitForJobToBeResolved(fileWorker, file2.fileId as string);
+          expect(file2Closure?.returnValue).toMatchObject({
+            closedCount: 1,
+            closedIds: [file2.fileId],
+            invokedJobCount: 1,
+            invokedJobs: [{ kind: 'sync', id: baseSyncId }],
+          });
+
+          // close the sync and its rerun
+          const syncClosure = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          expect(syncClosure?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
 
           // validate base sync is still failed even though file2 completed
           expect(await syncRequestSender.getLatestSync(baseSync.layerId as number, baseSync.geometryType as GeometryType)).toHaveProperty(
@@ -1304,13 +1603,33 @@ describe('sync', function () {
           const fetchedEntity2 = await entityRepository.findOneBy({ entityId: entity2.entityId });
           expect(fetchedEntity2).toMatchObject({ ...entity2, status: EntityStatus.COMPLETED, fileId: file2.fileId, failReason: null });
 
-          const patchEntityResponse = await entityRequestSender.patchEntity(file1.fileId as string, entity1.entityId as string, {
-            ...entity1,
-            status: EntityStatus.NOT_SYNCED,
+          expect(
+            await entityRequestSender.patchEntity(file1.fileId as string, entity1.entityId as string, {
+              ...entity1,
+              status: EntityStatus.NOT_SYNCED,
+            })
+          ).toHaveStatus(StatusCodes.OK);
+
+          // post file closure
+          expect(await fileRequestSender.postFilesClosure([file1.fileId as string])).toHaveStatus(StatusCodes.CREATED);
+
+          // get sync for closure from file
+          const file1Closure = await waitForJobToBeResolved(fileWorker, file1.fileId as string);
+          expect(file1Closure?.returnValue).toMatchObject({
+            closedCount: 1,
+            closedIds: [file1.fileId],
+            invokedJobCount: 1,
+            invokedJobs: [{ kind: 'sync', id: baseSyncId }],
           });
 
-          expect(patchEntityResponse).toHaveStatus(StatusCodes.OK);
-          expect(patchEntityResponse.body).toMatchObject([baseSyncId]);
+          // close the sync and its rerun
+          const syncClosure2 = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          expect(syncClosure2?.returnValue).toMatchObject({
+            closedCount: 2,
+            closedIds: expect.arrayContaining([baseSyncId, secondRerunId]) as string,
+            invokedJobCount: 0,
+            invokedJobs: [],
+          });
 
           // validate entity history count
           const entityHistoryCount = await entityHistoryRepository.countBy({ syncId: In([baseSyncId, firstRerunId, secondRerunId]) });
@@ -1318,63 +1637,6 @@ describe('sync', function () {
         },
         RERUN_TEST_TIMEOUT
       );
-    });
-
-    describe('PATCH /sync/:syncId/file/:fileId', function () {
-      it('should return 200 status code and no closed syncs from the patch', async function () {
-        const syncBody = createStringifiedFakeSync({ totalFiles: 2 });
-        const fileBody = createStringifiedFakeFile();
-
-        expect(await syncRequestSender.postSync(syncBody)).toHaveStatus(StatusCodes.CREATED);
-        const { id: syncId } = syncBody;
-
-        expect(await fileRequestSender.postFile(syncId as string, fileBody)).toHaveStatus(StatusCodes.CREATED);
-        const { fileId, totalEntities } = fileBody;
-
-        const response = await fileRequestSender.patchFile(syncId as string, fileId as string, { totalEntities: (totalEntities as number) - 1 });
-
-        expect(response.status).toBe(httpStatus.OK);
-        expect(response.body).toEqual([]);
-      });
-
-      it('should return 200 status code and a closed sync id from the patch', async function () {
-        const syncBody = createStringifiedFakeSync({ totalFiles: 1 });
-        const fileBody = createStringifiedFakeFile({ totalEntities: 1 });
-
-        expect(await syncRequestSender.postSync(syncBody)).toHaveStatus(StatusCodes.CREATED);
-        const { id: syncId } = syncBody;
-
-        expect(await fileRequestSender.postFile(syncId as string, fileBody)).toHaveStatus(StatusCodes.CREATED);
-        const { fileId } = fileBody;
-
-        const response = await fileRequestSender.patchFile(syncId as string, fileId as string, { totalEntities: 0 });
-
-        expect(response.status).toBe(httpStatus.OK);
-        expect(response.body).toEqual([syncId]);
-      });
-
-      it('should return 200 status code and a closed sync id from the patch when all other files is already completed', async function () {
-        const sync = createStringifiedFakeSync({ totalFiles: 2 });
-        expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
-
-        const file1 = createStringifiedFakeFile({ totalEntities: 1 });
-        expect(await fileRequestSender.postFile(sync.id as string, file1)).toHaveStatus(StatusCodes.CREATED);
-
-        const changeset = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(changeset)).toHaveStatus(StatusCodes.CREATED);
-
-        const file1Entity = [createStringifiedFakeEntity({ status: EntityStatus.COMPLETED, changesetId: changeset.changesetId })];
-        expect(await entityRequestSender.postEntityBulk(file1.fileId as string, file1Entity)).toHaveStatus(StatusCodes.CREATED);
-        expect(await changesetRequestSender.putChangesets([changeset.changesetId as string])).toHaveStatus(StatusCodes.OK);
-
-        const file2 = createStringifiedFakeFile({ totalEntities: 1 });
-        expect(await fileRequestSender.postFile(sync.id as string, file2)).toHaveStatus(StatusCodes.CREATED);
-
-        const response = await fileRequestSender.patchFile(sync.id as string, file2.fileId as string, { totalEntities: 0 });
-
-        expect(response.status).toBe(httpStatus.OK);
-        expect(response.body).toEqual([sync.id]);
-      });
     });
   });
 
@@ -1692,235 +1954,276 @@ describe('sync', function () {
         RERUN_TEST_TIMEOUT
       );
     });
-
-    describe('PATCH /sync/:syncId/file/:fileId', function () {
-      it('should return 404 if the sync was not found', async function () {
-        const syncBody = createStringifiedFakeSync();
-        const fileBody = createStringifiedFakeFile();
-
-        const { id: syncId } = syncBody;
-        const { fileId, totalEntities } = fileBody;
-
-        const response = await fileRequestSender.patchFile(syncId as string, fileId as string, { totalEntities: (totalEntities as number) - 1 });
-
-        expect(response.status).toBe(httpStatus.NOT_FOUND);
-      });
-
-      it('should return 404 if the file was not found', async function () {
-        const syncBody = createStringifiedFakeSync();
-        const fileBody = createStringifiedFakeFile();
-
-        expect(await syncRequestSender.postSync(syncBody)).toHaveStatus(StatusCodes.CREATED);
-        const { id: syncId } = syncBody;
-
-        const { fileId, totalEntities } = fileBody;
-
-        const response = await fileRequestSender.patchFile(syncId as string, fileId as string, { totalEntities: (totalEntities as number) - 1 });
-
-        expect(response.status).toBe(httpStatus.NOT_FOUND);
-      });
-    });
   });
 
   describe('Sad Path', function () {
     describe('POST /sync', function () {
-      it('should return 500 if the db throws an error', async function () {
-        const createSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
-        const findOneSyncMock = jest.fn();
-        const findSyncsMock = jest.fn().mockResolvedValue([]);
+      it(
+        'should return 500 if the db throws an error',
+        async function () {
+          const createSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
+          const findOneSyncMock = jest.fn();
+          const findSyncsMock = jest.fn().mockResolvedValue([]);
 
-        const mockRegisterOptions = getBaseRegisterOptions();
-        mockRegisterOptions.override.push({
-          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
-          provider: {
-            useValue: {
-              createSync: createSyncMock,
-              findOneSync: findOneSyncMock,
-              findSyncs: findSyncsMock,
+          const mockRegisterOptions = getBaseRegisterOptions();
+          mockRegisterOptions.override.push({
+            token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
+            provider: {
+              useValue: {
+                createSync: createSyncMock,
+                findOneSync: findOneSyncMock,
+                findSyncs: findSyncsMock,
+              },
             },
-          },
-        });
-        const { app: mockApp } = await getApp(mockRegisterOptions);
-        mockSyncRequestSender = new SyncRequestSender(mockApp);
+          });
+          const { app: mockApp } = await getApp(mockRegisterOptions);
+          mockSyncRequestSender = new SyncRequestSender(mockApp);
 
-        const response = await mockSyncRequestSender.postSync(createStringifiedFakeSync());
+          const response = await mockSyncRequestSender.postSync(createStringifiedFakeSync());
 
-        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
-        expect(response.body).toHaveProperty('message', 'failed');
-      });
+          expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+          expect(response.body).toHaveProperty('message', 'failed');
+        },
+        LONG_RUNNING_TEST_TIMEOUT
+      );
     });
 
     describe('PATCH /sync', function () {
-      it('should return 500 if the db throws an error', async function () {
-        const updateSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
-        const findOneSyncMock = jest.fn().mockResolvedValue(true);
+      it(
+        'should return 500 if the db throws an error',
+        async function () {
+          const updateSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
+          const findOneSyncMock = jest.fn().mockResolvedValue(true);
 
-        const mockRegisterOptions = getBaseRegisterOptions();
-        mockRegisterOptions.override.push({
-          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
-          provider: {
-            useValue: {
-              updateSync: updateSyncMock,
-              findOneSync: findOneSyncMock,
+          const mockRegisterOptions = getBaseRegisterOptions();
+          mockRegisterOptions.override.push({
+            token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
+            provider: {
+              useValue: {
+                updateSync: updateSyncMock,
+                findOneSync: findOneSyncMock,
+              },
             },
-          },
-        });
-        const { app: mockApp } = await getApp(mockRegisterOptions);
-        mockSyncRequestSender = new SyncRequestSender(mockApp);
-        const { id, isFull, ...body } = createStringifiedFakeSync();
+          });
+          const { app: mockApp } = await getApp(mockRegisterOptions);
+          mockSyncRequestSender = new SyncRequestSender(mockApp);
+          const { id, isFull, ...body } = createStringifiedFakeSync();
 
-        const response = await mockSyncRequestSender.patchSync(id as string, body);
+          const response = await mockSyncRequestSender.patchSync(id as string, body);
 
-        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
-        expect(response.body).toHaveProperty('message', 'failed');
-      });
+          expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+          expect(response.body).toHaveProperty('message', 'failed');
+        },
+        LONG_RUNNING_TEST_TIMEOUT
+      );
     });
 
     describe('GET /sync', function () {
-      it('should return 500 if the db throws an error', async function () {
-        const filterSyncsMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
+      it(
+        'should return 500 if the db throws an error',
+        async function () {
+          const filterSyncsMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
 
-        const mockRegisterOptions = getBaseRegisterOptions();
-        mockRegisterOptions.override.push({ token: SYNC_CUSTOM_REPOSITORY_SYMBOL, provider: { useValue: { filterSyncs: filterSyncsMock } } });
-        const { app: mockApp } = await getApp(mockRegisterOptions);
-        mockSyncRequestSender = new SyncRequestSender(mockApp);
+          const mockRegisterOptions = getBaseRegisterOptions();
+          mockRegisterOptions.override.push({ token: SYNC_CUSTOM_REPOSITORY_SYMBOL, provider: { useValue: { filterSyncs: filterSyncsMock } } });
+          const { app: mockApp } = await getApp(mockRegisterOptions);
+          mockSyncRequestSender = new SyncRequestSender(mockApp);
 
-        const response = await mockSyncRequestSender.getSyncs({});
+          const response = await mockSyncRequestSender.getSyncs({});
 
-        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
-        expect(response.body).toHaveProperty('message', 'failed');
-      });
+          expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+          expect(response.body).toHaveProperty('message', 'failed');
+        },
+        LONG_RUNNING_TEST_TIMEOUT
+      );
     });
 
     describe('GET /sync/latest', function () {
-      it('should return 500 if the db throws an error', async function () {
-        const getLatestSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
+      it(
+        'should return 500 if the db throws an error',
+        async function () {
+          const getLatestSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
 
-        const mockRegisterOptions = getBaseRegisterOptions();
-        mockRegisterOptions.override.push({ token: SYNC_CUSTOM_REPOSITORY_SYMBOL, provider: { useValue: { getLatestSync: getLatestSyncMock } } });
-        const { app: mockApp } = await getApp(mockRegisterOptions);
-        mockSyncRequestSender = new SyncRequestSender(mockApp);
-        const body = createStringifiedFakeSync();
+          const mockRegisterOptions = getBaseRegisterOptions();
+          mockRegisterOptions.override.push({ token: SYNC_CUSTOM_REPOSITORY_SYMBOL, provider: { useValue: { getLatestSync: getLatestSyncMock } } });
+          const { app: mockApp } = await getApp(mockRegisterOptions);
+          mockSyncRequestSender = new SyncRequestSender(mockApp);
+          const body = createStringifiedFakeSync();
 
-        const response = await mockSyncRequestSender.getLatestSync(body.layerId as number, body.geometryType as GeometryType);
+          const response = await mockSyncRequestSender.getLatestSync(body.layerId as number, body.geometryType as GeometryType);
 
-        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
-        expect(response.body).toHaveProperty('message', 'failed');
-      });
+          expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+          expect(response.body).toHaveProperty('message', 'failed');
+        },
+        LONG_RUNNING_TEST_TIMEOUT
+      );
+    });
+
+    describe('POST /file/closure', function () {
+      it(
+        'should return 500 if the queue throws an error',
+        async function () {
+          const pushMock = jest.fn().mockRejectedValue(new Error('failed'));
+          const createQueueMock = jest.fn().mockImplementation((name: string) => {
+            return {
+              activeQueueName: `${name}-mock`,
+              push: pushMock,
+              shutdown: jest.fn(),
+            };
+          });
+
+          const mockRegisterOptions = getBaseRegisterOptions();
+          mockRegisterOptions.override.push({
+            token: QUEUE_PROVIDER_FACTORY,
+            provider: {
+              useValue: {
+                createQueue: createQueueMock,
+              },
+            },
+          });
+
+          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const mockSyncRequestSender = new SyncRequestSender(mockApp);
+
+          const response = await mockSyncRequestSender.postSyncsClosure([faker.datatype.uuid()]);
+
+          expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+          expect(response.body).toHaveProperty('message', 'failed');
+        },
+        LONG_RUNNING_TEST_TIMEOUT
+      );
+
+      it(
+        'should fail job processing due to query error',
+        async function () {
+          const syncRepository = depContainer.resolve<SyncRepository>(SYNC_CUSTOM_REPOSITORY_SYMBOL);
+
+          const mockError = new QueryFailedError('select *', [], new Error('failed'));
+          const attemptSyncClosureMock = jest.fn().mockRejectedValue(mockError);
+          const mockRegisterOptions = getBaseRegisterOptions();
+          mockRegisterOptions.override.push({
+            token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
+            provider: {
+              useValue: { attemptSyncClosure: attemptSyncClosureMock, transactionify: syncRepository.transactionify.bind(syncRepository) },
+            },
+          });
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockSyncRequestSender = new SyncRequestSender(mockApp);
+          const mockSyncWorker = mockContainer.resolve<Worker>(SYNCS_QUEUE_WORKER_FACTORY);
+          const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
+          const delayJobSpy = jest.spyOn(queueHelpers, 'delayJob').mockImplementation(async () => Promise.resolve());
+
+          const syncId = faker.datatype.uuid();
+
+          expect(await mockSyncRequestSender.postSyncsClosure([syncId])).toHaveStatus(StatusCodes.CREATED);
+
+          const syncClosure = await waitForJobToBeResolved(mockSyncWorker, syncId);
+
+          expect(syncClosure?.err).toMatchObject(mockError);
+          expect(syncClosure?.data[TRANSACTIONAL_FAILURE_COUNT_KEY]).toBeUndefined();
+          expect(updateJobCounterSpy).not.toHaveBeenCalled();
+          expect(delayJobSpy).not.toHaveBeenCalled();
+
+          updateJobCounterSpy.mockRestore();
+          delayJobSpy.mockRestore();
+        },
+        LONG_RUNNING_TEST_TIMEOUT
+      );
+
+      it(
+        'should fail job processing due to transaction error and increase counter with each time',
+        async function () {
+          let eventCounter = 0;
+          const syncRepository = depContainer.resolve<SyncRepository>(SYNC_CUSTOM_REPOSITORY_SYMBOL);
+
+          const transactionError = new QueryFailedError('select *', [], new Error());
+          (transactionError as QueryFailedErrorWithCode).code = TransactionFailure.SERIALIZATION_FAILURE;
+          const attemptSyncClosureMock = jest.fn().mockRejectedValue(transactionError);
+
+          const mockRegisterOptions = getBaseRegisterOptions();
+          mockRegisterOptions.override.push({
+            token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
+            provider: {
+              useValue: { attemptSyncClosure: attemptSyncClosureMock, transactionify: syncRepository.transactionify.bind(syncRepository) },
+            },
+          });
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockSyncRequestSender = new SyncRequestSender(mockApp);
+          const mockSyncWorker = mockContainer.resolve<Worker>(SYNCS_QUEUE_WORKER_FACTORY);
+          mockSyncWorker.on('error', () => eventCounter++);
+          mockSyncWorker.on('failed', () => eventCounter++);
+          const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
+          const delayJobSpy = jest.spyOn(queueHelpers, 'delayJob').mockImplementation(async () => Promise.resolve());
+
+          const syncId = faker.datatype.uuid();
+
+          expect(await mockSyncRequestSender.postSyncsClosure([syncId])).toHaveStatus(StatusCodes.CREATED);
+
+          // attempt 1
+          const syncClosure1 = await waitForJobToBeResolved(mockSyncWorker, syncId);
+
+          expect(syncClosure1?.err).toMatchObject(new DelayedError());
+          expect(syncClosure1?.data[TRANSACTIONAL_FAILURE_COUNT_KEY]).toBe(1);
+          expect(updateJobCounterSpy).toHaveBeenCalledTimes(1);
+          expect(delayJobSpy).toHaveBeenCalledTimes(1);
+
+          // attempt 2
+          const syncClosure2 = await waitForJobToBeResolved(mockSyncWorker, syncId);
+
+          expect(syncClosure2?.err).toMatchObject(new DelayedError());
+          expect(syncClosure2?.data[TRANSACTIONAL_FAILURE_COUNT_KEY]).toBe(2);
+          expect(updateJobCounterSpy).toHaveBeenCalledTimes(2);
+          expect(delayJobSpy).toHaveBeenCalledTimes(2);
+
+          // last fake attempt to fail the job
+          await waitForJobToBeResolved(mockSyncWorker, syncId, (job) => {
+            job.attemptsMade = 999;
+            throw new Error();
+          });
+
+          expect(mockSyncWorker.listenerCount('error')).toBe(2);
+          expect(mockSyncWorker.listenerCount('failed')).toBe(2);
+          expect(eventCounter).toBe(4); // 3 errors and 1 failure
+
+          updateJobCounterSpy.mockRestore();
+          delayJobSpy.mockRestore();
+        },
+        LONG_RUNNING_TEST_TIMEOUT
+      );
     });
 
     describe('POST /sync/:syncId/rerun', function () {
-      it('should return 500 if the db throws an error', async function () {
-        const sync = createStringifiedFakeSync({ status: Status.FAILED });
+      it(
+        'should return 500 if the db throws an error',
+        async function () {
+          const sync = createStringifiedFakeSync({ status: Status.FAILED });
 
-        const findOneSyncMock = jest.fn();
-        const findOneSyncWithLastRerunMock = jest.fn().mockResolvedValue({ ...sync, runNumber: 0, reruns: [] });
-        const createRerunMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
+          const findOneSyncMock = jest.fn();
+          const findOneSyncWithLastRerunMock = jest.fn().mockResolvedValue({ ...sync, runNumber: 0, reruns: [] });
+          const createRerunMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
 
-        const mockRegisterOptions = getBaseRegisterOptions();
-        mockRegisterOptions.override.push({
-          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
-          provider: {
-            useValue: {
-              findOneSync: findOneSyncMock,
-              findOneSyncWithLastRerun: findOneSyncWithLastRerunMock,
-              createRerun: createRerunMock,
+          const mockRegisterOptions = getBaseRegisterOptions();
+          mockRegisterOptions.override.push({
+            token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
+            provider: {
+              useValue: {
+                findOneSync: findOneSyncMock,
+                findOneSyncWithLastRerun: findOneSyncWithLastRerunMock,
+                createRerun: createRerunMock,
+              },
             },
-          },
-        });
-        const { app: mockApp } = await getApp(mockRegisterOptions);
-        mockSyncRequestSender = new SyncRequestSender(mockApp);
-        const rerunCreateBody = createStringifiedFakeRerunCreateBody();
+          });
+          const { app: mockApp } = await getApp(mockRegisterOptions);
+          mockSyncRequestSender = new SyncRequestSender(mockApp);
+          const rerunCreateBody = createStringifiedFakeRerunCreateBody();
 
-        const response = await mockSyncRequestSender.rerunSync(sync.id as string, rerunCreateBody);
+          const response = await mockSyncRequestSender.rerunSync(sync.id as string, rerunCreateBody);
 
-        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
-        expect(response.body).toHaveProperty('message', 'failed');
-      });
-    });
-
-    describe('PATCH /sync/:syncId/file/:fileId', function () {
-      it('should return 500 if the db throws an error', async function () {
-        const updateSyncMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
-        const findOneSyncMock = jest.fn().mockResolvedValue(true);
-        const findOneFileMock = jest.fn().mockResolvedValue(true);
-
-        const mockRegisterOptions = getBaseRegisterOptions();
-        mockRegisterOptions.override.push({
-          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
-          provider: {
-            useValue: {
-              findOneSync: findOneSyncMock,
-            },
-          },
-        });
-
-        mockRegisterOptions.override.push({
-          token: FILE_CUSTOM_REPOSITORY_SYMBOL,
-          provider: {
-            useValue: {
-              findOneFile: findOneFileMock,
-              updateFile: updateSyncMock,
-            },
-          },
-        });
-        const { app: mockApp } = await getApp(mockRegisterOptions);
-        const mockFileRequestSender = new FileRequestSender(mockApp);
-        const { id } = createStringifiedFakeSync();
-        const { fileId, totalEntities } = createStringifiedFakeFile();
-
-        const response = await mockFileRequestSender.patchFile(id as string, fileId as string, { totalEntities });
-
-        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
-        expect(response.body).toHaveProperty('message', 'failed');
-      });
-
-      it('should return 500 if transaction failure occurs on multiple retries', async function () {
-        const tryClosingFileMock = jest.fn().mockRejectedValue(new TransactionFailureError('transaction failure'));
-        const findOneSyncMock = jest.fn().mockResolvedValue(true);
-        const findOneFileMock = jest.fn().mockResolvedValue(true);
-        const updateFileMock = jest.fn();
-
-        const mockRegisterOptions = getBaseRegisterOptions();
-        mockRegisterOptions.override.push({
-          token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
-          provider: {
-            useValue: {
-              findOneSync: findOneSyncMock,
-            },
-          },
-        });
-
-        mockRegisterOptions.override.push({
-          token: FILE_CUSTOM_REPOSITORY_SYMBOL,
-          provider: {
-            useValue: {
-              findOneFile: findOneFileMock,
-              updateFile: updateFileMock,
-              tryClosingFile: tryClosingFileMock,
-            },
-          },
-        });
-
-        const retries = faker.datatype.number({ min: 1, max: 10 });
-        const appConfig: IApplication = { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL };
-        mockRegisterOptions.override.push({ token: SERVICES.APPLICATION, provider: { useValue: appConfig } });
-        const { app: mockApp } = await getApp(mockRegisterOptions);
-        const mockFileRequestSender = new FileRequestSender(mockApp);
-
-        const body = createStringifiedFakeChangeset();
-        expect(await changesetRequestSender.postChangeset(body)).toHaveStatus(StatusCodes.CREATED);
-
-        const { id } = createStringifiedFakeSync();
-        const { fileId, totalEntities } = createStringifiedFakeFile();
-
-        const response = await mockFileRequestSender.patchFile(id as string, fileId as string, { totalEntities });
-
-        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
-        expect(tryClosingFileMock).toHaveBeenCalledTimes(retries + 1);
-        const message = (response.body as { message: string }).message;
-        expect(message).toContain(`exceeded the number of retries (${retries}).`);
-      });
+          expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+          expect(response.body).toHaveProperty('message', 'failed');
+        },
+        LONG_RUNNING_TEST_TIMEOUT
+      );
     });
   });
 });

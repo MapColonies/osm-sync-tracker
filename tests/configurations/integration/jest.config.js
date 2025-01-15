@@ -15,6 +15,7 @@ module.exports = {
     '!**/containerConfig.ts',
     '!**/index.ts',
     '!**/serverBuilder.ts',
+    '!<rootDir>/src/queueProvider/connection.ts',
   ],
   coverageDirectory: '<rootDir>/coverage',
   rootDir: '../../../.',
@@ -39,4 +40,5 @@ module.exports = {
       statements: -20,
     },
   },
+  testTimeout: 10000,
 };

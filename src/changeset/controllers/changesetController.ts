@@ -6,14 +6,12 @@ import mime from 'mime-types';
 import { SERVICES } from '../../common/constants';
 import { Changeset, UpdateChangeset } from '../models/changeset';
 import { ChangesetManager } from '../models/changesetManager';
-import { ExceededNumberOfRetriesError, HttpError } from '../../common/errors';
+import { HttpError } from '../../common/errors';
 import { ChangesetAlreadyExistsError, ChangesetNotFoundError } from '../models/errors';
 
 type PostChangesetHandler = RequestHandler<undefined, string, Changeset>;
 type PatchChangesetHandler = RequestHandler<{ changesetId: string }, string, UpdateChangeset>;
-type PutChangesetHandler = RequestHandler<{ changesetId: string }, string, undefined>;
 type PatchChangesetEntitiesHandler = RequestHandler<{ changesetId: string }, string, undefined>;
-type PutChangesetsHandler = RequestHandler<undefined, string[], string[]>;
 type PostChangesetsClosureHandler = RequestHandler<undefined, string, string[]>;
 
 const txtplain = mime.contentType('text/plain') as string;
@@ -46,22 +44,6 @@ export class ChangesetController {
     }
   };
 
-  public putChangeset: PutChangesetHandler = async (req, res, next) => {
-    const { changesetId } = req.params;
-    try {
-      await this.manager.closeChangeset(changesetId);
-      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.OK));
-    } catch (error) {
-      if (error instanceof ChangesetNotFoundError) {
-        (error as HttpError).status = StatusCodes.NOT_FOUND;
-      }
-      if (error instanceof ExceededNumberOfRetriesError) {
-        this.logger.warn({ err: error, msg: 'could not close changeset, number of retries exceeded', changesetId });
-      }
-      return next(error);
-    }
-  };
-
   public patchChangesetEntities: PatchChangesetEntitiesHandler = async (req, res, next) => {
     try {
       await this.manager.updateChangesetEntities(req.params.changesetId);
@@ -74,24 +56,11 @@ export class ChangesetController {
     }
   };
 
-  public putChangesets: PutChangesetsHandler = async (req, res, next) => {
-    const changesetIds = req.body;
-    try {
-      const completedSyncIds = await this.manager.closeChangesets(req.body);
-      return res.status(httpStatus.OK).json(completedSyncIds);
-    } catch (error) {
-      if (error instanceof ExceededNumberOfRetriesError) {
-        this.logger.warn({ err: error, msg: 'could not close changesets, number of retries exceeded', count: changesetIds.length, changesetIds });
-      }
-      return next(error);
-    }
-  };
-
   public postChangesetsClosure: PostChangesetsClosureHandler = async (req, res, next) => {
     const changesetIds = req.body;
     try {
       await this.manager.createClosures(changesetIds);
-      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
+      return res.status(httpStatus.CREATED).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
       return next(error);
     }

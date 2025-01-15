@@ -20,7 +20,7 @@ export const convertObjectToCased = <T extends Record<string, unknown>>(obj: T, 
   return casedObject as Cased<T>;
 };
 
-export const hashList = (input: string[]): string => {
+export const hashBatch = (input: string[]): string => {
   const sortedJoinedInput = input.sort((a, b) => a.localeCompare(b)).join('');
 
   return createHash('sha256').update(sortedJoinedInput).digest('hex');

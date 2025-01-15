@@ -82,7 +82,7 @@ export class SyncController {
     const syncIds = req.body;
     try {
       await this.manager.createClosures(syncIds);
-      return res.status(httpStatus.OK).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
+      return res.status(httpStatus.CREATED).type(txtplain).send(httpStatus.getStatusText(httpStatus.CREATED));
     } catch (error) {
       return next(error);
     }
