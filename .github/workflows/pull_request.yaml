@@ -94,7 +94,7 @@ jobs:
             sudo apt-get install -y postgresql-client
 
         - name: Create schema
-          run: psql -h postgres -d postgres -U postgres -c 'CREATE SCHEMA osm_sync_tracker;'
+          run: psql -h localhost -d postgres -U postgres -c 'CREATE SCHEMA osm_sync_tracker;'
           env:
             PGPASSWORD: 1234
 
