@@ -1,6 +1,6 @@
 {
   "db": {
-    "host": "postgres",
+    "host": "localhost",
     "schema": "osm_sync_tracker",
     "username": "postgres",
     "password": "1234",
