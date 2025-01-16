@@ -54,6 +54,7 @@ export const clearQueues = async (connection: IORedis): Promise<void> => {
       connection,
     });
     await queue.obliterate();
+    await queue.close();
   });
 
   await Promise.all(promises);

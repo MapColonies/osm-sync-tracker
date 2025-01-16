@@ -1,11 +1,13 @@
 import { faker } from '@faker-js/faker';
 import { DependencyContainer } from 'tsyringe';
 import httpStatus, { StatusCodes } from 'http-status-codes';
-import { DataSource, QueryFailedError } from 'typeorm';
+import { QueryFailedError } from 'typeorm';
+import { CleanupRegistry } from '@map-colonies/cleanup-registry';
 import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from '../sync/helpers/generators';
 import { StringifiedSync } from '../sync/types';
 import { SyncRequestSender } from '../sync/helpers/requestSender';
 import { FileRequestSender } from '../file/helpers/requestSender';
+import { SERVICES } from '../../../src/common/constants';
 import { EntityRequestSender } from '../entity/helpers/requestSender';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { StringifiedFile } from '../file/types';
@@ -15,7 +17,6 @@ import { Entity } from '../../../src/entity/models/entity';
 import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions, LONG_RUNNING_TEST_TIMEOUT, RERUN_TEST_TIMEOUT } from '../helpers';
 import { EntityBulkCreationResult } from '../../../src/entity/models/entityManager';
 import { ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/entity/DAL/entityRepository';
-import { DATA_SOURCE_PROVIDER } from '../../../src/common/db';
 import { createStringifiedFakeEntity } from './helpers/generators';
 
 describe('entity', function () {
@@ -28,6 +29,7 @@ describe('entity', function () {
   let file: StringifiedFile;
 
   let depContainer: DependencyContainer;
+  let mockDepContainer: DependencyContainer;
 
   beforeAll(async function () {
     const { app, container } = await getApp(getBaseRegisterOptions());
@@ -46,8 +48,8 @@ describe('entity', function () {
   });
 
   afterAll(async function () {
-    const connection = depContainer.resolve<DataSource>(DATA_SOURCE_PROVIDER);
-    await connection.destroy();
+    const registry = depContainer.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
+    await registry.trigger();
     depContainer.reset();
   });
 
@@ -383,6 +385,11 @@ describe('entity', function () {
   });
 
   describe('Sad Path', function () {
+    afterEach(async () => {
+      const registry = mockDepContainer.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
+      await registry.trigger();
+    });
+
     describe('POST /file/:fileId/entity', function () {
       it(
         'should return 500 if the db throws an error',
@@ -396,7 +403,8 @@ describe('entity', function () {
             token: ENTITY_CUSTOM_REPOSITORY_SYMBOL,
             provider: { useValue: { createEntity: createEntityMock, findOneEntity: findOneEntityMock, findManyEntites: findManyEntitiesMock } },
           });
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockEntityRequestSender = new EntityRequestSender(mockApp);
 
           const response = await mockEntityRequestSender.postEntity(file.fileId as string, createStringifiedFakeEntity());
@@ -423,7 +431,8 @@ describe('entity', function () {
               useValue: { createEntities: createEntitiesMock, findOneEntity: findOneEntityMock, findManyEntitiesByIds: findManyEntitiesByIdsMock },
             },
           });
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockEntityRequestSender = new EntityRequestSender(mockApp);
           const body = createStringifiedFakeEntity();
 
@@ -448,7 +457,8 @@ describe('entity', function () {
             token: ENTITY_CUSTOM_REPOSITORY_SYMBOL,
             provider: { useValue: { updateEntity: updateEntitiesMock, findOneEntity: findOneEntityMock } },
           });
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockEntityRequestSender = new EntityRequestSender(mockApp);
 
           const { entityId, ...updateBody } = createStringifiedFakeEntity();
@@ -474,7 +484,8 @@ describe('entity', function () {
             token: ENTITY_CUSTOM_REPOSITORY_SYMBOL,
             provider: { useValue: { updateEntities: updateEntitiesMock, countEntitiesByIds: countEntitiesByIdsMock } },
           });
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockEntityRequestSender = new EntityRequestSender(mockApp);
           const entity = createStringifiedFakeEntity({ fileId: file.fileId });
 

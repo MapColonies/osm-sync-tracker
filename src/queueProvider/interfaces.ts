@@ -9,7 +9,7 @@ export interface Identifiable {
 export interface JobQueueProvider<T> {
   activeQueueName: string;
   push: (jobs: T[]) => Promise<void>;
-  shutdown: () => Promise<void>;
+  close: () => Promise<void>;
 }
 
 export interface WorkerWithFn {

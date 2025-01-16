@@ -34,7 +34,7 @@
             "type": "fixed",
             "delay": 60000
           },
-          "deduplicationDelay": 1000
+          "deduplicationDelay": 100
         },
         "workerOptions": {
           "concurrency": 1,
@@ -45,7 +45,7 @@
             "age": 2419200
           },
           "transactionIsolationLevel": "SERIALIZABLE",
-          "transactionFailureDelay": 1000
+          "transactionFailureDelay": 100
         }
       },
       "files": {
@@ -54,12 +54,12 @@
         },
         "jobOptions": {
           "attempts": 10,
-          "delay": 500,
+          "delay": 100,
           "backoff": {
             "type": "fixed",
             "delay": 60000
           },
-          "deduplicationDelay": 1000
+          "deduplicationDelay": 100
         },
         "workerOptions": {
           "concurrency": 1,
@@ -70,7 +70,7 @@
             "age": 2419200
           },
           "transactionIsolationLevel": "SERIALIZABLE",
-          "transactionFailureDelay": 1000
+          "transactionFailureDelay": 100
         }
       },
       "syncs": {
@@ -79,12 +79,12 @@
         },
         "jobOptions": {
           "attempts": 10,
-          "delay": 500,
+          "delay": 100,
           "backoff": {
             "type": "fixed",
             "delay": 60000
           },
-          "deduplicationDelay": 1000
+          "deduplicationDelay": 100
         },
         "workerOptions": {
           "concurrency": 1,
@@ -95,7 +95,7 @@
             "age": 2419200
           },
           "transactionIsolationLevel": "SERIALIZABLE",
-          "transactionFailureDelay": 1000
+          "transactionFailureDelay": 100
         }
       }
     }

@@ -1,12 +1,14 @@
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { DependencyContainer } from 'tsyringe';
 import { faker } from '@faker-js/faker';
-import { DataSource, QueryFailedError } from 'typeorm';
+import { QueryFailedError } from 'typeorm';
 import { DelayedError, Worker } from 'bullmq';
+import { CleanupRegistry } from '@map-colonies/cleanup-registry';
 import { getApp } from '../../../src/app';
 import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from '../sync/helpers/generators';
 import { StringifiedSync } from '../sync/types';
 import { FileRequestSender } from '../file/helpers/requestSender';
+import { SERVICES } from '../../../src/common/constants';
 import { SyncRequestSender } from '../sync/helpers/requestSender';
 import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions, LONG_RUNNING_TEST_TIMEOUT, RERUN_TEST_TIMEOUT, waitForJobToBeResolved } from '../helpers';
 import { Status } from '../../../src/common/enums';
@@ -19,7 +21,6 @@ import { QueryFailedErrorWithCode, TransactionFailure } from '../../../src/commo
 import * as queueHelpers from '../../../src/queueProvider/helpers';
 import { createStringifiedFakeEntity } from '../entity/helpers/generators';
 import { EntityRequestSender } from '../entity/helpers/requestSender';
-import { DATA_SOURCE_PROVIDER } from '../../../src/common/db';
 import { createStringifiedFakeFile } from './helpers/generators';
 
 describe('file', function () {
@@ -31,6 +32,7 @@ describe('file', function () {
   let sync: StringifiedSync;
 
   let depContainer: DependencyContainer;
+  let mockDepContainer: DependencyContainer;
 
   beforeAll(async function () {
     const { app, container } = await getApp(getBaseRegisterOptions());
@@ -48,8 +50,8 @@ describe('file', function () {
   });
 
   afterAll(async function () {
-    const connection = depContainer.resolve<DataSource>(DATA_SOURCE_PROVIDER);
-    await connection.destroy();
+    const registry = depContainer.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
+    await registry.trigger();
     depContainer.reset();
   });
 
@@ -322,6 +324,11 @@ describe('file', function () {
   });
 
   describe('Sad Path', function () {
+    afterEach(async () => {
+      const registry = mockDepContainer.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
+      await registry.trigger();
+    });
+
     describe('POST /sync/:syncId/file', function () {
       it(
         'should return 500 if the db throws an error',
@@ -334,7 +341,8 @@ describe('file', function () {
             token: FILE_CUSTOM_REPOSITORY_SYMBOL,
             provider: { useValue: { createFile: createFileMock, findOneFile: findOneFileMock } },
           });
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockFileRequestSender = new FileRequestSender(mockApp);
 
           const response = await mockFileRequestSender.postFile(sync.id as string, createStringifiedFakeFile());
@@ -358,7 +366,8 @@ describe('file', function () {
             token: FILE_CUSTOM_REPOSITORY_SYMBOL,
             provider: { useValue: { createFiles: createFilesMock, findManyFilesByIds: findManyFilesByIdsMock } },
           });
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockFileRequestSender = new FileRequestSender(mockApp);
 
           const body = createStringifiedFakeFile();
@@ -399,7 +408,8 @@ describe('file', function () {
               },
             },
           });
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           const mockFileRequestSender = new FileRequestSender(mockApp);
           const { fileId, totalEntities } = createStringifiedFakeFile();
 
@@ -421,7 +431,9 @@ describe('file', function () {
             return {
               activeQueueName: `${name}-mock`,
               push: pushMock,
-              shutdown: jest.fn(),
+              close: async () => {
+                await Promise.resolve();
+              },
             };
           });
 
@@ -435,7 +447,8 @@ describe('file', function () {
             },
           });
 
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           const mockFileRequestSender = new FileRequestSender(mockApp);
 
           const response = await mockFileRequestSender.postFilesClosure([faker.datatype.uuid()]);
@@ -461,6 +474,7 @@ describe('file', function () {
             },
           });
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockFileRequestSender = new FileRequestSender(mockApp);
           const mockFileWorker = mockContainer.resolve<Worker>(FILES_QUEUE_WORKER_FACTORY);
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
@@ -501,6 +515,7 @@ describe('file', function () {
             },
           });
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockFileRequestSender = new FileRequestSender(mockApp);
           const mockFileWorker = mockContainer.resolve<Worker>(FILES_QUEUE_WORKER_FACTORY);
           mockFileWorker.on('error', () => eventCounter++);

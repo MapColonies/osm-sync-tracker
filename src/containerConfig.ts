@@ -104,7 +104,7 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
           for (const queueName of [CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, SYNCS_QUEUE_NAME]) {
             const queue = queueFactory.createQueue(queueName);
             deps.register(queueName, { useValue: queue });
-            cleanupRegistry.register({ id: queueName, func: queue.shutdown.bind(queue) });
+            cleanupRegistry.register({ id: queueName, func: queue.close.bind(queue) });
           }
         },
       },

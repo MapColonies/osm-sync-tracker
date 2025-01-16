@@ -12,10 +12,7 @@ const isTestEnv = (): boolean => {
   return process.env.JEST_WORKER_ID !== undefined;
 };
 
-export const createConnectionOptionsFactory: FactoryFunction<RedisOptions> = (container) => {
-  const config = container.resolve<IConfig>(SERVICES.CONFIG);
-  const redisConfig = config.get<RedisConfig>('redis');
-
+export const constructConnectionOptions = (redisConfig: RedisConfig): RedisOptions => {
   const { host, port, enableSslAuth, sslPaths, ...clientOptions } = redisConfig;
 
   const connectionOptions: RedisOptions = {
@@ -43,6 +40,11 @@ export const createConnectionOptionsFactory: FactoryFunction<RedisOptions> = (co
   }
 
   return connectionOptions;
+};
+export const createConnectionOptionsFactory: FactoryFunction<RedisOptions> = (container) => {
+  const config = container.resolve<IConfig>(SERVICES.CONFIG);
+  const redisConfig = config.get<RedisConfig>('redis');
+  return constructConnectionOptions(redisConfig);
 };
 
 export const createReusableRedisConnectionFactory: FactoryFunction<IORedis> = (container) => {

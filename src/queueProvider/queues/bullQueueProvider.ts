@@ -37,8 +37,9 @@ export class BullQueueProvider<T extends Identifiable> implements JobQueueProvid
     return this.queueName;
   }
 
-  public async shutdown(): Promise<void> {
+  public async close(): Promise<void> {
     await this.queue.close();
+    await this.queueEvents?.close();
   }
 
   public async push(jobs: T[]): Promise<void> {

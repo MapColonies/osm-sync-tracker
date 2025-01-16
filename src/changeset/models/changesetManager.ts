@@ -41,7 +41,6 @@ export class ChangesetManager {
     await this.changesetRepository.updateChangeset(changesetId, changesetUpdate);
   }
 
-  // TODO: should get the edit as variable
   public async updateChangesetEntities(changesetId: string): Promise<void> {
     this.logger.info({ msg: 'updating changeset entities as completed', changesetId });
 

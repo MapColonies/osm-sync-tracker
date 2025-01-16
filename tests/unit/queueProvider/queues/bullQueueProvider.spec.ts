@@ -172,9 +172,9 @@ describe('BullQueueProvider', () => {
     });
   });
 
-  describe('#shutdown', () => {
+  describe('#close', () => {
     it('should stop the queue provider', async () => {
-      await expect(provider.shutdown()).resolves.not.toThrow();
+      await expect(provider.close()).resolves.not.toThrow();
     });
   });
 });

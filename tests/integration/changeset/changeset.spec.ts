@@ -1,9 +1,9 @@
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import { faker } from '@faker-js/faker';
 import { DependencyContainer } from 'tsyringe';
-import { DataSource, QueryFailedError } from 'typeorm';
-import IORedis from 'ioredis';
+import { QueryFailedError } from 'typeorm';
 import { DelayedError, Worker } from 'bullmq';
+import { CleanupRegistry } from '@map-colonies/cleanup-registry';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { createStringifiedFakeSync } from '../sync/helpers/generators';
 import { createStringifiedFakeEntity } from '../entity/helpers/generators';
@@ -15,7 +15,7 @@ import { FileRequestSender } from '../file/helpers/requestSender';
 import { SyncRequestSender } from '../sync/helpers/requestSender';
 import { SERVICES } from '../../../src/common/constants';
 import { CHANGESET_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/changeset/DAL/changesetRepository';
-import { BEFORE_ALL_TIMEOUT, LONG_RUNNING_TEST_TIMEOUT, clearQueues, getBaseRegisterOptions, waitForJobToBeResolved } from '../helpers';
+import { BEFORE_ALL_TIMEOUT, LONG_RUNNING_TEST_TIMEOUT, getBaseRegisterOptions, waitForJobToBeResolved } from '../helpers';
 import { QUEUE_PROVIDER_FACTORY } from '../../../src/queueProvider/constants';
 import { CHANGESETS_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/changesetsQueueWorker';
 import { FILES_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/filesQueueWorker';
@@ -25,7 +25,6 @@ import * as queueHelpers from '../../../src/queueProvider/helpers';
 import { TRANSACTIONAL_FAILURE_COUNT_KEY, DEDUPLICATION_COUNT_KEY } from '../../../src/queueProvider/helpers';
 import { ENTITY_CUSTOM_REPOSITORY_SYMBOL, EntityRepository } from '../../../src/entity/DAL/entityRepository';
 import { QueryFailedErrorWithCode, TransactionFailure } from '../../../src/common/db/transactions';
-import { DATA_SOURCE_PROVIDER } from '../../../src/common/db';
 import { createStringifiedFakeChangeset } from './helpers/generators';
 import { ChangesetRequestSender } from './helpers/requestSender';
 
@@ -35,10 +34,13 @@ describe('changeset', function () {
   let fileRequestSender: FileRequestSender;
   let syncRequestSender: SyncRequestSender;
   let mockChangesetRequestSender: ChangesetRequestSender;
+
   let changesetWorker: Worker;
   let fileWorker: Worker;
   let syncWorker: Worker;
+
   let depContainer: DependencyContainer;
+  let mockDepContainer: DependencyContainer;
 
   beforeAll(async () => {
     const { app, container } = await getApp(getBaseRegisterOptions());
@@ -58,10 +60,8 @@ describe('changeset', function () {
   });
 
   afterAll(async function () {
-    const redis = depContainer.resolve<IORedis>(SERVICES.REDIS);
-    await clearQueues(redis);
-    const connection = depContainer.resolve<DataSource>(DATA_SOURCE_PROVIDER);
-    await connection.destroy();
+    const registry = depContainer.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
+    await registry.trigger();
     depContainer.reset();
   });
 
@@ -222,6 +222,11 @@ describe('changeset', function () {
   });
 
   describe('Sad Path', function () {
+    afterEach(async () => {
+      const registry = mockDepContainer.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
+      await registry.trigger();
+    });
+
     describe('POST /changeset', function () {
       it(
         'should return 500 if the db throws an error',
@@ -234,7 +239,8 @@ describe('changeset', function () {
             token: CHANGESET_CUSTOM_REPOSITORY_SYMBOL,
             provider: { useValue: { createChangeset: createChangesetMock, findOneChangeset: findOneChangesetMock } },
           });
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
           const response = await mockChangesetRequestSender.postChangeset(createStringifiedFakeChangeset());
@@ -258,7 +264,8 @@ describe('changeset', function () {
             token: CHANGESET_CUSTOM_REPOSITORY_SYMBOL,
             provider: { useValue: { updateChangeset: updateChangesetMock, findOneChangeset: findOneChangesetMock } },
           });
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
           const body = createStringifiedFakeChangeset();
 
@@ -288,7 +295,8 @@ describe('changeset', function () {
               useValue: { updateEntitiesOfChangesetAsCompleted: updateEntitiesOfChangesetAsCompletedMock, findOneChangeset: findOneChangesetMock },
             },
           });
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
           const changeset = createStringifiedFakeChangeset();
 
@@ -304,7 +312,7 @@ describe('changeset', function () {
       );
     });
 
-    describe('POST /file/closure', function () {
+    describe('POST /changeset/closure', function () {
       it(
         'should return 500 if the queue throws an error',
         async function () {
@@ -313,7 +321,9 @@ describe('changeset', function () {
             return {
               activeQueueName: `${name}-mock`,
               push: pushMock,
-              shutdown: jest.fn(),
+              close: async () => {
+                await Promise.resolve();
+              },
             };
           });
 
@@ -327,7 +337,8 @@ describe('changeset', function () {
             },
           });
 
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           const mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
           const response = await mockChangesetRequestSender.postChangesetClosure([faker.datatype.uuid()]);
@@ -353,6 +364,7 @@ describe('changeset', function () {
             },
           });
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
           const mockChangesetWorker = mockContainer.resolve<Worker>(CHANGESETS_QUEUE_WORKER_FACTORY);
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
@@ -393,6 +405,7 @@ describe('changeset', function () {
             },
           });
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
           const mockChangesetWorker = mockContainer.resolve<Worker>(CHANGESETS_QUEUE_WORKER_FACTORY);
           mockChangesetWorker.on('error', () => eventCounter++);

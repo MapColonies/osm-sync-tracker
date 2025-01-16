@@ -3,17 +3,10 @@ import { DependencyContainer } from 'tsyringe';
 import { faker } from '@faker-js/faker';
 import { DataSource, In, QueryFailedError, Repository } from 'typeorm';
 import { DelayedError, Worker } from 'bullmq';
-import IORedis from 'ioredis';
+import { CleanupRegistry } from '@map-colonies/cleanup-registry';
 import { EntityRepository, ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/entity/DAL/entityRepository';
 import { getApp } from '../../../src/app';
-import {
-  BEFORE_ALL_TIMEOUT,
-  RERUN_TEST_TIMEOUT,
-  getBaseRegisterOptions,
-  LONG_RUNNING_TEST_TIMEOUT,
-  waitForJobToBeResolved,
-  clearQueues,
-} from '../helpers';
+import { BEFORE_ALL_TIMEOUT, RERUN_TEST_TIMEOUT, getBaseRegisterOptions, LONG_RUNNING_TEST_TIMEOUT, waitForJobToBeResolved } from '../helpers';
 import * as queueHelpers from '../../../src/queueProvider/helpers';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../../../src/sync/DAL/syncRepository';
 import { EntityStatus, GeometryType, Status } from '../../../src/common/enums';
@@ -44,10 +37,13 @@ describe('sync', function () {
   let mockSyncRequestSender: SyncRequestSender;
   let entityRepository: EntityRepository;
   let entityHistoryRepository: Repository<EntityHistory>;
+
   let changesetWorker: Worker;
   let fileWorker: Worker;
   let syncWorker: Worker;
+
   let depContainer: DependencyContainer;
+  let mockDepContainer: DependencyContainer;
 
   beforeAll(async function () {
     const { app, container } = await getApp(getBaseRegisterOptions());
@@ -70,10 +66,8 @@ describe('sync', function () {
   });
 
   afterAll(async function () {
-    const redis = depContainer.resolve<IORedis>(SERVICES.REDIS);
-    await clearQueues(redis);
-    const connection = depContainer.resolve<DataSource>(DATA_SOURCE_PROVIDER);
-    await connection.destroy();
+    const registry = depContainer.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
+    await registry.trigger();
     depContainer.reset();
   });
 
@@ -1957,6 +1951,11 @@ describe('sync', function () {
   });
 
   describe('Sad Path', function () {
+    afterEach(async () => {
+      const registry = mockDepContainer.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
+      await registry.trigger();
+    });
+
     describe('POST /sync', function () {
       it(
         'should return 500 if the db throws an error',
@@ -1976,7 +1975,8 @@ describe('sync', function () {
               },
             },
           });
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockSyncRequestSender = new SyncRequestSender(mockApp);
 
           const response = await mockSyncRequestSender.postSync(createStringifiedFakeSync());
@@ -2005,7 +2005,8 @@ describe('sync', function () {
               },
             },
           });
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockSyncRequestSender = new SyncRequestSender(mockApp);
           const { id, isFull, ...body } = createStringifiedFakeSync();
 
@@ -2026,7 +2027,8 @@ describe('sync', function () {
 
           const mockRegisterOptions = getBaseRegisterOptions();
           mockRegisterOptions.override.push({ token: SYNC_CUSTOM_REPOSITORY_SYMBOL, provider: { useValue: { filterSyncs: filterSyncsMock } } });
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockSyncRequestSender = new SyncRequestSender(mockApp);
 
           const response = await mockSyncRequestSender.getSyncs({});
@@ -2046,7 +2048,8 @@ describe('sync', function () {
 
           const mockRegisterOptions = getBaseRegisterOptions();
           mockRegisterOptions.override.push({ token: SYNC_CUSTOM_REPOSITORY_SYMBOL, provider: { useValue: { getLatestSync: getLatestSyncMock } } });
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockSyncRequestSender = new SyncRequestSender(mockApp);
           const body = createStringifiedFakeSync();
 
@@ -2059,7 +2062,7 @@ describe('sync', function () {
       );
     });
 
-    describe('POST /file/closure', function () {
+    describe('POST /sync/closure', function () {
       it(
         'should return 500 if the queue throws an error',
         async function () {
@@ -2068,7 +2071,9 @@ describe('sync', function () {
             return {
               activeQueueName: `${name}-mock`,
               push: pushMock,
-              shutdown: jest.fn(),
+              close: async () => {
+                await Promise.resolve();
+              },
             };
           });
 
@@ -2082,7 +2087,8 @@ describe('sync', function () {
             },
           });
 
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           const mockSyncRequestSender = new SyncRequestSender(mockApp);
 
           const response = await mockSyncRequestSender.postSyncsClosure([faker.datatype.uuid()]);
@@ -2108,6 +2114,7 @@ describe('sync', function () {
             },
           });
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockSyncRequestSender = new SyncRequestSender(mockApp);
           const mockSyncWorker = mockContainer.resolve<Worker>(SYNCS_QUEUE_WORKER_FACTORY);
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
@@ -2148,6 +2155,7 @@ describe('sync', function () {
             },
           });
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockSyncRequestSender = new SyncRequestSender(mockApp);
           const mockSyncWorker = mockContainer.resolve<Worker>(SYNCS_QUEUE_WORKER_FACTORY);
           mockSyncWorker.on('error', () => eventCounter++);
@@ -2213,7 +2221,8 @@ describe('sync', function () {
               },
             },
           });
-          const { app: mockApp } = await getApp(mockRegisterOptions);
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
           mockSyncRequestSender = new SyncRequestSender(mockApp);
           const rerunCreateBody = createStringifiedFakeRerunCreateBody();
 
