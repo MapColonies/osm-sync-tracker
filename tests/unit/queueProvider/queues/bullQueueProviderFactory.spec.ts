@@ -3,6 +3,7 @@ import IORedis from 'ioredis';
 import { ConnectionOptions, Queue, QueueEvents } from 'bullmq';
 import { BullQueueProviderFactory } from '../../../../src/queueProvider/queues/bullQueueProviderFactory';
 import { BullQueueProvider } from '../../../../src/queueProvider/queues/bullQueueProvider';
+import { ConfigType } from '../../../../src/common/config';
 
 const queueMock = {};
 const queueEventsMock = {};
@@ -31,43 +32,41 @@ describe('BullQueueProviderFactory', () => {
       child: jest.fn().mockImplementation(() => childLogger),
     };
 
-    bullFactory = new BullQueueProviderFactory(loggerMock, { get: configGetMock, has: jest.fn() }, redis, connectionOptions);
+    bullFactory = new BullQueueProviderFactory(loggerMock, { get: configGetMock } as unknown as ConfigType, redis, connectionOptions);
   });
 
   describe('#createQueue', () => {
     it('creates a queue without errors for disabled deduplication delay', () => {
-      configGetMock.mockReturnValueOnce('queueOptions');
-      configGetMock.mockReturnValueOnce({ deduplicationDelay: undefined });
+      configGetMock.mockReturnValueOnce({ queueOptions: { a: 1 }, jobOptions: { deduplicationDelay: undefined } });
 
-      bullFactory.createQueue('name');
+      bullFactory.createQueue('files');
 
       expect(Queue).toHaveBeenCalledTimes(1);
       expect(QueueEvents).not.toHaveBeenCalled();
       expect(BullQueueProvider).toHaveBeenCalledTimes(1);
       expect(BullQueueProvider).toHaveBeenCalledWith({
         queue: queueMock,
-        queueName: 'name',
+        queueName: 'files',
         queueEvents: undefined,
-        queueOptions: 'queueOptions',
+        queueOptions: { a: 1 },
         jobOptions: { deduplicationDelay: undefined },
         logger: childLogger,
       });
     });
 
     it('creates a queue without errors for enabled deduplication delay', () => {
-      configGetMock.mockReturnValueOnce('queueOptions');
-      configGetMock.mockReturnValueOnce({ deduplicationDelay: 100 });
+      configGetMock.mockReturnValueOnce({ queueOptions: { b: 2 }, jobOptions: { deduplicationDelay: 100 } });
 
-      bullFactory.createQueue('name');
+      bullFactory.createQueue('files');
 
       expect(Queue).toHaveBeenCalledTimes(1);
       expect(QueueEvents).toHaveBeenCalledTimes(1);
       expect(BullQueueProvider).toHaveBeenCalledTimes(1);
       expect(BullQueueProvider).toHaveBeenCalledWith({
         queue: queueMock,
-        queueName: 'name',
+        queueName: 'files',
         queueEvents: queueEventsMock,
-        queueOptions: 'queueOptions',
+        queueOptions: { b: 2 },
         jobOptions: { deduplicationDelay: 100 },
         logger: childLogger,
       });

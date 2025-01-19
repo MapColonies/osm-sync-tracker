@@ -19,7 +19,10 @@ const txtplain = mime.contentType('text/plain') as string;
 
 @injectable()
 export class EntityController {
-  public constructor(@inject(SERVICES.LOGGER) private readonly logger: Logger, private readonly manager: EntityManager) {}
+  public constructor(
+    @inject(SERVICES.LOGGER) private readonly logger: Logger,
+    private readonly manager: EntityManager
+  ) {}
 
   public postEntity: PostEntityHandler = async (req, res, next) => {
     try {

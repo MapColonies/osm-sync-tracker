@@ -3,7 +3,7 @@ import { HealthCheck } from '@godaddy/terminus';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { DependencyContainer, FactoryFunction } from 'tsyringe';
 import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
-import { DbConfig, IConfig } from '../interfaces';
+import { DbConfig } from '../interfaces';
 import { promiseTimeout } from '../utils/promiseTimeout';
 import { SyncDb } from '../../sync/DAL/sync';
 import { Entity } from '../../entity/DAL/entity';
@@ -12,6 +12,7 @@ import { File } from '../../file/DAL/file';
 import { EntityHistory } from '../../entity/DAL/entityHistory';
 import { SERVICES } from '../constants';
 import { Status } from '../enums';
+import { ConfigType } from '../config';
 
 let connectionSingleton: DataSource | undefined;
 
@@ -59,8 +60,8 @@ export interface ReturningId {
 export type ReturningResult<T> = [T[], number];
 
 export const dataSourceFactory: FactoryFunction<DataSource> = (container: DependencyContainer): DataSource => {
-  const config = container.resolve<IConfig>(SERVICES.CONFIG);
-  const dbConfig = config.get<DbConfig>('db');
+  const config = container.resolve<ConfigType>(SERVICES.CONFIG);
+  const dbConfig = config.get('db') as DbConfig;
   const dataSourceOptions = createDataSourceOptions(dbConfig);
   return new DataSource(dataSourceOptions);
 };

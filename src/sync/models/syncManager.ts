@@ -1,8 +1,8 @@
 import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
+import { ConfigType } from '../../common/config';
 import { SERVICES } from '../../common/constants';
 import { GeometryType, Status } from '../../common/enums';
-import { IConfig } from '../../common/interfaces';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../DAL/syncRepository';
 import { SYNCS_QUEUE_NAME } from '../../queueProvider/constants';
 import { JobQueueProvider } from '../../queueProvider/interfaces';
@@ -17,10 +17,10 @@ export class SyncManager {
   public constructor(
     @inject(SYNC_CUSTOM_REPOSITORY_SYMBOL) private readonly syncRepository: SyncRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
-    @inject(SERVICES.CONFIG) private readonly config: IConfig,
+    @inject(SERVICES.CONFIG) private readonly config: ConfigType,
     @inject(SYNCS_QUEUE_NAME) private readonly syncsQueue: JobQueueProvider<ClosureJob>
   ) {
-    this.dbSchema = this.config.get('db.schema');
+    this.dbSchema = this.config.get('db.schema') as string;
   }
 
   public async getSyncs(filter: SyncsFilter): Promise<BaseSync[]> {

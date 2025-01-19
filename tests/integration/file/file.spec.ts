@@ -23,6 +23,14 @@ import { createStringifiedFakeEntity } from '../entity/helpers/generators';
 import { EntityRequestSender } from '../entity/helpers/requestSender';
 import { createStringifiedFakeFile } from './helpers/generators';
 
+jest.mock('../../../src/queueProvider/helpers', (): object => {
+  return {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    __esModule: true,
+    ...jest.requireActual('../../../src/queueProvider/helpers'),
+  };
+});
+
 describe('file', function () {
   let fileRequestSender: FileRequestSender;
   let syncRequestSender: SyncRequestSender;

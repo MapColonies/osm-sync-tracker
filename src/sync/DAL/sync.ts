@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryColumn, Relation } from 'typeorm';
 import { GeometryType, Status } from '../../common/enums';
 import { File } from '../../file/DAL/file';
 import { Sync as ISync } from '../models/sync';
@@ -32,7 +32,7 @@ export class SyncDb implements ISync {
   public totalFiles!: number | null;
 
   @OneToMany(() => File, (file) => file.sync)
-  public files!: File[];
+  public files!: Relation<File[]>;
 
   @Column({ name: 'geometry_type', type: 'enum', enum: GeometryType })
   public geometryType!: GeometryType;
@@ -42,10 +42,10 @@ export class SyncDb implements ISync {
 
   @ManyToOne(() => SyncDb, (sync) => sync.id, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'base_sync_id' })
-  public baseSync?: SyncDb;
+  public baseSync?: Relation<SyncDb>;
 
   @OneToMany(() => SyncDb, (sync) => sync.baseSync)
-  public reruns!: SyncDb[];
+  public reruns!: Relation<SyncDb[]>;
 
   @Column({ name: 'run_number', type: 'integer', default: 0 })
   public runNumber!: number;

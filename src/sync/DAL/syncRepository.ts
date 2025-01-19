@@ -275,7 +275,7 @@ const createSyncRepo = (dataSource: DataSource) => {
             .createQueryBuilder(FileDb, 'file')
             .select('COUNT(*)')
             .where('file.sync_id = :syncId', { syncId })
-            .andWhere('file.status = :completed', { completed: Status.COMPLETED });
+            .andWhere('file.status = :fileStatus', { fileStatus: Status.COMPLETED });
 
           qb.setParameters(subQuery.getParameters());
 
@@ -283,7 +283,7 @@ const createSyncRepo = (dataSource: DataSource) => {
             .where(
               new Brackets((qb) => {
                 qb.where('sync.id = :syncId', { syncId })
-                  .andWhere('sync.status != :completed', { completed: Status.COMPLETED })
+                  .andWhere('sync.status != :syncStatus', { syncStatus: Status.COMPLETED })
                   .orWhere('sync.base_sync_id = :syncId', { syncId })
                   .andWhere('sync.status = :inprogress', { inprogress: Status.IN_PROGRESS });
               })

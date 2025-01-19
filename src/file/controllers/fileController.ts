@@ -19,7 +19,10 @@ const txtplain = mime.contentType('text/plain') as string;
 
 @injectable()
 export class FileController {
-  public constructor(@inject(SERVICES.LOGGER) private readonly logger: Logger, private readonly manager: FileManager) {}
+  public constructor(
+    @inject(SERVICES.LOGGER) private readonly logger: Logger,
+    private readonly manager: FileManager
+  ) {}
 
   public postFile: PostFileHandler = async (req, res, next) => {
     try {

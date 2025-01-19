@@ -29,6 +29,14 @@ import { QueryFailedErrorWithCode, TransactionFailure } from '../../../src/commo
 import { SyncRequestSender } from './helpers/requestSender';
 import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from './helpers/generators';
 
+jest.mock('../../../src/queueProvider/helpers', (): object => {
+  return {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    __esModule: true,
+    ...jest.requireActual('../../../src/queueProvider/helpers'),
+  };
+});
+
 describe('sync', function () {
   let syncRequestSender: SyncRequestSender;
   let fileRequestSender: FileRequestSender;

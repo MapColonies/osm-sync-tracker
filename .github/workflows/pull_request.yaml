@@ -2,28 +2,36 @@ name: pull_request
 
 on: [pull_request, workflow_dispatch]
 
+env:
+  DB_HOST: localhost
+  DB_PORT: 5432
+  DB_NAME: osm-sync-tracker
+  DB_USERNAME: postgres
+  DB_PASSWORD: postgres
+  DB_SCHEMA: osm_sync_tracker
+
 jobs:
   eslint:
     name: Run eslint
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node: [20.x, 22.x]
 
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v1
+        uses: ./.github/actions/init-npm
         with:
-          node-version: 12
-
-      - name: Install dependencies
-        run: npm ci
+          node-version: ${{ matrix.node }}
 
       - name: Run linters
-        uses: wearerequired/lint-action@v1
+        uses: wearerequired/lint-action@v2
         with:
           github_token: ${{ secrets.github_token }}
-          # Enable linters
           eslint: true
           prettier: true
           eslint_extensions: ts
@@ -34,85 +42,97 @@ jobs:
          github_token: ${{ secrets.GITHUB_TOKEN }}
          file: ./openapi3.yaml
 
+  openapi-lint:
+    name: Run OpenAPI lint Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out TS Project Git repository
+        uses: actions/checkout@v4
+
+      - name: Init nodejs
+        uses: ./.github/actions/init-npm
+
+      - name: OpenAPI Lint Checks
+        run: npx @redocly/cli lint --format=github-actions openapi3.yaml
+
   tests:
-      name: Run Tests
-      runs-on: ubuntu-latest
+    name: Run Tests
+    runs-on: ubuntu-latest
 
-      services:
-        # Label used to access the service container
-        postgres:
-          # Docker Hub image
-          image: postgres:12
-          # Provide the password for postgres
-          env:
-            POSTGRES_PASSWORD: 1234
-            POSTGRES_USER: postgres
-            POSTGRES_DB: postgres
-          ports:
-            - 5432:5432
-          # Set health checks to wait until postgres has started
-          options: >-
-            --health-cmd pg_isready
-            --health-interval 10s
-            --health-timeout 5s
-            --health-retries 5
+    strategy:
+      matrix:
+        node: [20.x, 22.x]
 
-        redis:
-          # Docker Hub image
-          image: redis
-          ports:
-            - 6379:6379
-          # Set health checks to wait until redis has started
-          options: >-
-            --health-cmd "redis-cli ping"
-            --health-interval 10s
-            --health-timeout 5s
-            --health-retries 5
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: ${{ env.DB_PASSWORD}}
+          POSTGRES_USER: ${{ env.DB_USERNAME }}
+          POSTGRES_DB: ${{ env.DB_NAME }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
-      strategy:
-        matrix:
-          node: [16.x]
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
-      steps:
-        - name: Check out Git repository
-          uses: actions/checkout@v4
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
 
-        - name: Set up Node.js
-          uses: actions/setup-node@v1
-          with:
-            node-version: ${{ matrix.node }}
+      - name: Init nodejs
+        uses: ./.github/actions/init-npm
 
-        - name: Install Node.js dependencies
-          run: npm ci
+      - name: Install pg client
+        run: |
+          sudo apt-get update && sudo apt-get install -y lsb-release
+          echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /usr/share/keyrings/postgresql-keyring.asc > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/postgresql-keyring.asc] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+        shell: bash
 
-        - name: Install pg client
-          run: |
-            sudo apt-get update && sudo apt-get install -y lsb-release curl ca-certificates gnupg
-            curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/apt.postgresql.org.gpg >/dev/null
-            sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-            sudo apt-get update
-            sudo apt-get install -y postgresql-client
+      - name: Create schema
+        run: psql -h $DB_HOST -d $DB_NAME -U $DB_USERNAME -c 'CREATE SCHEMA osm_sync_tracker;'
+        env:
+          PGPASSWORD: ${{ env.DB_PASSWORD }}
 
-        - name: Create schema
-          run: psql -h localhost -d postgres -U postgres -c 'CREATE SCHEMA osm_sync_tracker;'
-          env:
-            PGPASSWORD: 1234
+      - name: Run migrations
+        run: npm run migration:run
+        env:
+          DB_HOST: ${{ env.DB_HOST }}
+          DB_PORT: ${{ env.DB_PORT }}
+          DB_NAME: ${{ env.DB_NAME }}
+          DB_USERNAME: ${{ env.DB_USERNAME }}
+          DB_PASSWORD: ${{ env.DB_PASSWORD }}
 
-        - name: Run migrations
-          run: npm run migration:run
-          env:
-            DB_HOST: localhost
-            DB_PORT: 5432
-            DB_USERNAME: postgres
-            DB_PASSWORD: 1234
+      - name: Run tests
+        run: npm run test
+        env:
+          DB_HOST: ${{ env.DB_HOST }}
+          DB_PORT: ${{ env.DB_PORT }}
+          DB_NAME: ${{ env.DB_NAME }}
+          DB_USERNAME: ${{ env.DB_USERNAME }}
+          DB_PASSWORD: ${{ env.DB_PASSWORD }}
 
-        - name: Run tests
-          run: npm run test
-
-        - uses: actions/upload-artifact@v4
-          with:
-            name: Test Reporters
-            path: reports/**
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Test Reporters ${{ matrix.node }}
+          path: ./reports/**
 
   security:
     runs-on: ubuntu-latest

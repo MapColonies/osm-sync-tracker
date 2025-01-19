@@ -4,16 +4,19 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 import IORedis from 'ioredis';
 import { inject, injectable } from 'tsyringe';
+import { ConfigType } from '../../common/config';
 import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, SYNCS_QUEUE_NAME } from '../constants';
-import { IConfig } from '../../common/interfaces';
 import { SERVICES } from '../../common/constants';
 
 @injectable()
 export class BullBoard {
   private readonly serverAdapter: ExpressAdapter;
 
-  public constructor(@inject(SERVICES.CONFIG) private readonly config: IConfig, @inject(SERVICES.REDIS) private readonly redisConnection: IORedis) {
-    const uiPath = this.config.get<string>('closure.uiPath');
+  public constructor(
+    @inject(SERVICES.CONFIG) private readonly config: ConfigType,
+    @inject(SERVICES.REDIS) private readonly redisConnection: IORedis
+  ) {
+    const uiPath = this.config.get('closure.uiPath') as string;
     this.serverAdapter = new ExpressAdapter();
     this.serverAdapter.setBasePath(uiPath);
   }

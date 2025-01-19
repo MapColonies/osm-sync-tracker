@@ -1,11 +1,12 @@
 import * as supertest from 'supertest';
+import { Application } from 'express';
 import { GeometryType } from '../../../../src/common/enums';
 import { convertObjectToCased } from '../../../../src/common/utils';
 import { SyncsFilter } from '../../../../src/sync/models/sync';
 import { StringifiedRerunCreateBody, StringifiedSync } from '../types';
 
 export class SyncRequestSender {
-  public constructor(private readonly app: Express.Application) {}
+  public constructor(private readonly app: Application) {}
 
   public async postSync(body: StringifiedSync): Promise<supertest.Response> {
     return supertest.agent(this.app).post('/sync').set('Content-Type', 'application/json').send(body);

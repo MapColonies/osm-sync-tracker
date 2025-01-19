@@ -1,17 +1,20 @@
-import config from 'config';
 import IORedis from 'ioredis';
+import { getConfig, initConfig } from '../../src/common/config';
 import { initDataSource } from '../../src/common/db';
 import { DbConfig, RedisConfig } from '../../src/common/interfaces';
 import { clearQueues, clearRepositories } from '../integration/helpers';
 import { constructConnectionOptions } from '../../src/queueProvider/connection';
 
 export default async (): Promise<void> => {
-  const dataSourceOptions = config.get<DbConfig>('db');
+  await initConfig(true);
+
+  const config = getConfig();
+  const dataSourceOptions = config.get('db') as DbConfig;
   const connection = await initDataSource(dataSourceOptions);
   await clearRepositories(connection);
   await connection.destroy();
 
-  const redisConfig = config.get<RedisConfig>('redis');
+  const redisConfig = config.get('redis') as RedisConfig;
   const redisOptions = constructConnectionOptions(redisConfig);
   const redis = new IORedis(redisOptions);
   await clearQueues(redis);

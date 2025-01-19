@@ -1,6 +1,8 @@
-export const CHANGESETS_QUEUE_NAME = 'changesets';
-export const FILES_QUEUE_NAME = 'files';
-export const SYNCS_QUEUE_NAME = 'syncs';
+import { QueueName } from '../common/interfaces';
+
+export const CHANGESETS_QUEUE_NAME: QueueName = 'changesets';
+export const FILES_QUEUE_NAME: QueueName = 'files';
+export const SYNCS_QUEUE_NAME: QueueName = 'syncs';
 
 export const REDIS_CONNECTION_OPTIONS_SYMBOL = Symbol('RedisConntionOptions');
 

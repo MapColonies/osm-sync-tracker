@@ -1,19 +1,18 @@
 import { DependencyContainer, instancePerContainerCachingFactory, Lifecycle } from 'tsyringe';
-import config from 'config';
 import { getOtelMixin } from '@map-colonies/telemetry';
-import jsLogger, { Logger, LoggerOptions } from '@map-colonies/js-logger';
+import jsLogger, { Logger } from '@map-colonies/js-logger';
 import { DataSource } from 'typeorm';
 import { CleanupRegistry } from '@map-colonies/cleanup-registry';
 import { trace } from '@opentelemetry/api';
 import { HealthCheck } from '@godaddy/terminus';
-import { DB_SCHEMA, HEALTHCHECK, ON_SIGNAL, SERVICES, SERVICE_NAME } from './common/constants';
-import { IConfig } from './common/interfaces';
+import { Registry } from 'prom-client';
+import { HEALTHCHECK, ON_SIGNAL, SERVICES, SERVICE_NAME } from './common/constants';
 import { DATA_SOURCE_PROVIDER, dataSourceFactory, getDbHealthCheckFunction } from './common/db';
-import { tracing } from './common/tracing';
+import { getTracing } from './common/tracing';
 import { syncRepositoryFactory, SYNC_CUSTOM_REPOSITORY_SYMBOL } from './sync/DAL/syncRepository';
 import { entityRepositoryFactory, ENTITY_CUSTOM_REPOSITORY_SYMBOL } from './entity/DAL/entityRepository';
 import { changesetRepositoryFactory, CHANGESET_CUSTOM_REPOSITORY_SYMBOL } from './changeset/DAL/changesetRepository';
-import { syncRouterFactory, syncRouterSymbol } from './sync/routes/syncRouter';
+import { syncRouterFactory, SYNC_ROUTER_SYMBOL } from './sync/routes/syncRouter';
 import { fileRouterSymbol, fileRouterFactory } from './file/routes/fileRouter';
 import { entityRouterFactory, entityRouterSymbol } from './entity/routes/entityRouter';
 import { changesetRouterSymbol, changesetRouterFactory } from './changeset/routes/changesetRouter';
@@ -31,6 +30,7 @@ import {
   SYNCS_QUEUE_NAME,
 } from './queueProvider/constants';
 import { createConnectionOptionsFactory, createReusableRedisConnectionFactory } from './queueProvider/connection';
+import { ConfigType, getConfig } from './common/config';
 
 export interface RegisterOptions {
   override?: InjectionObject<unknown>[];
@@ -42,7 +42,7 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
 
   try {
     const dependencies: InjectionObject<unknown>[] = [
-      { token: SERVICES.CONFIG, provider: { useValue: config } },
+      { token: SERVICES.CONFIG, provider: { useValue: getConfig() } },
       {
         token: SERVICES.CLEANUP_REGISTRY,
         provider: { useValue: cleanupRegistry },
@@ -55,13 +55,12 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
           cleanupRegistry.on('finished', (status) => cleanupRegistryLogger.info({ msg: `cleanup registry finished cleanup`, status }));
         },
       },
-      { token: DB_SCHEMA, provider: { useValue: config.get('db.schema') } },
       {
         token: SERVICES.LOGGER,
         provider: {
           useFactory: instancePerContainerCachingFactory((container) => {
-            const config = container.resolve<IConfig>(SERVICES.CONFIG);
-            const loggerConfig = config.get<LoggerOptions>('telemetry.logger');
+            const config = container.resolve<ConfigType>(SERVICES.CONFIG);
+            const loggerConfig = config.get('telemetry.logger');
             const logger = jsLogger({ ...loggerConfig, mixin: getOtelMixin() });
             return logger;
           }),
@@ -72,9 +71,20 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
         provider: {
           useFactory: instancePerContainerCachingFactory((container) => {
             const cleanupRegistry = container.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
-            cleanupRegistry.register({ func: tracing.stop.bind(tracing), id: SERVICES.TRACER });
+            cleanupRegistry.register({ func: getTracing().stop.bind(getTracing()), id: SERVICES.TRACER });
             const tracer = trace.getTracer(SERVICE_NAME);
             return tracer;
+          }),
+        },
+      },
+      {
+        token: SERVICES.METRICS,
+        provider: {
+          useFactory: instancePerContainerCachingFactory(() => {
+            const metricsRegistry = new Registry();
+            const config = container.resolve<ConfigType>(SERVICES.CONFIG);
+            config.initializeMetrics(metricsRegistry);
+            return metricsRegistry;
           }),
         },
       },
@@ -108,7 +118,7 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
           }
         },
       },
-      { token: syncRouterSymbol, provider: { useFactory: syncRouterFactory } },
+      { token: SYNC_ROUTER_SYMBOL, provider: { useFactory: syncRouterFactory } },
       { token: fileRouterSymbol, provider: { useFactory: fileRouterFactory } },
       { token: entityRouterSymbol, provider: { useFactory: entityRouterFactory } },
       { token: changesetRouterSymbol, provider: { useFactory: changesetRouterFactory } },

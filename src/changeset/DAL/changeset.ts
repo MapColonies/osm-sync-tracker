@@ -1,4 +1,4 @@
-import { Column, Entity as EntityDecorator, OneToMany, PrimaryColumn } from 'typeorm';
+import { Column, Entity as EntityDecorator, OneToMany, PrimaryColumn, Relation } from 'typeorm';
 import { Entity } from '../../entity/DAL/entity';
 
 @EntityDecorator()
@@ -10,5 +10,5 @@ export class Changeset {
   public osmId!: number | null;
 
   @OneToMany(() => Entity, (entity) => entity.changeset)
-  public entities!: Entity[];
+  public entities!: Relation<Entity[]>;
 }

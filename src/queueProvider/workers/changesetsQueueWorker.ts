@@ -4,10 +4,10 @@ import IORedis from 'ioredis';
 import { Logger } from '@map-colonies/js-logger';
 import { CleanupRegistry } from '@map-colonies/cleanup-registry';
 import { nanoid } from 'nanoid';
+import { ConfigType } from '../../common/config';
 import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME } from '../constants';
 import { SERVICES } from '../../common/constants';
 import { BatchClosureJob, ClosureJob, ClosureReturn } from '../types';
-import { IConfig } from '../../common/interfaces';
 import { ENTITY_CUSTOM_REPOSITORY_SYMBOL, EntityRepository } from '../../entity/DAL/entityRepository';
 import { Status } from '../../common/enums';
 import { JobQueueProvider } from '../interfaces';
@@ -23,8 +23,8 @@ export const changesetsQueueWorkerFactory: FactoryFunction<Worker> = (container)
   const queueName = CHANGESETS_QUEUE_NAME;
   const logger = container.resolve<Logger>(SERVICES.LOGGER);
   const workerLogger = logger.child({ component: CHANGESETS_QUEUE_WORKER_NAME });
-  const config = container.resolve<IConfig>(SERVICES.CONFIG);
-  const workerOptions = config.get<ExtendedWorkerOptions>(`closure.queues.${queueName}.workerOptions`);
+  const config = container.resolve<ConfigType>(SERVICES.CONFIG);
+  const workerOptions = config.get(`closure.queues.${queueName}.workerOptions`) as ExtendedWorkerOptions;
   const redisConnection = container.resolve<IORedis>(SERVICES.REDIS);
   const entityRepository = container.resolve<EntityRepository>(ENTITY_CUSTOM_REPOSITORY_SYMBOL);
   const filesQueue = container.resolve<JobQueueProvider<ClosureJob>>(FILES_QUEUE_NAME);
@@ -51,7 +51,7 @@ export const changesetsQueueWorkerFactory: FactoryFunction<Worker> = (container)
 
       try {
         const isBatch = Array.isArray(batchIds) && batchIds.every((id) => typeof id === 'string');
-        const changesetIds = isBatch ? (batchIds as string[]) : [id];
+        const changesetIds = isBatch ? batchIds : [id];
         const fileIds = await entityRepository.transactionify(
           { transactionId: nanoid(), transactionName: TransactionName.FIND_FILES_BY_CHANGESETS, isolationLevel: transactionIsolationLevel },
           async () => entityRepository.findFilesByChangesets(changesetIds, [Status.IN_PROGRESS])

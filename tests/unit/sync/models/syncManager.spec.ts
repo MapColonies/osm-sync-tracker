@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import jsLogger from '@map-colonies/js-logger';
 import { faker } from '@faker-js/faker';
 import { SyncManager } from '../../../../src/sync/models/syncManager';
@@ -14,6 +15,7 @@ import { GeometryType, Status } from '../../../../src/common/enums';
 import { CreateRerunRequest } from '../../../../src/sync/models/sync';
 import { JobQueueProvider } from '../../../../src/queueProvider/interfaces';
 import { ClosureJob } from '../../../../src/queueProvider/types';
+import { ConfigType } from '../../../../src/common/config';
 
 let syncManager: SyncManager;
 
@@ -47,7 +49,7 @@ describe('SyncManager', () => {
       push: pushMock,
     } as unknown as JobQueueProvider<ClosureJob>;
 
-    syncManager = new SyncManager(syncRepository, jsLogger({ enabled: false }), { get: jest.fn(), has: jest.fn() }, queue);
+    syncManager = new SyncManager(syncRepository, jsLogger({ enabled: false }), { get: jest.fn() } as unknown as ConfigType, queue);
   });
 
   describe('#getSyncs', () => {

@@ -1,4 +1,4 @@
-import { Column, Entity as EntityDecorator, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { Column, Entity as EntityDecorator, JoinColumn, ManyToOne, PrimaryColumn, Relation } from 'typeorm';
 import { Changeset } from '../../changeset/DAL/changeset';
 import { ActionType, EntityStatus } from '../../common/enums';
 import { File } from '../../file/DAL/file';
@@ -12,14 +12,14 @@ export class EntityHistory implements IEntityHistory {
 
   @ManyToOne(() => SyncDb, (sync) => sync.id, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'sync_id' })
-  public sync?: SyncDb;
+  public sync?: Relation<SyncDb>;
 
   @Column({ name: 'base_sync_id', type: 'uuid', nullable: true })
   public baseSyncId!: string | null;
 
   @ManyToOne(() => SyncDb, (sync) => sync.id, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'base_sync_id' })
-  public baseSync?: SyncDb;
+  public baseSync?: Relation<SyncDb>;
 
   @PrimaryColumn({ name: 'entity_id' })
   public entityId!: string;
@@ -29,14 +29,14 @@ export class EntityHistory implements IEntityHistory {
 
   @ManyToOne(() => File, (file) => file.entities, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'file_id' })
-  public file!: File;
+  public file!: Relation<File>;
 
   @Column({ name: 'changeset_id', type: 'uuid', nullable: true })
   public changesetId!: string | null;
 
   @ManyToOne(() => Changeset, (changeset) => changeset.entities, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'changeset_id' })
-  public changeset!: Changeset | null;
+  public changeset!: Relation<Changeset | null>;
 
   @Column({ type: 'enum', enum: EntityStatus })
   public status!: EntityStatus;

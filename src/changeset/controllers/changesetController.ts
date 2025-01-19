@@ -18,7 +18,10 @@ const txtplain = mime.contentType('text/plain') as string;
 
 @injectable()
 export class ChangesetController {
-  public constructor(@inject(SERVICES.LOGGER) private readonly logger: Logger, private readonly manager: ChangesetManager) {}
+  public constructor(
+    @inject(SERVICES.LOGGER) private readonly logger: Logger,
+    private readonly manager: ChangesetManager
+  ) {}
 
   public postChangeset: PostChangesetHandler = async (req, res, next) => {
     try {

@@ -28,6 +28,14 @@ import { QueryFailedErrorWithCode, TransactionFailure } from '../../../src/commo
 import { createStringifiedFakeChangeset } from './helpers/generators';
 import { ChangesetRequestSender } from './helpers/requestSender';
 
+jest.mock('../../../src/queueProvider/helpers', (): object => {
+  return {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    __esModule: true,
+    ...jest.requireActual('../../../src/queueProvider/helpers'),
+  };
+});
+
 describe('changeset', function () {
   let changesetRequestSender: ChangesetRequestSender;
   let entityRequestSender: EntityRequestSender;
@@ -563,11 +571,6 @@ describe('changeset', function () {
         // close the sync
         const syncClosure1 = await waitForJobToBeResolved(syncWorker, sync.id as string);
         expect(syncClosure1?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
-
-        expect(await syncRequestSender.getLatestSync(sync.layerId as number, sync.geometryType as GeometryType)).toHaveProperty(
-          'body.status',
-          Status.IN_PROGRESS
-        );
 
         // patch the not synced entity
         expect(

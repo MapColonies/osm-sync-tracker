@@ -29,11 +29,14 @@ const txtplain = mime.contentType('text/plain') as string;
 
 @injectable()
 export class SyncController {
-  public constructor(@inject(SERVICES.LOGGER) private readonly logger: Logger, private readonly manager: SyncManager) {}
+  public constructor(
+    @inject(SERVICES.LOGGER) private readonly logger: Logger,
+    private readonly manager: SyncManager
+  ) {}
 
   public getSyncs: GetSyncsHandler = async (req, res, next) => {
     try {
-      const filter = convertObjectToCased(req.query, 'camel');
+      const filter = convertObjectToCased(req.query as Record<string, unknown>, 'camel');
       const syncs = await this.manager.getSyncs(filter);
       return res.status(httpStatus.OK).json(syncs);
     } catch (error) {

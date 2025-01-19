@@ -1,9 +1,10 @@
 import * as supertest from 'supertest';
+import { Application } from 'express';
 import { FileUpdate } from '../../../../src/file/models/file';
 import { StringifiedFile } from '../types';
 
 export class FileRequestSender {
-  public constructor(private readonly app: Express.Application) {}
+  public constructor(private readonly app: Application) {}
 
   public async postFile(syncId: string, body: StringifiedFile): Promise<supertest.Response> {
     return supertest.agent(this.app).post(`/sync/${syncId}/file`).set('Content-Type', 'application/json').send(body);
