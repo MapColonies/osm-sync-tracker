@@ -12,7 +12,7 @@ env:
 
 jobs:
   eslint:
-    name: Run eslint
+    name: Run Linters
     runs-on: ubuntu-latest
 
     strategy:

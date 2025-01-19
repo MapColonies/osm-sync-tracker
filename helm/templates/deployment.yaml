@@ -2,24 +2,22 @@
 {{- $chartName := include "osm-sync-tracker.name" . -}}
 {{- $cloudProviderFlavor := include "osm-sync-tracker.cloudProviderFlavor" . -}}
 {{- $cloudProviderDockerRegistryUrl := include "osm-sync-tracker.cloudProviderDockerRegistryUrl" . -}}
-{{- $tag := include "osm-sync-tracker.tag" . -}}
+{{- $cloudProviderImagePullSecretName := include "osm-sync-tracker.cloudProviderImagePullSecretName" . -}}
+{{- $imageTag := include "osm-sync-tracker.tag" . -}}
 {{- if .Values.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $releaseName }}-{{ $chartName }}
+  name: {{ printf "%s-deployment" (include "osm-sync-tracker.fullname" .) }}
   labels:
     app: {{ $chartName }}
     component: {{ $chartName }}
-    environment: {{ .Values.environment }}
+    environment: {{ include "osm-sync-tracker.environment" . }}
     release: {{ $releaseName }}
     {{- include "osm-sync-tracker.labels" . | nindent 4 }}
-{{- with .Values.annotations }}
-  annotations:
-{{ toYaml . | indent 4 }}
-{{- end }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   selector:
     matchLabels:
       app: {{ $chartName }}
@@ -32,56 +30,100 @@ spec:
         app: {{ $chartName }}
         release: {{ $releaseName }}
         run: {{ $releaseName }}-{{ $chartName }}
-        environment: {{ include "osm-sync-tracker.environment" . }}
         {{- include "osm-sync-tracker.selectorLabels" . | nindent 8 }}
-{{- with .Values.podAnnotations }}
       annotations:
-{{ toYaml . | indent 8 }}
-{{- end }}
+      {{- if .Values.resetOnConfigChange }}
+        checksum/configmap: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      {{- end }}
+      {{- if .Values.podAnnotations }}
+      {{- toYaml .Values.podAnnotations | nindent 8 }}
+      {{- end }}
     spec:
+    {{- if $cloudProviderImagePullSecretName }}
+      imagePullSecrets:
+        - name: {{ $cloudProviderImagePullSecretName | quote }}
+    {{- end }}
       containers:
         - name: {{ $releaseName }}-{{ $chartName }}-deployment
           {{- with .Values.image }}
-          {{- if ne $cloudProviderFlavor "minikube" }}
-          image: {{ $cloudProviderDockerRegistryUrl }}/{{ .repository }}:{{ $tag }}
-          {{- else }}
-          image: {{ .repository }}:{{ $tag }}
+          image: {{ $cloudProviderDockerRegistryUrl }}{{ .repository }}:{{ $imageTag }}
+          imagePullPolicy: {{ .pullPolicy | default "IfNotPresent" }}
+          {{- end }}
+          {{- if .Values.command }}
+          command:
+          {{- toYaml .Values.command | nindent 12 }}
+          {{- if .Values.args }}
+          args:
+          {{- toYaml .Values.args | nindent 12 }}
           {{- end }}
           {{- end }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          envFrom:
-            - configMapRef:
-                name: {{ $releaseName }}-{{ $chartName }}-configmap
-            - configMapRef:
-                name: {{ $releaseName }}-{{ $chartName }}-closure-configmap
-            - secretRef:
-                name: {{ $releaseName }}-{{ $chartName }}-secret
+          volumeMounts:
+            {{- if .Values.caSecretName }}
+            - mountPath: {{ printf "%s/%s" .Values.caPath .Values.caKey | quote }}
+              name: root-ca
+              subPath: {{ quote .Values.caKey }}
+            {{- end }}
+            {{- if .Values.extraVolumeMounts -}}
+              {{ toYaml .Values.extraVolumeMounts | nindent 12 }}
+            {{- end }}
           env:
             - name: SERVER_PORT
               value: {{ .Values.env.targetPort | quote }}
+            {{- if .Values.caSecretName }}
+            - name: REQUESTS_CA_BUNDLE
+              value: {{ printf "%s/%s" .Values.caPath .Values.caKey | quote }}
+            - name: NODE_EXTRA_CA_CERTS
+              value: {{ printf "[%s/%s]" .Values.caPath .Values.caKey | quote }}
+            {{- end }}
+            {{- if .Values.extraEnvVars }}
+            {{- toYaml .Values.extraEnvVars | nindent 12 }}
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ printf "%s-configmap" (include "osm-sync-tracker.fullname" .) }}
+            - configMapRef:
+                name: {{ printf "%s-closure-configmap" (include "osm-sync-tracker.fullname" .) }}
+            - secretRef:
+                name: {{ printf "%s-secret" (include "osm-sync-tracker.fullname" .) }}
           ports:
             - name: http
               containerPort: {{ .Values.env.targetPort }}
               protocol: {{ .Values.env.protocol }}
+          {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
-            initialDelaySeconds: {{ .Values.initialDelaySeconds }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
             httpGet:
-              path: /liveness
-              port: http
+              path: {{ .Values.livenessProbe.path }}
+              port: {{ .Values.env.targetPort }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+            httpGet:
+              path: {{ .Values.readinessProbe.path }}
+              port: {{ .Values.env.targetPort }}
+          {{- end }}
           {{- if .Values.resources.enabled }}
           resources:
             {{- toYaml .Values.resources.value | nindent 12 }}
           {{- end }}
-          {{- if .Values.dbConfig.sslAuth.enabled }}
-          volumeMounts:
-            - name: cert-conf
-              mountPath: /tmp/certs
-              readOnly: true
-          {{- end }}
-      {{- if .Values.dbConfig.sslAuth.enabled }}
+        {{- if .Values.sidecars }}
+        {{ tpl (toYaml .Values.sidecars) . | nindent 8 }}
+        {{- end }}
       volumes:
-        - name: cert-conf
+        - name: nginx-config
+          configMap:
+            name: 'nginx-extra-configmap'
+        {{- if .Values.caSecretName }}
+        - name: root-ca
           secret:
-            secretName: {{ .Values.dbConfig.sslAuth.secretName }}
-      {{- end }}
+            secretName: {{ .Values.caSecretName }}
+        {{- end }}
+        {{- if .Values.extraVolumes -}}
+          {{ tpl (toYaml .Values.extraVolumes) . | nindent 8 }}
+        {{- end }}
 {{- end -}}

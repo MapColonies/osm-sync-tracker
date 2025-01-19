@@ -86,9 +86,21 @@ Returns the cloud provider docker registry url from global if exists or from the
 */}}
 {{- define "osm-sync-tracker.cloudProviderDockerRegistryUrl" -}}
 {{- if .Values.global.cloudProvider.dockerRegistryUrl }}
-    {{- .Values.global.cloudProvider.dockerRegistryUrl -}}
-{{- else if .Values.cloudProvider -}}
-    {{- .Values.cloudProvider.dockerRegistryUrl -}}
+    {{- printf "%s/" .Values.global.cloudProvider.dockerRegistryUrl -}}
+{{- else if .Values.cloudProvider.dockerRegistryUrl -}}
+    {{- printf "%s/" .Values.cloudProvider.dockerRegistryUrl -}}
+{{- else -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Returns the cloud provider image pull secret name from global if exists or from the chart's values
+*/}}
+{{- define "osm-sync-tracker.cloudProviderImagePullSecretName" -}}
+{{- if .Values.global.cloudProvider.imagePullSecretName }}
+    {{- .Values.global.cloudProvider.imagePullSecretName -}}
+{{- else if .Values.cloudProvider.imagePullSecretName -}}
+    {{- .Values.cloudProvider.imagePullSecretName -}}
 {{- end -}}
 {{- end -}}
 

@@ -1,35 +1,71 @@
-# Default values for helm.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
 global:
   cloudProvider: {}
   tracing: {}
   metrics: {}
-  environment: {}
+  environment: ''
 
-annotations: {}
+enabled: true
+environment: development
+replicaCount: 1
+revisionHistoryLimit: 5 # Amount of revisions we keep
+nodePort: 30030 #for minikube deployment only
+resetOnConfigChange: false
+
+nameOverride: ""
+fullnameOverride: ""
+
+configManagement:
+  offlineMode: true
+  name: 'osm-sync-tracker'
+  version: 'latest'
+  serverUrl: 'http://localhost:8080/api'
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 600
+  timeoutSeconds: 5
+  failureThreshold: 6
+  path: /liveness
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 60
+  timeoutSeconds: 5
+  failureThreshold: 6
+  path: /liveness
+
 podAnnotations: {}
 
-replicaCount: 1
-enabled: true
-initialDelaySeconds: 600
-environment: development
-nodeSelector: {}
-tolerations: []
-affinity: {}
+extraVolumes: []
+
+extraVolumeMounts: []
+
+extraEnvVars: []
+
+command: []
+args: []
+# command: [ "/bin/sh", "-c", "--" ]
+# args: [ "while true; do sleep infinity; done;" ]
+
+sidecars: []
 
 cloudProvider:
   flavor: openshift
-  dockerRegistryUrl: my-registry.io
+  dockerRegistryUrl:
+  imagePullSecretName: ''
+
+caSecretName: ''
+caPath: '/usr/local/share/ca-certificates'
+caKey: 'ca.crt'
 
 image:
   repository: osm-sync-tracker
-  # Overrides the image tag whose default is the chart appVersion.
-  # tag: "v1.0.0"
-  pullPolicy: Always
+  # If commented, appVersion will be taken. See: _helpers.tpl
+  # tag: 'latest'
+  pullPolicy: IfNotPresent
 
 resources:
-  enabled: false
+  enabled: true
   value:
     limits:
       cpu: 100m
@@ -43,6 +79,7 @@ env:
   targetPort: 8080
   protocol: TCP
   logLevel: info
+  logPrettyPrintEnabled: false
   requestPayloadLimit: 1mb
   responseCompressionEnabled: true
   tracing:
@@ -168,8 +205,24 @@ closure:
 route:
   enabled: true
   path: /
-  tls:
-    termination: edge
+  host:
   timeout:
     enabled: false # defaults to 30s by openshift
     duration: 60s # supported units (us, ms, s, m, h, d)
+  rewriteTarget: ''
+  tls:
+    enabled: true
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+    useCerts: false
+    certificate: ''
+    key: ''
+    caCertificate: ''
+
+ingress:
+  enabled: false
+  path: /
+  host: 'localhost'
+  cors:
+    enabled: true
+    origin: '*'
