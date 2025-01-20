@@ -6,6 +6,7 @@ import { CleanupRegistry } from '@map-colonies/cleanup-registry';
 import { trace } from '@opentelemetry/api';
 import { HealthCheck } from '@godaddy/terminus';
 import { Registry } from 'prom-client';
+import { Worker } from 'bullmq';
 import { HEALTHCHECK, ON_SIGNAL, SERVICES, SERVICE_NAME } from './common/constants';
 import { DATA_SOURCE_PROVIDER, dataSourceFactory, getDbHealthCheckFunction } from './common/db';
 import { getTracing } from './common/tracing';
@@ -13,9 +14,9 @@ import { syncRepositoryFactory, SYNC_CUSTOM_REPOSITORY_SYMBOL } from './sync/DAL
 import { entityRepositoryFactory, ENTITY_CUSTOM_REPOSITORY_SYMBOL } from './entity/DAL/entityRepository';
 import { changesetRepositoryFactory, CHANGESET_CUSTOM_REPOSITORY_SYMBOL } from './changeset/DAL/changesetRepository';
 import { syncRouterFactory, SYNC_ROUTER_SYMBOL } from './sync/routes/syncRouter';
-import { fileRouterSymbol, fileRouterFactory } from './file/routes/fileRouter';
-import { entityRouterFactory, entityRouterSymbol } from './entity/routes/entityRouter';
-import { changesetRouterSymbol, changesetRouterFactory } from './changeset/routes/changesetRouter';
+import { FILE_ROUTER_SYMBOL, fileRouterFactory } from './file/routes/fileRouter';
+import { entityRouterFactory, ENTITY_ROUTER_SYMBOL } from './entity/routes/entityRouter';
+import { CHANGESET_ROUTER_SYMBOL, changesetRouterFactory } from './changeset/routes/changesetRouter';
 import { InjectionObject, registerDependencies } from './common/dependencyRegistration';
 import { fileRepositoryFactory, FILE_CUSTOM_REPOSITORY_SYMBOL } from './file/DAL/fileRepository';
 import { FILES_QUEUE_WORKER_FACTORY, filesQueueWorkerFactory } from './queueProvider/workers/filesQueueWorker';
@@ -26,11 +27,52 @@ import {
   CHANGESETS_QUEUE_NAME,
   FILES_QUEUE_NAME,
   QUEUE_PROVIDER_FACTORY,
+  CLOSURE_WORKERS_INITIALIZER,
   REDIS_CONNECTION_OPTIONS_SYMBOL,
   SYNCS_QUEUE_NAME,
 } from './queueProvider/constants';
 import { createConnectionOptionsFactory, createReusableRedisConnectionFactory } from './queueProvider/connection';
 import { ConfigType, getConfig } from './common/config';
+
+const registerClosureDeps = (): InjectionObject<unknown>[] => {
+  const closureDependencies: InjectionObject<unknown>[] = [
+    { token: REDIS_CONNECTION_OPTIONS_SYMBOL, provider: { useFactory: instancePerContainerCachingFactory(createConnectionOptionsFactory) } },
+    { token: SERVICES.REDIS, provider: { useFactory: instancePerContainerCachingFactory(createReusableRedisConnectionFactory) } },
+    {
+      token: QUEUE_PROVIDER_FACTORY,
+      provider: { useClass: BullQueueProviderFactory },
+      options: { lifecycle: Lifecycle.Singleton },
+      postInjectionHook: (deps: DependencyContainer): void => {
+        const queueFactory = deps.resolve<BullQueueProviderFactory>(QUEUE_PROVIDER_FACTORY);
+        const cleanupRegistry = deps.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
+
+        for (const queueName of [CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, SYNCS_QUEUE_NAME]) {
+          const queue = queueFactory.createQueue(queueName);
+          deps.register(queueName, { useValue: queue });
+          cleanupRegistry.register({ id: queueName, func: queue.close.bind(queue) });
+        }
+      },
+    },
+    { token: FILES_QUEUE_WORKER_FACTORY, provider: { useFactory: filesQueueWorkerFactory } },
+    { token: CHANGESETS_QUEUE_WORKER_FACTORY, provider: { useFactory: changesetsQueueWorkerFactory } },
+    { token: SYNCS_QUEUE_WORKER_FACTORY, provider: { useFactory: syncsQueueWorkerFactory } },
+    {
+      token: CLOSURE_WORKERS_INITIALIZER,
+      provider: {
+        useFactory: (container): (() => Promise<void>) => {
+          const changesetWorker = container.resolve<Worker>(CHANGESETS_QUEUE_WORKER_FACTORY);
+          const fileWorker = container.resolve<Worker>(FILES_QUEUE_WORKER_FACTORY);
+          const syncWorker = container.resolve<Worker>(SYNCS_QUEUE_WORKER_FACTORY);
+          return async (): Promise<void> => {
+            await Promise.all([changesetWorker.run(), fileWorker.run(), syncWorker.run()]);
+          };
+        },
+      },
+    },
+  ];
+
+  return closureDependencies;
+};
 
 export interface RegisterOptions {
   override?: InjectionObject<unknown>[];
@@ -80,7 +122,7 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
       {
         token: SERVICES.METRICS,
         provider: {
-          useFactory: instancePerContainerCachingFactory(() => {
+          useFactory: instancePerContainerCachingFactory((container) => {
             const metricsRegistry = new Registry();
             const config = container.resolve<ConfigType>(SERVICES.CONFIG);
             config.initializeMetrics(metricsRegistry);
@@ -97,34 +139,14 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
           await dataSource.initialize();
         },
       },
-      { token: REDIS_CONNECTION_OPTIONS_SYMBOL, provider: { useFactory: instancePerContainerCachingFactory(createConnectionOptionsFactory) } },
-      { token: SERVICES.REDIS, provider: { useFactory: instancePerContainerCachingFactory(createReusableRedisConnectionFactory) } },
       { token: FILE_CUSTOM_REPOSITORY_SYMBOL, provider: { useFactory: fileRepositoryFactory } },
       { token: CHANGESET_CUSTOM_REPOSITORY_SYMBOL, provider: { useFactory: changesetRepositoryFactory } },
       { token: SYNC_CUSTOM_REPOSITORY_SYMBOL, provider: { useFactory: syncRepositoryFactory } },
       { token: ENTITY_CUSTOM_REPOSITORY_SYMBOL, provider: { useFactory: entityRepositoryFactory } },
-      {
-        token: QUEUE_PROVIDER_FACTORY,
-        provider: { useClass: BullQueueProviderFactory },
-        options: { lifecycle: Lifecycle.Singleton },
-        postInjectionHook: (deps: DependencyContainer): void => {
-          const queueFactory = deps.resolve<BullQueueProviderFactory>(QUEUE_PROVIDER_FACTORY);
-          const cleanupRegistry = deps.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
-
-          for (const queueName of [CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, SYNCS_QUEUE_NAME]) {
-            const queue = queueFactory.createQueue(queueName);
-            deps.register(queueName, { useValue: queue });
-            cleanupRegistry.register({ id: queueName, func: queue.close.bind(queue) });
-          }
-        },
-      },
       { token: SYNC_ROUTER_SYMBOL, provider: { useFactory: syncRouterFactory } },
-      { token: fileRouterSymbol, provider: { useFactory: fileRouterFactory } },
-      { token: entityRouterSymbol, provider: { useFactory: entityRouterFactory } },
-      { token: changesetRouterSymbol, provider: { useFactory: changesetRouterFactory } },
-      { token: FILES_QUEUE_WORKER_FACTORY, provider: { useFactory: filesQueueWorkerFactory } },
-      { token: CHANGESETS_QUEUE_WORKER_FACTORY, provider: { useFactory: changesetsQueueWorkerFactory } },
-      { token: SYNCS_QUEUE_WORKER_FACTORY, provider: { useFactory: syncsQueueWorkerFactory } },
+      { token: FILE_ROUTER_SYMBOL, provider: { useFactory: fileRouterFactory } },
+      { token: ENTITY_ROUTER_SYMBOL, provider: { useFactory: entityRouterFactory } },
+      { token: CHANGESET_ROUTER_SYMBOL, provider: { useFactory: changesetRouterFactory } },
       {
         token: HEALTHCHECK,
         provider: {
@@ -140,6 +162,7 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
           useValue: cleanupRegistry.trigger.bind(cleanupRegistry),
         },
       },
+      ...registerClosureDeps(),
     ];
 
     const container = await registerDependencies(dependencies, options?.override, options?.useChild);

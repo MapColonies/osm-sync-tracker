@@ -5,7 +5,7 @@ import { ConnectionOptions, Queue, QueueEvents } from 'bullmq';
 import { ConfigType } from '../../common/config';
 import { ClosureQueueConfig, QueueName } from '../../common/interfaces';
 import { SERVICES } from '../../common/constants';
-import { REDIS_CONNECTION_OPTIONS_SYMBOL } from '../constants';
+import { KEY_PREFIX, REDIS_CONNECTION_OPTIONS_SYMBOL } from '../constants';
 import { Identifiable, JobQueueProvider } from '../interfaces';
 import { BullQueueProvider } from './bullQueueProvider';
 
@@ -25,11 +25,12 @@ export class BullQueueProviderFactory {
 
     let queueEvents: QueueEvents | undefined;
     if (queueConfig.jobOptions.deduplicationDelay !== undefined) {
-      queueEvents = new QueueEvents(queueName, { connection: this.connectionOptions });
+      queueEvents = new QueueEvents(queueName, { connection: this.connectionOptions, prefix: KEY_PREFIX });
     }
 
     const queue = new Queue<T, unknown, string, T, unknown, string>(queueName, {
       connection: this.reusableRedis,
+      prefix: KEY_PREFIX,
     });
 
     return new BullQueueProvider<T>({

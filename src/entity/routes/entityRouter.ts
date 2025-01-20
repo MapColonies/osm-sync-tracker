@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { FactoryFunction } from 'tsyringe';
 import { EntityController } from '../controllers/entityController';
 
-export const entityRouterSymbol = Symbol('entityRouterSymbol');
+export const ENTITY_ROUTER_SYMBOL = Symbol('entityRouterSymbol');
 
 export const entityRouterFactory: FactoryFunction<Router> = (dependencyContainer) => {
   const router = Router();

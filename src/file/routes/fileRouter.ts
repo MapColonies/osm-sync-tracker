@@ -3,7 +3,7 @@ import { FactoryFunction } from 'tsyringe';
 import { EntityController } from '../../entity/controllers/entityController';
 import { FileController } from '../controllers/fileController';
 
-export const fileRouterSymbol = Symbol('fileRouterFactory');
+export const FILE_ROUTER_SYMBOL = Symbol('fileRouterFactory');
 
 export const fileRouterFactory: FactoryFunction<Router> = (dependencyContainer) => {
   const router = Router();

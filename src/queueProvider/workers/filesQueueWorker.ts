@@ -5,7 +5,7 @@ import { Logger } from '@map-colonies/js-logger';
 import { CleanupRegistry } from '@map-colonies/cleanup-registry';
 import { nanoid } from 'nanoid';
 import { ConfigType } from '../../common/config';
-import { FILES_QUEUE_NAME, SYNCS_QUEUE_NAME } from '../constants';
+import { FILES_QUEUE_NAME, KEY_PREFIX, SYNCS_QUEUE_NAME } from '../constants';
 import { SERVICES } from '../../common/constants';
 import { ClosureJob, ClosureReturn } from '../types';
 import { FILE_CUSTOM_REPOSITORY_SYMBOL, FileRepository } from '../../file/DAL/fileRepository';
@@ -96,6 +96,7 @@ export const filesQueueWorkerFactory: FactoryFunction<Worker> = (container) => {
     {
       ...workerOptions,
       name: FILES_QUEUE_WORKER_NAME,
+      prefix: KEY_PREFIX,
       connection: redisConnection,
       autorun: false,
     }

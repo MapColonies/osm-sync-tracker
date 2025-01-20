@@ -2,7 +2,7 @@ import { DelayedError, Job, Worker } from 'bullmq';
 import { DependencyContainer, FactoryFunction } from 'tsyringe';
 import jsLogger from '@map-colonies/js-logger';
 import { SERVICES } from '../../../../src/common/constants';
-import { FILES_QUEUE_NAME, SYNCS_QUEUE_NAME } from '../../../../src/queueProvider/constants';
+import { FILES_QUEUE_NAME, KEY_PREFIX, SYNCS_QUEUE_NAME } from '../../../../src/queueProvider/constants';
 import { FILES_QUEUE_WORKER_NAME, filesQueueWorkerFactory } from '../../../../src/queueProvider/workers/filesQueueWorker';
 import { BatchClosureJob, ClosureJob, ClosureReturn } from '../../../../src/queueProvider/types';
 import { TransactionName, TransactionParams } from '../../../../src/common/db/transactions';
@@ -100,6 +100,7 @@ describe('filesQueueWorkerFactory', () => {
     expect(Worker).toHaveBeenCalledWith(FILES_QUEUE_NAME, expect.any(Function), {
       ...filesWorkerOptionsMock,
       name: FILES_QUEUE_WORKER_NAME,
+      prefix: KEY_PREFIX,
       connection: redisMock,
       autorun: false,
     });

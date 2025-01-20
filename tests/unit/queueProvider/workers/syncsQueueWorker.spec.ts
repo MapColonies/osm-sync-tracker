@@ -2,7 +2,7 @@ import { DelayedError, Job, Worker } from 'bullmq';
 import { DependencyContainer, FactoryFunction } from 'tsyringe';
 import jsLogger from '@map-colonies/js-logger';
 import { SERVICES } from '../../../../src/common/constants';
-import { SYNCS_QUEUE_NAME } from '../../../../src/queueProvider/constants';
+import { KEY_PREFIX, SYNCS_QUEUE_NAME } from '../../../../src/queueProvider/constants';
 import { BatchClosureJob, ClosureJob, ClosureReturn } from '../../../../src/queueProvider/types';
 import { TransactionName, TransactionParams } from '../../../../src/common/db/transactions';
 import { TransactionFailureError } from '../../../../src/common/errors';
@@ -93,6 +93,7 @@ describe('syncsQueueWorkerFactory', () => {
     expect(Worker).toHaveBeenCalledWith(SYNCS_QUEUE_NAME, expect.any(Function), {
       ...syncsWorkerOptionsMock,
       name: SYNCS_QUEUE_WORKER_NAME,
+      prefix: KEY_PREFIX,
       connection: redisMock,
       autorun: false,
     });

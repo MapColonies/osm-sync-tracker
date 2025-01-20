@@ -5,7 +5,7 @@ import { Logger } from '@map-colonies/js-logger';
 import { CleanupRegistry } from '@map-colonies/cleanup-registry';
 import { nanoid } from 'nanoid';
 import { ConfigType } from '../../common/config';
-import { SYNCS_QUEUE_NAME } from '../constants';
+import { KEY_PREFIX, SYNCS_QUEUE_NAME } from '../constants';
 import { SERVICES } from '../../common/constants';
 import { TransactionFailureError } from '../../common/errors';
 import { ClosureJob, ClosureReturn } from '../types';
@@ -87,6 +87,7 @@ export const syncsQueueWorkerFactory: FactoryFunction<Worker> = (container) => {
     {
       ...workerOptions,
       name: SYNCS_QUEUE_WORKER_NAME,
+      prefix: KEY_PREFIX,
       connection: redisConnection,
       autorun: false,
     }

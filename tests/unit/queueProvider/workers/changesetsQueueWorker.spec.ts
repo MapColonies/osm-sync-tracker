@@ -3,7 +3,7 @@ import { DependencyContainer, FactoryFunction } from 'tsyringe';
 import jsLogger from '@map-colonies/js-logger';
 import { CHANGESETS_QUEUE_WORKER_NAME, changesetsQueueWorkerFactory } from '../../../../src/queueProvider/workers/changesetsQueueWorker';
 import { SERVICES } from '../../../../src/common/constants';
-import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME } from '../../../../src/queueProvider/constants';
+import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, KEY_PREFIX } from '../../../../src/queueProvider/constants';
 import { BatchClosureJob, ClosureJob, ClosureReturn } from '../../../../src/queueProvider/types';
 import { ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../../src/entity/DAL/entityRepository';
 import { TransactionName, TransactionParams } from '../../../../src/common/db/transactions';
@@ -103,6 +103,7 @@ describe('changesetsQueueWorkerFactory', () => {
     expect(Worker).toHaveBeenCalledWith(CHANGESETS_QUEUE_NAME, expect.any(Function), {
       ...changestsWorkerOptionsMock,
       name: CHANGESETS_QUEUE_WORKER_NAME,
+      prefix: KEY_PREFIX,
       connection: redisMock,
       autorun: false,
     });

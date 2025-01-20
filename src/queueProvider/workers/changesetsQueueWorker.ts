@@ -5,7 +5,7 @@ import { Logger } from '@map-colonies/js-logger';
 import { CleanupRegistry } from '@map-colonies/cleanup-registry';
 import { nanoid } from 'nanoid';
 import { ConfigType } from '../../common/config';
-import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME } from '../constants';
+import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, KEY_PREFIX } from '../constants';
 import { SERVICES } from '../../common/constants';
 import { BatchClosureJob, ClosureJob, ClosureReturn } from '../types';
 import { ENTITY_CUSTOM_REPOSITORY_SYMBOL, EntityRepository } from '../../entity/DAL/entityRepository';
@@ -96,6 +96,7 @@ export const changesetsQueueWorkerFactory: FactoryFunction<Worker> = (container)
     {
       ...workerOptions,
       name: CHANGESETS_QUEUE_WORKER_NAME,
+      prefix: KEY_PREFIX,
       connection: redisConnection,
       autorun: false,
     }

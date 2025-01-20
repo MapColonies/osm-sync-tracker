@@ -11,10 +11,10 @@ import { getTraceContexHeaderMiddleware } from '@map-colonies/telemetry';
 import { collectMetricsExpressMiddleware } from '@map-colonies/telemetry/prom-metrics';
 import { Registry } from 'prom-client';
 import { SERVICES } from './common/constants';
-import { fileRouterSymbol } from './file/routes/fileRouter';
+import { FILE_ROUTER_SYMBOL } from './file/routes/fileRouter';
 import { SYNC_ROUTER_SYMBOL } from './sync/routes/syncRouter';
-import { entityRouterSymbol } from './entity/routes/entityRouter';
-import { changesetRouterSymbol } from './changeset/routes/changesetRouter';
+import { ENTITY_ROUTER_SYMBOL } from './entity/routes/entityRouter';
+import { CHANGESET_ROUTER_SYMBOL } from './changeset/routes/changesetRouter';
 import { BullBoard } from './queueProvider/ui/bullBoard';
 import { ConfigType } from './common/config';
 
@@ -26,10 +26,10 @@ export class ServerBuilder {
     @inject(SERVICES.CONFIG) private readonly config: ConfigType,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
     @inject(SERVICES.METRICS) private readonly metricsRegistry: Registry,
-    @inject(fileRouterSymbol) private readonly fileRouter: Router,
+    @inject(FILE_ROUTER_SYMBOL) private readonly fileRouter: Router,
     @inject(SYNC_ROUTER_SYMBOL) private readonly syncRouter: Router,
-    @inject(entityRouterSymbol) private readonly entityRouter: Router,
-    @inject(changesetRouterSymbol) private readonly changesetRouter: Router,
+    @inject(ENTITY_ROUTER_SYMBOL) private readonly entityRouter: Router,
+    @inject(CHANGESET_ROUTER_SYMBOL) private readonly changesetRouter: Router,
     private readonly bullBoard: BullBoard
   ) {
     this.serverInstance = express();
