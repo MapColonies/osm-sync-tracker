@@ -9,7 +9,7 @@ export type StringifiedEntity = Partial<Entity>;
 
 export const createStringifiedFakeEntity = (params: FakeStringifiedFileParams = {}): StringifiedEntity => {
   return {
-    entityId: params.entityId ?? `{${faker.datatype.uuid()}}`,
+    entityId: params.entityId ?? `{${faker.string.uuid()}}`,
     fileId: params.fileId ?? undefined,
     changesetId: params.changesetId ?? undefined,
     action: params.action ?? ActionType.CREATE,

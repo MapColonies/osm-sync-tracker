@@ -391,7 +391,7 @@ describe('sync', function () {
         const { layerId, geometryType } = earlierSync;
 
         const laterSync = createStringifiedFakeSync({
-          dumpDate: faker.date.between(earlierDate, new Date()).toISOString(),
+          dumpDate: faker.date.between({ from: earlierDate, to: new Date() }).toISOString(),
           layerId,
           geometryType,
           isFull: false,
@@ -422,7 +422,7 @@ describe('sync', function () {
 
         const laterStartDateSync = createStringifiedFakeSync({
           dumpDate,
-          startDate: faker.date.between(startDate, new Date()).toISOString(),
+          startDate: faker.date.between({ from: startDate, to: new Date() }).toISOString(),
           layerId,
           geometryType,
           isFull: false,
@@ -444,7 +444,7 @@ describe('sync', function () {
         const { layerId, geometryType } = earlierDumpDateSync;
 
         const laterDumpDateFixDiffSync = createStringifiedFakeSync({
-          dumpDate: faker.date.between(dumpDate, new Date()).toISOString(),
+          dumpDate: faker.date.between({ from: dumpDate, to: new Date() }).toISOString(),
           layerId,
           geometryType,
           isFull: false,
@@ -467,7 +467,7 @@ describe('sync', function () {
         const { layerId, geometryType } = earlierDumpDateSync;
 
         const laterDumpDateFixDiffSync = createStringifiedFakeSync({
-          dumpDate: faker.date.between(dumpDate, new Date()).toISOString(),
+          dumpDate: faker.date.between({ from: dumpDate, to: new Date() }).toISOString(),
           layerId,
           geometryType,
           isFull: false,
@@ -510,14 +510,14 @@ describe('sync', function () {
 
     describe('POST /sync/closure', function () {
       it('should return 201 status code and created body', async function () {
-        const response = await syncRequestSender.postSyncsClosure([faker.datatype.uuid(), faker.datatype.uuid()]);
+        const response = await syncRequestSender.postSyncsClosure([faker.string.uuid(), faker.string.uuid()]);
 
         expect(response.status).toBe(httpStatus.CREATED);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
       });
 
       it('should return 201 status code and created body for non unique payload', async function () {
-        const syncId = faker.datatype.uuid();
+        const syncId = faker.string.uuid();
 
         const response = await syncRequestSender.postSyncsClosure([syncId, syncId, syncId]);
 
@@ -526,7 +526,7 @@ describe('sync', function () {
       });
 
       it('should return 201 status code and process the job even if sync is not found', async function () {
-        const syncId = faker.datatype.uuid();
+        const syncId = faker.string.uuid();
 
         const response = await syncRequestSender.postSyncsClosure([syncId]);
 
@@ -538,7 +538,7 @@ describe('sync', function () {
       });
 
       it('should return 201 status code and process the job with deduplication counter', async function () {
-        const syncId = faker.datatype.uuid();
+        const syncId = faker.string.uuid();
 
         expect(await syncRequestSender.postSyncsClosure([syncId])).toHaveStatus(StatusCodes.CREATED);
         expect(await syncRequestSender.postSyncsClosure([syncId])).toHaveStatus(StatusCodes.CREATED);
@@ -1645,7 +1645,7 @@ describe('sync', function () {
   describe('Bad Path', function () {
     describe('POST /sync', function () {
       it('should return 400 if the id is not valid', async function () {
-        const body = createStringifiedFakeSync({ id: faker.random.word() });
+        const body = createStringifiedFakeSync({ id: faker.string.alphanumeric() });
 
         const response = await syncRequestSender.postSync(body);
 
@@ -1708,14 +1708,14 @@ describe('sync', function () {
       it('should return 400 if the id is not valid', async function () {
         const { id, isFull, ...body } = createStringifiedFakeSync();
 
-        const response = await syncRequestSender.patchSync(faker.random.word(), body);
+        const response = await syncRequestSender.patchSync(faker.string.alphanumeric(), body);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', 'request.params.syncId should match format "uuid"');
       });
 
       it('should return 400 if a date is not valid', async function () {
-        const { id, isFull, ...body } = createStringifiedFakeSync({ dumpDate: faker.random.word() });
+        const { id, isFull, ...body } = createStringifiedFakeSync({ dumpDate: faker.string.alphanumeric() });
 
         const response = await syncRequestSender.patchSync(id as string, body);
 
@@ -1747,7 +1747,7 @@ describe('sync', function () {
       it('should return 404 if no sync with the specified id was found', async function () {
         const { id, isFull, ...body } = createStringifiedFakeSync();
 
-        const response = await syncRequestSender.patchSync(faker.datatype.uuid(), body);
+        const response = await syncRequestSender.patchSync(faker.string.uuid(), body);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
@@ -1755,14 +1755,14 @@ describe('sync', function () {
 
     describe('GET /sync/latest', function () {
       it('should return 400 if the layerId is not valid', async function () {
-        const response = await syncRequestSender.getLatestSync(faker.random.word() as unknown as number, GeometryType.POLYGON);
+        const response = await syncRequestSender.getLatestSync(faker.string.alphanumeric() as unknown as number, GeometryType.POLYGON);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', 'request.query.layerId should be integer');
       });
 
       it('should return 400 if the geometryType is not valid', async function () {
-        const response = await syncRequestSender.getLatestSync(generateUniqueNumber(), faker.random.word() as unknown as GeometryType);
+        const response = await syncRequestSender.getLatestSync(generateUniqueNumber(), faker.string.alphanumeric() as unknown as GeometryType);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty(
@@ -1798,7 +1798,7 @@ describe('sync', function () {
           expect(await syncRequestSender.postSync(sync)).toHaveStatus(StatusCodes.CREATED);
           expect(await syncRequestSender.patchSync(id as string, { status: Status.FAILED })).toHaveStatus(StatusCodes.OK);
 
-          const response = await syncRequestSender.rerunSync(id as string, { rerunId: faker.datatype.uuid() });
+          const response = await syncRequestSender.rerunSync(id as string, { rerunId: faker.string.uuid() });
           expect(response).toHaveProperty('status', StatusCodes.BAD_REQUEST);
           expect(response.body).toHaveProperty('message', `request.body should have required property 'startDate'`);
         },
@@ -1882,7 +1882,7 @@ describe('sync', function () {
       it(
         'should return 404 if the provided sync id for rerun does not exist',
         async function () {
-          const syncId = faker.datatype.uuid();
+          const syncId = faker.string.uuid();
           const rerunCreateBody = createStringifiedFakeRerunCreateBody();
 
           const response = await syncRequestSender.rerunSync(syncId, rerunCreateBody);
@@ -2099,7 +2099,7 @@ describe('sync', function () {
           mockDepContainer = mockContainer;
           const mockSyncRequestSender = new SyncRequestSender(mockApp);
 
-          const response = await mockSyncRequestSender.postSyncsClosure([faker.datatype.uuid()]);
+          const response = await mockSyncRequestSender.postSyncsClosure([faker.string.uuid()]);
 
           expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
           expect(response.body).toHaveProperty('message', 'failed');
@@ -2128,7 +2128,7 @@ describe('sync', function () {
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
           const delayJobSpy = jest.spyOn(queueHelpers, 'delayJob').mockImplementation(async () => Promise.resolve());
 
-          const syncId = faker.datatype.uuid();
+          const syncId = faker.string.uuid();
 
           expect(await mockSyncRequestSender.postSyncsClosure([syncId])).toHaveStatus(StatusCodes.CREATED);
 
@@ -2171,7 +2171,7 @@ describe('sync', function () {
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
           const delayJobSpy = jest.spyOn(queueHelpers, 'delayJob').mockImplementation(async () => Promise.resolve());
 
-          const syncId = faker.datatype.uuid();
+          const syncId = faker.string.uuid();
 
           expect(await mockSyncRequestSender.postSyncsClosure([syncId])).toHaveStatus(StatusCodes.CREATED);
 

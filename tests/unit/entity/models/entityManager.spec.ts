@@ -98,7 +98,7 @@ describe('EntityManager', () => {
 
       findOneFile.mockResolvedValue(undefined);
 
-      const createPromise = entityManager.createEntity(faker.datatype.uuid(), entity);
+      const createPromise = entityManager.createEntity(faker.string.uuid(), entity);
 
       await expect(createPromise).rejects.toThrow(FileNotFoundError);
     });
@@ -219,7 +219,7 @@ describe('EntityManager', () => {
 
       findOneFile.mockResolvedValue(undefined);
 
-      const createBulkPromise = entityManager.createEntities(faker.datatype.uuid(), entities);
+      const createBulkPromise = entityManager.createEntities(faker.string.uuid(), entities);
 
       await expect(createBulkPromise).rejects.toThrow(FileNotFoundError);
     });
@@ -271,7 +271,7 @@ describe('EntityManager', () => {
       findOneFile.mockResolvedValue(undefined);
       findOneEntity.mockResolvedValue(entity);
 
-      const updatePromise = entityManager.updateEntity(faker.datatype.uuid(), entity.entityId, entity);
+      const updatePromise = entityManager.updateEntity(faker.string.uuid(), entity.entityId, entity);
 
       await expect(updatePromise).rejects.toThrow(FileNotFoundError);
     });

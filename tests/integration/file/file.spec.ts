@@ -136,14 +136,14 @@ describe('file', function () {
 
     describe('POST /file/closure', function () {
       it('should return 201 status code and created body', async function () {
-        const response = await fileRequestSender.postFilesClosure([faker.datatype.uuid(), faker.datatype.uuid()]);
+        const response = await fileRequestSender.postFilesClosure([faker.string.uuid(), faker.string.uuid()]);
 
         expect(response.status).toBe(httpStatus.CREATED);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
       });
 
       it('should return 201 status code and created body for non unique payload', async function () {
-        const fileId = faker.datatype.uuid();
+        const fileId = faker.string.uuid();
 
         const response = await fileRequestSender.postFilesClosure([fileId, fileId, fileId]);
 
@@ -153,7 +153,7 @@ describe('file', function () {
 
       it('should return 201 status code and process the job even if file is not found', async function () {
         const fileWorker = depContainer.resolve<Worker>(FILES_QUEUE_WORKER_FACTORY);
-        const fileId = faker.datatype.uuid();
+        const fileId = faker.string.uuid();
 
         const response = await fileRequestSender.postFilesClosure([fileId]);
 
@@ -166,7 +166,7 @@ describe('file', function () {
 
       it('should return 201 status code and process the job with deduplication counter', async function () {
         const fileWorker = depContainer.resolve<Worker>(FILES_QUEUE_WORKER_FACTORY);
-        const fileId = faker.datatype.uuid();
+        const fileId = faker.string.uuid();
 
         expect(await fileRequestSender.postFilesClosure([fileId])).toHaveStatus(StatusCodes.CREATED);
         expect(await fileRequestSender.postFilesClosure([fileId])).toHaveStatus(StatusCodes.CREATED);
@@ -184,7 +184,7 @@ describe('file', function () {
       it('should return 400 if the syncId is not valid', async function () {
         const body = createStringifiedFakeFile();
 
-        const response = await fileRequestSender.postFile(faker.random.word(), body);
+        const response = await fileRequestSender.postFile(faker.string.alphanumeric(), body);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', 'request.params.syncId should match format "uuid"');
@@ -200,7 +200,7 @@ describe('file', function () {
       });
 
       it('should return 404 if the sync was not found', async function () {
-        const uuid = faker.datatype.uuid();
+        const uuid = faker.string.uuid();
         const response = await fileRequestSender.postFile(uuid, createStringifiedFakeFile());
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
@@ -268,14 +268,14 @@ describe('file', function () {
       it('should return 400 if the sync id is not valid', async function () {
         const body = createStringifiedFakeFile();
 
-        const response = await fileRequestSender.postFileBulk(faker.random.word(), [body]);
+        const response = await fileRequestSender.postFileBulk(faker.string.alphanumeric(), [body]);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', 'request.params.syncId should match format "uuid"');
       });
 
       it('should return 400 if a date is not valid', async function () {
-        const body = createStringifiedFakeFile({ startDate: faker.random.word() });
+        const body = createStringifiedFakeFile({ startDate: faker.string.alphanumeric() });
 
         const response = await fileRequestSender.postFileBulk(sync.id as string, [body]);
 
@@ -286,7 +286,7 @@ describe('file', function () {
       it('should return 404 if no sync with the specified sync id was found', async function () {
         const body = createStringifiedFakeFile();
 
-        const response = await fileRequestSender.postFileBulk(faker.datatype.uuid(), [body]);
+        const response = await fileRequestSender.postFileBulk(faker.string.uuid(), [body]);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
@@ -324,7 +324,7 @@ describe('file', function () {
         const body = createStringifiedFakeFile();
         await fileRequestSender.postFile(sync.id as string, body);
 
-        const patchResponse = await fileRequestSender.patchFile(sync.id as string, faker.datatype.uuid(), { totalEntities: 0 });
+        const patchResponse = await fileRequestSender.patchFile(sync.id as string, faker.string.uuid(), { totalEntities: 0 });
 
         expect(patchResponse.status).toBe(httpStatus.NOT_FOUND);
       });
@@ -421,7 +421,7 @@ describe('file', function () {
           const mockFileRequestSender = new FileRequestSender(mockApp);
           const { fileId, totalEntities } = createStringifiedFakeFile();
 
-          const response = await mockFileRequestSender.patchFile(faker.datatype.uuid(), fileId as string, { totalEntities });
+          const response = await mockFileRequestSender.patchFile(faker.string.uuid(), fileId as string, { totalEntities });
 
           expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
           expect(response.body).toHaveProperty('message', 'failed');
@@ -459,7 +459,7 @@ describe('file', function () {
           mockDepContainer = mockContainer;
           const mockFileRequestSender = new FileRequestSender(mockApp);
 
-          const response = await mockFileRequestSender.postFilesClosure([faker.datatype.uuid()]);
+          const response = await mockFileRequestSender.postFilesClosure([faker.string.uuid()]);
 
           expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
           expect(response.body).toHaveProperty('message', 'failed');
@@ -488,7 +488,7 @@ describe('file', function () {
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
           const delayJobSpy = jest.spyOn(queueHelpers, 'delayJob').mockImplementation(async () => Promise.resolve());
 
-          const fileId = faker.datatype.uuid();
+          const fileId = faker.string.uuid();
 
           expect(await mockFileRequestSender.postFilesClosure([fileId])).toHaveStatus(StatusCodes.CREATED);
 
@@ -531,7 +531,7 @@ describe('file', function () {
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
           const delayJobSpy = jest.spyOn(queueHelpers, 'delayJob').mockImplementation(async () => Promise.resolve());
 
-          const fileId = faker.datatype.uuid();
+          const fileId = faker.string.uuid();
 
           expect(await mockFileRequestSender.postFilesClosure([fileId])).toHaveStatus(StatusCodes.CREATED);
 

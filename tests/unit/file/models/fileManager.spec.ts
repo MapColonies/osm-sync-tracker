@@ -155,7 +155,7 @@ describe('FileManager', () => {
       findOneSync.mockResolvedValue(undefined);
       findOneFile.mockResolvedValue(undefined);
 
-      const createPromise = fileManager.createFile(faker.datatype.uuid(), file);
+      const createPromise = fileManager.createFile(faker.string.uuid(), file);
 
       await expect(createPromise).rejects.toThrow(SyncNotFoundError);
     });
@@ -257,7 +257,7 @@ describe('FileManager', () => {
 
       findOneSync.mockResolvedValue(undefined);
 
-      const createBulkPromise = fileManager.createFiles(faker.datatype.uuid(), files);
+      const createBulkPromise = fileManager.createFiles(faker.string.uuid(), files);
 
       await expect(createBulkPromise).rejects.toThrow(SyncNotFoundError);
     });

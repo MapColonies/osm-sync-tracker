@@ -25,6 +25,7 @@ import * as queueHelpers from '../../../src/queueProvider/helpers';
 import { TRANSACTIONAL_FAILURE_COUNT_KEY, DEDUPLICATION_COUNT_KEY } from '../../../src/queueProvider/helpers';
 import { ENTITY_CUSTOM_REPOSITORY_SYMBOL, EntityRepository } from '../../../src/entity/DAL/entityRepository';
 import { QueryFailedErrorWithCode, TransactionFailure } from '../../../src/common/db/transactions';
+import { MAX_RANDOM_NUMERIC_VALUE } from '../../helpers/helper';
 import { createStringifiedFakeChangeset } from './helpers/generators';
 import { ChangesetRequestSender } from './helpers/requestSender';
 
@@ -91,7 +92,7 @@ describe('changeset', function () {
         expect(await changesetRequestSender.postChangeset(body)).toHaveStatus(StatusCodes.CREATED);
         const { changesetId, ...updateBody } = body;
 
-        updateBody.osmId = faker.datatype.number();
+        updateBody.osmId = faker.number.int({ max: MAX_RANDOM_NUMERIC_VALUE });
 
         const response = await changesetRequestSender.patchChangeset(changesetId as string, updateBody);
 
@@ -115,14 +116,14 @@ describe('changeset', function () {
 
     describe('POST /changeset/closure', function () {
       it('should return 201 status code and created body', async function () {
-        const response = await changesetRequestSender.postChangesetClosure([faker.datatype.uuid(), faker.datatype.uuid()]);
+        const response = await changesetRequestSender.postChangesetClosure([faker.string.uuid(), faker.string.uuid()]);
 
         expect(response.status).toBe(httpStatus.CREATED);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
       });
 
       it('should return 201 status code and created body for non unique payload', async function () {
-        const changesetId = faker.datatype.uuid();
+        const changesetId = faker.string.uuid();
 
         const response = await changesetRequestSender.postChangesetClosure([changesetId, changesetId, changesetId]);
 
@@ -131,7 +132,7 @@ describe('changeset', function () {
       });
 
       it('should return 201 status code and process the job even if changeset is not found', async function () {
-        const changesetId = faker.datatype.uuid();
+        const changesetId = faker.string.uuid();
 
         const response = await changesetRequestSender.postChangesetClosure([changesetId]);
 
@@ -143,7 +144,7 @@ describe('changeset', function () {
       });
 
       it('should return 201 status code and process the job with deduplication counter', async function () {
-        const changesetId = faker.datatype.uuid();
+        const changesetId = faker.string.uuid();
 
         expect(await changesetRequestSender.postChangesetClosure([changesetId])).toHaveStatus(StatusCodes.CREATED);
         expect(await changesetRequestSender.postChangesetClosure([changesetId])).toHaveStatus(StatusCodes.CREATED);
@@ -159,7 +160,7 @@ describe('changeset', function () {
   describe('Bad Path', function () {
     describe('POST /changeset', function () {
       it('should return 400 if the changesetid is not valid', async function () {
-        const body = createStringifiedFakeChangeset({ changesetId: faker.random.word() });
+        const body = createStringifiedFakeChangeset({ changesetId: faker.string.alphanumeric() });
         const response = await changesetRequestSender.postChangeset(body);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
@@ -189,14 +190,14 @@ describe('changeset', function () {
       it('should return 400 if the id is not valid', async function () {
         const { changesetId, ...body } = createStringifiedFakeChangeset();
 
-        const response = await changesetRequestSender.patchChangeset(faker.random.word(), body);
+        const response = await changesetRequestSender.patchChangeset(faker.string.alphanumeric(), body);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', 'request.params.changesetId should match format "uuid"');
       });
 
       it('should return 400 if a osmId is not valid', async function () {
-        const { changesetId, ...body } = createStringifiedFakeChangeset({ osmId: faker.random.word() });
+        const { changesetId, ...body } = createStringifiedFakeChangeset({ osmId: faker.string.alphanumeric() });
 
         const response = await changesetRequestSender.patchChangeset(changesetId as string, body);
 
@@ -207,7 +208,7 @@ describe('changeset', function () {
       it('should return 404 if no changeset with the specified id was found', async function () {
         const { changesetId, ...body } = createStringifiedFakeChangeset();
 
-        const response = await changesetRequestSender.patchChangeset(faker.datatype.uuid(), body);
+        const response = await changesetRequestSender.patchChangeset(faker.string.uuid(), body);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
@@ -215,14 +216,14 @@ describe('changeset', function () {
 
     describe('PATCH /changeset/{changesetId}/entities', function () {
       it('should return 400 if the id is not valid', async function () {
-        const response = await changesetRequestSender.patchChangesetEntities(faker.random.word());
+        const response = await changesetRequestSender.patchChangesetEntities(faker.string.alphanumeric());
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', 'request.params.changesetId should match format "uuid"');
       });
 
       it('should return 404 if no changeset with the specified id was found', async function () {
-        const response = await changesetRequestSender.patchChangesetEntities(faker.datatype.uuid());
+        const response = await changesetRequestSender.patchChangesetEntities(faker.string.uuid());
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
@@ -349,7 +350,7 @@ describe('changeset', function () {
           mockDepContainer = mockContainer;
           const mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
-          const response = await mockChangesetRequestSender.postChangesetClosure([faker.datatype.uuid()]);
+          const response = await mockChangesetRequestSender.postChangesetClosure([faker.string.uuid()]);
 
           expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
           expect(response.body).toHaveProperty('message', 'failed');
@@ -378,7 +379,7 @@ describe('changeset', function () {
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
           const delayJobSpy = jest.spyOn(queueHelpers, 'delayJob').mockImplementation(async () => Promise.resolve());
 
-          const changesetId = faker.datatype.uuid();
+          const changesetId = faker.string.uuid();
 
           expect(await mockChangesetRequestSender.postChangesetClosure([changesetId])).toHaveStatus(StatusCodes.CREATED);
 
@@ -421,7 +422,7 @@ describe('changeset', function () {
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
           const delayJobSpy = jest.spyOn(queueHelpers, 'delayJob').mockImplementation(async () => Promise.resolve());
 
-          const changesetId = faker.datatype.uuid();
+          const changesetId = faker.string.uuid();
 
           expect(await mockChangesetRequestSender.postChangesetClosure([changesetId])).toHaveStatus(StatusCodes.CREATED);
 

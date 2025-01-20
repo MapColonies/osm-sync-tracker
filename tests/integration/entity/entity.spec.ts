@@ -188,7 +188,7 @@ describe('entity', function () {
       it('should return 400 if the fileId is not valid', async function () {
         const body = createStringifiedFakeEntity();
 
-        const response = await entityRequestSender.postEntity(faker.random.word(), body);
+        const response = await entityRequestSender.postEntity(faker.string.alphanumeric(), body);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', 'request.params.fileId should match format "uuid"');
@@ -204,7 +204,7 @@ describe('entity', function () {
       });
 
       it('should return 404 if the file was not found', async function () {
-        const uuid = faker.datatype.uuid();
+        const uuid = faker.string.uuid();
         const response = await entityRequestSender.postEntity(uuid, createStringifiedFakeEntity());
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
@@ -225,14 +225,14 @@ describe('entity', function () {
       it('should return 400 if the file id is not valid', async function () {
         const body = createStringifiedFakeEntity();
 
-        const response = await entityRequestSender.postEntityBulk(faker.random.word(), [body]);
+        const response = await entityRequestSender.postEntityBulk(faker.string.alphanumeric(), [body]);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', 'request.params.fileId should match format "uuid"');
       });
 
       it('should return 400 if a status is not valid', async function () {
-        const body = createStringifiedFakeEntity({ status: faker.random.word() as EntityStatus });
+        const body = createStringifiedFakeEntity({ status: faker.string.alphanumeric() as EntityStatus });
 
         const response = await entityRequestSender.postEntityBulk(file.fileId as string, [body]);
 
@@ -256,7 +256,7 @@ describe('entity', function () {
       it('should return 404 if no file with the specified file id was found', async function () {
         const body = createStringifiedFakeEntity();
 
-        const response = await entityRequestSender.postEntityBulk(faker.datatype.uuid(), [body]);
+        const response = await entityRequestSender.postEntityBulk(faker.string.uuid(), [body]);
 
         expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
       });
@@ -289,7 +289,7 @@ describe('entity', function () {
       it('should return 400 if the enittyId is not valid', async function () {
         const { entityId, ...updateBody } = createStringifiedFakeEntity();
 
-        const response = await entityRequestSender.patchEntity(file.fileId as string, faker.random.word(), updateBody);
+        const response = await entityRequestSender.patchEntity(file.fileId as string, faker.string.alphanumeric(), updateBody);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty(
@@ -299,7 +299,7 @@ describe('entity', function () {
       });
 
       it('should return 400 if a status is not valid', async function () {
-        const { entityId, ...updateBody } = createStringifiedFakeEntity({ status: faker.random.word() as EntityStatus });
+        const { entityId, ...updateBody } = createStringifiedFakeEntity({ status: faker.string.alphanumeric() as EntityStatus });
 
         const response = await entityRequestSender.patchEntity(file.fileId as string, entityId as string, updateBody);
 
@@ -321,7 +321,7 @@ describe('entity', function () {
 
     describe('PATCH /entity/_bulk', function () {
       it('should return 400 if the sync id is not valid', async function () {
-        const body = createStringifiedFakeEntity({ entityId: faker.random.word(), fileId: file.fileId });
+        const body = createStringifiedFakeEntity({ entityId: faker.string.alphanumeric(), fileId: file.fileId });
 
         const response = await entityRequestSender.patchEntities([body]);
 
@@ -329,7 +329,7 @@ describe('entity', function () {
       });
 
       it('should return 400 if a status is not valid', async function () {
-        const body = createStringifiedFakeEntity({ status: faker.random.word() as EntityStatus, fileId: file.fileId });
+        const body = createStringifiedFakeEntity({ status: faker.string.alphanumeric() as EntityStatus, fileId: file.fileId });
 
         const response = await entityRequestSender.patchEntities([body]);
 
@@ -352,7 +352,7 @@ describe('entity', function () {
         const entity = createStringifiedFakeEntity();
         expect(await entityRequestSender.postEntity(file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
 
-        const entities = [{ ...entity, status: EntityStatus.FAILED, failReason: faker.random.word(), fileId: faker.datatype.uuid() }];
+        const entities = [{ ...entity, status: EntityStatus.FAILED, failReason: faker.string.alphanumeric(), fileId: faker.string.uuid() }];
 
         const response = await entityRequestSender.patchEntities(entities);
 
@@ -365,7 +365,7 @@ describe('entity', function () {
         expect(await entityRequestSender.postEntity(file.fileId as string, entity)).toHaveStatus(StatusCodes.CREATED);
 
         const entities = [
-          { ...entity, status: EntityStatus.FAILED, failReason: faker.random.word(), fileId: file.fileId },
+          { ...entity, status: EntityStatus.FAILED, failReason: faker.string.alphanumeric(), fileId: file.fileId },
           createStringifiedFakeEntity({ fileId: file.fileId }),
         ];
 
