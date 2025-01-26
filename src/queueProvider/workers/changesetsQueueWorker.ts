@@ -2,7 +2,6 @@ import { Worker, Job, DelayedError } from 'bullmq';
 import { FactoryFunction } from 'tsyringe';
 import IORedis from 'ioredis';
 import { Logger } from '@map-colonies/js-logger';
-import { CleanupRegistry } from '@map-colonies/cleanup-registry';
 import { nanoid } from 'nanoid';
 import { ConfigType } from '../../common/config';
 import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, KEY_PREFIX } from '../constants';
@@ -28,7 +27,6 @@ export const changesetsQueueWorkerFactory: FactoryFunction<Worker> = (container)
   const redisConnection = container.resolve<IORedis>(SERVICES.REDIS);
   const entityRepository = container.resolve<EntityRepository>(ENTITY_CUSTOM_REPOSITORY_SYMBOL);
   const filesQueue = container.resolve<JobQueueProvider<ClosureJob>>(FILES_QUEUE_NAME);
-  const cleanupRegistry = container.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
 
   workerLogger.info({ msg: `initializing ${queueName} queue worker`, workerOptions: workerOptions });
 
@@ -101,8 +99,6 @@ export const changesetsQueueWorkerFactory: FactoryFunction<Worker> = (container)
       autorun: false,
     }
   );
-
-  cleanupRegistry.register({ id: CHANGESETS_QUEUE_WORKER_NAME, func: worker.close.bind(worker) });
 
   worker.on('completed', (job) => {
     workerLogger.info({ msg: `Job ${job.id ?? 'unknown_id'} in Queue ${queueName} completed`, queueName });

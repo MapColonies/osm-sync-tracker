@@ -51,10 +51,6 @@ describe('changesetsQueueWorkerFactory', () => {
     child: jest.fn(() => childLogger),
   };
 
-  const cleanupResgistryMock = {
-    register: jest.fn(),
-  };
-
   const redisMock = jest.fn();
 
   const entityRespositoryMock = {
@@ -73,9 +69,6 @@ describe('changesetsQueueWorkerFactory', () => {
       }
       if (token === SERVICES.CONFIG) {
         return configMock;
-      }
-      if (token === SERVICES.CLEANUP_REGISTRY) {
-        return cleanupResgistryMock;
       }
       if (token === SERVICES.REDIS) {
         return redisMock;
@@ -108,7 +101,6 @@ describe('changesetsQueueWorkerFactory', () => {
       autorun: false,
     });
     expect(worker).toBeDefined();
-    expect(cleanupResgistryMock.register).toHaveBeenCalledTimes(1);
   });
 
   it('should process a single changeset closure job with no affected result', async () => {

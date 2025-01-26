@@ -19,9 +19,13 @@ import { entityRouterFactory, ENTITY_ROUTER_SYMBOL } from './entity/routes/entit
 import { CHANGESET_ROUTER_SYMBOL, changesetRouterFactory } from './changeset/routes/changesetRouter';
 import { InjectionObject, registerDependencies } from './common/dependencyRegistration';
 import { fileRepositoryFactory, FILE_CUSTOM_REPOSITORY_SYMBOL } from './file/DAL/fileRepository';
-import { FILES_QUEUE_WORKER_FACTORY, filesQueueWorkerFactory } from './queueProvider/workers/filesQueueWorker';
-import { CHANGESETS_QUEUE_WORKER_FACTORY, changesetsQueueWorkerFactory } from './queueProvider/workers/changesetsQueueWorker';
-import { SYNCS_QUEUE_WORKER_FACTORY, syncsQueueWorkerFactory } from './queueProvider/workers/syncsQueueWorker';
+import { FILES_QUEUE_WORKER_FACTORY, FILES_QUEUE_WORKER_NAME, filesQueueWorkerFactory } from './queueProvider/workers/filesQueueWorker';
+import {
+  CHANGESETS_QUEUE_WORKER_FACTORY,
+  CHANGESETS_QUEUE_WORKER_NAME,
+  changesetsQueueWorkerFactory,
+} from './queueProvider/workers/changesetsQueueWorker';
+import { SYNCS_QUEUE_WORKER_FACTORY, SYNCS_QUEUE_WORKER_NAME, syncsQueueWorkerFactory } from './queueProvider/workers/syncsQueueWorker';
 import { BullQueueProviderFactory } from './queueProvider/queues/bullQueueProviderFactory';
 import {
   CHANGESETS_QUEUE_NAME,
@@ -53,9 +57,33 @@ const registerClosureDeps = (): InjectionObject<unknown>[] => {
         }
       },
     },
-    { token: FILES_QUEUE_WORKER_FACTORY, provider: { useFactory: filesQueueWorkerFactory } },
-    { token: CHANGESETS_QUEUE_WORKER_FACTORY, provider: { useFactory: changesetsQueueWorkerFactory } },
-    { token: SYNCS_QUEUE_WORKER_FACTORY, provider: { useFactory: syncsQueueWorkerFactory } },
+    {
+      token: CHANGESETS_QUEUE_WORKER_FACTORY,
+      provider: { useFactory: instancePerContainerCachingFactory(changesetsQueueWorkerFactory) },
+      postInjectionHook(container): void {
+        const worker = container.resolve<Worker>(CHANGESETS_QUEUE_WORKER_FACTORY);
+        const cleanupRegistry = container.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
+        cleanupRegistry.register({ id: CHANGESETS_QUEUE_WORKER_NAME, func: worker.close.bind(worker) });
+      },
+    },
+    {
+      token: FILES_QUEUE_WORKER_FACTORY,
+      provider: { useFactory: instancePerContainerCachingFactory(filesQueueWorkerFactory) },
+      postInjectionHook(container): void {
+        const worker = container.resolve<Worker>(FILES_QUEUE_WORKER_FACTORY);
+        const cleanupRegistry = container.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
+        cleanupRegistry.register({ id: FILES_QUEUE_WORKER_NAME, func: worker.close.bind(worker) });
+      },
+    },
+    {
+      token: SYNCS_QUEUE_WORKER_FACTORY,
+      provider: { useFactory: instancePerContainerCachingFactory(syncsQueueWorkerFactory) },
+      postInjectionHook(container): void {
+        const worker = container.resolve<Worker>(SYNCS_QUEUE_WORKER_FACTORY);
+        const cleanupRegistry = container.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
+        cleanupRegistry.register({ id: SYNCS_QUEUE_WORKER_NAME, func: worker.close.bind(worker) });
+      },
+    },
     {
       token: CLOSURE_WORKERS_INITIALIZER,
       provider: {

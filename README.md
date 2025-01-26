@@ -32,7 +32,7 @@ Each type has its own queue and configuration as follows:
 - `closure.queues.{queueName}.jobOptions.attempts` - the maximum number of attempts for each job
 - `closure.queues.{queueName}.jobOptions.delay` - the amount of ms a job should be delayed before being processed after creation
 - `closure.queues.{queueName}.jobOptions.deduplicationDelay` - the amount of ms a job should be delayed if a job with the same id is being inserted to the queue while the first job was in delayed state
-- `closure.queues.{queueName}.jobOptions.backoff.type` - the type of delay between retry attempts, could be either fixed or exponential
+- `closure.queues.{queueName}.jobOptions.backoff.type` - the type of delay between retry attempts, could be either `fixed` or `exponential`
 - `closure.queues.{queueName}.jobOptions.backoff.delay` - the amount of ms that will be used in the `backoff.type` to delay a job after a failed attempt
 - `closure.queues.${queueName}.workerOptions.concurrency` - the number of jobs that can be processed in parallel
 - `closure.queues.${queueName}.workerOptions.limiter.max` - the maximum amount of jobs that can be processed in `limiter.duration` duration window
