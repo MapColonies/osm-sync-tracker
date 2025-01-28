@@ -1,14 +1,9 @@
 import { DataSource, In } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
-import { Logger } from '@map-colonies/js-logger';
 import { CLOSED_PARAMS, DATA_SOURCE_PROVIDER, ReturningResult } from '../../common/db';
 import { File, FileUpdate } from '../models/file';
 import { Entity as EntityDb } from '../../entity/DAL/entity';
 import { EntityStatus, Status } from '../../common/enums';
-import { TransactionFailureError } from '../../common/errors';
-import { isTransactionFailure, TransactionFn, TransactionParams } from '../../common/db/transactions';
-import { SERVICES } from '../../common/constants';
-import { ILogger } from '../../common/interfaces';
 import { FILE_IDENTIFIER_COLUMN, File as FileDb, SYNC_OF_FILE_IDENTIFIER_COLUMN } from './file';
 
 interface FileClosureIds {
@@ -19,26 +14,6 @@ interface FileClosureIds {
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const createFileRepo = (dataSource: DataSource) => {
   return dataSource.getRepository(FileDb).extend({
-    async transactionify<T>(params: TransactionParams, fn: TransactionFn<T>): Promise<T> {
-      logger.info({ msg: 'attempting to run transaction', ...params });
-
-      try {
-        const result = await this.manager.connection.transaction(params.isolationLevel, fn);
-
-        logger.info({ msg: 'transaction completed successfully', ...params });
-
-        return result;
-      } catch (error) {
-        logger.error({ msg: 'failure occurred while running transaction', ...params, err: error });
-
-        if (isTransactionFailure(error)) {
-          throw new TransactionFailureError(`running transaction has failed due to read/write dependencies among transactions.`);
-        }
-
-        throw error;
-      }
-    },
-
     async createFile(file: File): Promise<void> {
       await this.insert(file);
     },
@@ -104,8 +79,6 @@ const createFileRepo = (dataSource: DataSource) => {
   });
 };
 
-let logger: ILogger;
-
 export interface FileId {
   [FILE_IDENTIFIER_COLUMN]: string;
 }
@@ -113,9 +86,6 @@ export interface FileId {
 export type FileRepository = ReturnType<typeof createFileRepo>;
 
 export const fileRepositoryFactory: FactoryFunction<FileRepository> = (depContainer) => {
-  const baseLogger = depContainer.resolve<Logger>(SERVICES.LOGGER);
-  logger = baseLogger.child({ component: 'fileRepository' });
-
   return createFileRepo(depContainer.resolve<DataSource>(DATA_SOURCE_PROVIDER));
 };
 

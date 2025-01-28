@@ -6,7 +6,7 @@ import { SERVICES } from '../../../../src/common/constants';
 import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, KEY_PREFIX } from '../../../../src/queueProvider/constants';
 import { BatchClosureJob, ClosureJob, ClosureReturn } from '../../../../src/queueProvider/types';
 import { ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../../src/entity/DAL/entityRepository';
-import { TransactionName, TransactionParams } from '../../../../src/common/db/transactions';
+import { transactionify, TransactionName, TransactionParams } from '../../../../src/common/db/transactions';
 import { Status } from '../../../../src/common/enums';
 import { TransactionFailureError } from '../../../../src/common/errors';
 import { updateJobCounter, delayJob } from '../../../../src/queueProvider/helpers';
@@ -27,6 +27,11 @@ jest.mock('bullmq', () => ({
 jest.mock('../../../../src/queueProvider/helpers', () => ({
   delayJob: jest.fn(),
   updateJobCounter: jest.fn(),
+}));
+
+jest.mock('../../../../src/common/db/transactions', (): object => ({
+  ...jest.requireActual('../../../../src/common/db/transactions'),
+  transactionify: jest.fn().mockImplementation(async (_: TransactionParams, fn: () => Promise<unknown>) => fn()),
 }));
 
 describe('changesetsQueueWorkerFactory', () => {
@@ -106,16 +111,16 @@ describe('changesetsQueueWorkerFactory', () => {
   it('should process a single changeset closure job with no affected result', async () => {
     worker = factory(containerMock as unknown as DependencyContainer);
     const processFn = worker['processFn'];
-    entityRespositoryMock.transactionify.mockImplementation(async (_: TransactionParams, fn: () => Promise<unknown>) => fn());
     entityRespositoryMock.findFilesByChangesets.mockResolvedValue([]);
     const job = { data: { id: 'changesetId', kind: 'changeset' }, attemptsMade: 0, opts: { attempts: 10 } } as Job<ClosureJob, ClosureReturn>;
 
     await expect(processFn(job)).resolves.toMatchObject({ invokedJobCount: 0, invokedJobs: [] });
 
-    expect(entityRespositoryMock.transactionify).toHaveBeenCalledTimes(1);
-    expect(entityRespositoryMock.transactionify).toHaveBeenCalledWith(
+    expect(transactionify).toHaveBeenCalledTimes(1);
+    expect(transactionify).toHaveBeenCalledWith(
       expect.objectContaining({ transactionName: TransactionName.FIND_FILES_BY_CHANGESETS, isolationLevel: 'a' }),
-      expect.anything()
+      expect.anything(),
+      childLogger
     );
     expect(entityRespositoryMock.findFilesByChangesets).toHaveBeenCalledTimes(1);
     expect(entityRespositoryMock.findFilesByChangesets).toHaveBeenCalledWith(['changesetId'], [Status.IN_PROGRESS]);
@@ -136,10 +141,11 @@ describe('changesetsQueueWorkerFactory', () => {
       ],
     });
 
-    expect(entityRespositoryMock.transactionify).toHaveBeenCalledTimes(1);
-    expect(entityRespositoryMock.transactionify).toHaveBeenCalledWith(
+    expect(transactionify).toHaveBeenCalledTimes(1);
+    expect(transactionify).toHaveBeenCalledWith(
       expect.objectContaining({ transactionName: TransactionName.FIND_FILES_BY_CHANGESETS, isolationLevel: 'a' }),
-      expect.anything()
+      expect.anything(),
+      childLogger
     );
     expect(entityRespositoryMock.findFilesByChangesets).toHaveBeenCalledTimes(1);
     expect(entityRespositoryMock.findFilesByChangesets).toHaveBeenCalledWith(['changesetId'], [Status.IN_PROGRESS]);
@@ -162,10 +168,11 @@ describe('changesetsQueueWorkerFactory', () => {
 
     await expect(processFn(job)).resolves.toMatchObject({ invokedJobCount: 0, invokedJobs: [] });
 
-    expect(entityRespositoryMock.transactionify).toHaveBeenCalledTimes(1);
-    expect(entityRespositoryMock.transactionify).toHaveBeenCalledWith(
+    expect(transactionify).toHaveBeenCalledTimes(1);
+    expect(transactionify).toHaveBeenCalledWith(
       expect.objectContaining({ transactionName: TransactionName.FIND_FILES_BY_CHANGESETS, isolationLevel: 'a' }),
-      expect.anything()
+      expect.anything(),
+      childLogger
     );
     expect(entityRespositoryMock.findFilesByChangesets).toHaveBeenCalledTimes(1);
     expect(entityRespositoryMock.findFilesByChangesets).toHaveBeenCalledWith(['changesetId1', 'changesetId2', 'changesetId3'], [Status.IN_PROGRESS]);
@@ -184,10 +191,11 @@ describe('changesetsQueueWorkerFactory', () => {
 
     await expect(processFn(job)).resolves.toMatchObject({ invokedJobCount: 0, invokedJobs: [] });
 
-    expect(entityRespositoryMock.transactionify).toHaveBeenCalledTimes(1);
-    expect(entityRespositoryMock.transactionify).toHaveBeenCalledWith(
+    expect(transactionify).toHaveBeenCalledTimes(1);
+    expect(transactionify).toHaveBeenCalledWith(
       expect.objectContaining({ transactionName: TransactionName.FIND_FILES_BY_CHANGESETS, isolationLevel: 'a' }),
-      expect.anything()
+      expect.anything(),
+      childLogger
     );
     expect(entityRespositoryMock.findFilesByChangesets).toHaveBeenCalledTimes(1);
     expect(entityRespositoryMock.findFilesByChangesets).toHaveBeenCalledWith(['hashedChangesetsId'], [Status.IN_PROGRESS]);
@@ -203,10 +211,11 @@ describe('changesetsQueueWorkerFactory', () => {
 
     await expect(processFn(job)).rejects.toThrow(someError);
 
-    expect(entityRespositoryMock.transactionify).toHaveBeenCalledTimes(1);
-    expect(entityRespositoryMock.transactionify).toHaveBeenCalledWith(
+    expect(transactionify).toHaveBeenCalledTimes(1);
+    expect(transactionify).toHaveBeenCalledWith(
       expect.objectContaining({ transactionName: TransactionName.FIND_FILES_BY_CHANGESETS, isolationLevel: 'a' }),
-      expect.anything()
+      expect.anything(),
+      childLogger
     );
     expect(entityRespositoryMock.findFilesByChangesets).toHaveBeenCalledTimes(1);
     expect(entityRespositoryMock.findFilesByChangesets).toHaveBeenCalledWith(['changesetId'], [Status.IN_PROGRESS]);
@@ -224,10 +233,11 @@ describe('changesetsQueueWorkerFactory', () => {
 
     await expect(processFn(job)).rejects.toThrow(DelayedError);
 
-    expect(entityRespositoryMock.transactionify).toHaveBeenCalledTimes(1);
-    expect(entityRespositoryMock.transactionify).toHaveBeenCalledWith(
+    expect(transactionify).toHaveBeenCalledTimes(1);
+    expect(transactionify).toHaveBeenCalledWith(
       expect.objectContaining({ transactionName: TransactionName.FIND_FILES_BY_CHANGESETS, isolationLevel: 'a' }),
-      expect.anything()
+      expect.anything(),
+      childLogger
     );
     expect(entityRespositoryMock.findFilesByChangesets).toHaveBeenCalledTimes(1);
     expect(entityRespositoryMock.findFilesByChangesets).toHaveBeenCalledWith(['changesetId'], [Status.IN_PROGRESS]);

@@ -88,7 +88,6 @@ export class BullQueueProvider<T extends Identifiable> implements JobQueueProvid
       await updateJobCounter(job, 'deduplication');
     } catch (err) {
       this.logger?.error({ msg: 'an error accord during job delay change', queueName: this.queueName, jobId, delay, err: err });
-      // throw err;
     }
   }
 

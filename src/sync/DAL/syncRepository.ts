@@ -3,7 +3,7 @@ import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
 import { EntityStatus, GeometryType, Status } from '../../common/enums';
-import { isTransactionFailure, TransactionFn, TransactionName, TransactionParams } from '../../common/db/transactions';
+import { isTransactionFailure, TransactionName } from '../../common/db/transactions';
 import { CreateRerunRequest, Sync, SyncsFilter, SyncUpdate, SyncWithReruns } from '../models/sync';
 import { CLOSED_PARAMS, DATA_SOURCE_PROVIDER, ReturningId, ReturningResult } from '../../common/db';
 import { TransactionFailureError } from '../../common/errors';
@@ -158,26 +158,6 @@ async function updateDanglingFilesAsCompleted(syncId: string, schema: string, tr
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const createSyncRepo = (dataSource: DataSource) => {
   return dataSource.getRepository(SyncDb).extend({
-    async transactionify<T>(params: TransactionParams, fn: TransactionFn<T>): Promise<T> {
-      logger.info({ msg: 'attempting to run transaction', ...params });
-
-      try {
-        const result = await this.manager.connection.transaction(params.isolationLevel, fn);
-
-        logger.info({ msg: 'transaction completed', ...params });
-
-        return result;
-      } catch (error) {
-        logger.error({ msg: 'failure occurred while running transaction', ...params, err: error });
-
-        if (isTransactionFailure(error)) {
-          throw new TransactionFailureError(`running transaction has failed due to read/write dependencies among transactions.`);
-        }
-
-        throw error;
-      }
-    },
-
     async getLatestSync(layerId: number, geometryType: GeometryType): Promise<SyncDb | null> {
       return this.createQueryBuilder('sync')
         .select('sync')

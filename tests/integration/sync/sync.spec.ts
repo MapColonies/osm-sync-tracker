@@ -8,7 +8,7 @@ import { EntityRepository, ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/
 import { getApp } from '../../../src/app';
 import { BEFORE_ALL_TIMEOUT, RERUN_TEST_TIMEOUT, getBaseRegisterOptions, LONG_RUNNING_TEST_TIMEOUT, waitForJobToBeResolved } from '../helpers';
 import * as queueHelpers from '../../../src/queueProvider/helpers';
-import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../../../src/sync/DAL/syncRepository';
+import { SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/sync/DAL/syncRepository';
 import { EntityStatus, GeometryType, Status } from '../../../src/common/enums';
 import { createStringifiedFakeFile } from '../file/helpers/generators';
 import { FileRequestSender } from '../file/helpers/requestSender';
@@ -2110,15 +2110,13 @@ describe('sync', function () {
       it(
         'should fail job processing due to query error',
         async function () {
-          const syncRepository = depContainer.resolve<SyncRepository>(SYNC_CUSTOM_REPOSITORY_SYMBOL);
-
           const mockError = new QueryFailedError('select *', [], new Error('failed'));
           const attemptSyncClosureMock = jest.fn().mockRejectedValue(mockError);
           const mockRegisterOptions = getBaseRegisterOptions();
           mockRegisterOptions.override.push({
             token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
             provider: {
-              useValue: { attemptSyncClosure: attemptSyncClosureMock, transactionify: syncRepository.transactionify.bind(syncRepository) },
+              useValue: { attemptSyncClosure: attemptSyncClosureMock },
             },
           });
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
@@ -2149,7 +2147,6 @@ describe('sync', function () {
         'should fail job processing due to transaction error and increase counter with each time',
         async function () {
           let eventCounter = 0;
-          const syncRepository = depContainer.resolve<SyncRepository>(SYNC_CUSTOM_REPOSITORY_SYMBOL);
 
           const transactionError = new QueryFailedError('select *', [], new Error());
           (transactionError as QueryFailedErrorWithCode).code = TransactionFailure.SERIALIZATION_FAILURE;
@@ -2159,7 +2156,7 @@ describe('sync', function () {
           mockRegisterOptions.override.push({
             token: SYNC_CUSTOM_REPOSITORY_SYMBOL,
             provider: {
-              useValue: { attemptSyncClosure: attemptSyncClosureMock, transactionify: syncRepository.transactionify.bind(syncRepository) },
+              useValue: { attemptSyncClosure: attemptSyncClosureMock },
             },
           });
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);

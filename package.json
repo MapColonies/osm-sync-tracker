@@ -13,7 +13,6 @@
     "lint:openapi": "openapi lint ./openapi3.yaml",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
-    "release": "standard-version",
     "typeorm": "node --require ts-node/register ./node_modules/typeorm/cli.js -d dataSource.ts",
     "migration:create": "npm run typeorm migration:generate",
     "migration:run": "npm run typeorm migration:run",
@@ -32,11 +31,6 @@
   },
   "author": "MapColonies",
   "license": "ISC",
-  "config": {
-    "commitizen": {
-      "path": "./node_modules/cz-conventional-changelog"
-    }
-  },
   "dependencies": {
     "@bull-board/api": "^6.6.2",
     "@bull-board/express": "^6.6.2",
@@ -65,7 +59,8 @@
     "prom-client": "^15.1.2",
     "reflect-metadata": "^0.1.13",
     "tsyringe": "^4.8.0",
-    "typeorm": "^0.3.20"
+    "typeorm": "^0.3.20",
+    "typeorm-transactional": "^0.5.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.5.0",
@@ -73,8 +68,6 @@
     "@faker-js/faker": "^9.4.0",
     "@map-colonies/eslint-config": "^4.0.0",
     "@map-colonies/prettier-config": "0.0.1",
-    "@map-colonies/standard-version-update-helm-version": "^2.0.1",
-    "@map-colonies/standard-version-update-openapi3-version": "0.0.2",
     "@redocly/openapi-cli": "^1.0.0-beta.94",
     "@types/compression": "^1.7.2",
     "@types/express": "^4.17.17",

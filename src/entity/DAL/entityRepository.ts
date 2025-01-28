@@ -1,39 +1,14 @@
 import { In, DataSource } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
-import { Logger } from '@map-colonies/js-logger';
 import { Entity, UpdateEntities, UpdateEntity } from '../models/entity';
 import { Status } from '../../common/enums';
 import { FileId } from '../../file/DAL/fileRepository';
 import { DATA_SOURCE_PROVIDER } from '../../common/db';
-import { ILogger } from '../../common/interfaces';
-import { TransactionFailureError } from '../../common/errors';
-import { SERVICES } from '../../common/constants';
-import { isTransactionFailure, TransactionFn, TransactionParams } from '../../common/db/transactions';
 import { Entity as EntityDb } from './entity';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const createEntityRepository = (dataSource: DataSource) => {
   return dataSource.getRepository(EntityDb).extend({
-    async transactionify<T>(params: TransactionParams, fn: TransactionFn<T>): Promise<T> {
-      logger.info({ msg: 'attempting to run transaction', ...params });
-
-      try {
-        const result = await this.manager.connection.transaction(params.isolationLevel, fn);
-
-        logger.info({ msg: 'transaction completed', ...params });
-
-        return result;
-      } catch (error) {
-        logger.error({ msg: 'failure occurred while running transaction', ...params, err: error });
-
-        if (isTransactionFailure(error)) {
-          throw new TransactionFailureError(`running transaction has failed due to read/write dependencies among transactions.`);
-        }
-
-        throw error;
-      }
-    },
-
     async createEntity(entity: Entity): Promise<void> {
       await this.insert(entity);
     },
@@ -96,14 +71,9 @@ const createEntityRepository = (dataSource: DataSource) => {
   });
 };
 
-let logger: ILogger;
-
 export type EntityRepository = ReturnType<typeof createEntityRepository>;
 
 export const entityRepositoryFactory: FactoryFunction<EntityRepository> = (depContainer) => {
-  const baseLogger = depContainer.resolve<Logger>(SERVICES.LOGGER);
-  logger = baseLogger.child({ component: 'entityRepository' });
-
   return createEntityRepository(depContainer.resolve<DataSource>(DATA_SOURCE_PROVIDER));
 };
 

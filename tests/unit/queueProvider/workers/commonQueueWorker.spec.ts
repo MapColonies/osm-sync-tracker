@@ -6,7 +6,6 @@ import { SERVICES } from '../../../../src/common/constants';
 import { FILES_QUEUE_NAME } from '../../../../src/queueProvider/constants';
 import { BatchClosureJob, ClosureReturn } from '../../../../src/queueProvider/types';
 import { ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../../src/entity/DAL/entityRepository';
-import { TransactionParams } from '../../../../src/common/db/transactions';
 import { filesQueueWorkerFactory } from '../../../../src/queueProvider/workers/filesQueueWorker';
 import { syncsQueueWorkerFactory } from '../../../../src/queueProvider/workers/syncsQueueWorker';
 
@@ -37,7 +36,6 @@ describe('commonQueueWorkerFactory', () => {
   const redisMock = jest.fn();
 
   const entityRespositoryMock = {
-    transactionify: jest.fn().mockImplementation(async (_: TransactionParams, fn: () => Promise<unknown>) => fn()),
     findFilesByChangesets: jest.fn(),
   };
 

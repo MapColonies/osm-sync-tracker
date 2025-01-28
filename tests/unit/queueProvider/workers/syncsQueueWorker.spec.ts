@@ -4,7 +4,7 @@ import jsLogger from '@map-colonies/js-logger';
 import { SERVICES } from '../../../../src/common/constants';
 import { KEY_PREFIX, SYNCS_QUEUE_NAME } from '../../../../src/queueProvider/constants';
 import { BatchClosureJob, ClosureJob, ClosureReturn } from '../../../../src/queueProvider/types';
-import { TransactionName, TransactionParams } from '../../../../src/common/db/transactions';
+import { transactionify, TransactionName, TransactionParams } from '../../../../src/common/db/transactions';
 import { TransactionFailureError } from '../../../../src/common/errors';
 import { updateJobCounter, delayJob } from '../../../../src/queueProvider/helpers';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../../../src/sync/DAL/syncRepository';
@@ -24,6 +24,11 @@ jest.mock('bullmq', () => ({
 jest.mock('../../../../src/queueProvider/helpers', () => ({
   delayJob: jest.fn(),
   updateJobCounter: jest.fn(),
+}));
+
+jest.mock('../../../../src/common/db/transactions', (): object => ({
+  ...jest.requireActual('../../../../src/common/db/transactions'),
+  transactionify: jest.fn().mockImplementation(async (_: TransactionParams, fn: () => Promise<unknown>) => fn()),
 }));
 
 describe('syncsQueueWorkerFactory', () => {
@@ -51,7 +56,6 @@ describe('syncsQueueWorkerFactory', () => {
   const redisMock = jest.fn();
 
   const syncRespositoryMock = {
-    transactionify: jest.fn().mockImplementation(async (_: TransactionParams, fn: () => Promise<unknown>) => fn()),
     attemptSyncClosure: jest.fn(),
   };
 
@@ -96,16 +100,16 @@ describe('syncsQueueWorkerFactory', () => {
   it('should process a single sync closure job with no affected result', async () => {
     worker = factory(containerMock as unknown as DependencyContainer);
     const processFn = worker['processFn'];
-    syncRespositoryMock.transactionify.mockImplementation(async (_: TransactionParams, fn: () => Promise<unknown>) => fn());
     syncRespositoryMock.attemptSyncClosure.mockResolvedValue([[], 0]);
     const job = { data: { id: 'syncId', kind: 'sync' }, attemptsMade: 0, opts: { attempts: 10 } } as Job<ClosureJob, ClosureReturn>;
 
     await expect(processFn(job)).resolves.toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
 
-    expect(syncRespositoryMock.transactionify).toHaveBeenCalledTimes(1);
-    expect(syncRespositoryMock.transactionify).toHaveBeenCalledWith(
+    expect(transactionify).toHaveBeenCalledTimes(1);
+    expect(transactionify).toHaveBeenCalledWith(
       expect.objectContaining({ transactionName: TransactionName.ATTEMPT_SYNC_CLOSURE, isolationLevel: 'c' }),
-      expect.anything()
+      expect.anything(),
+      childLogger
     );
     expect(syncRespositoryMock.attemptSyncClosure).toHaveBeenCalledTimes(1);
     expect(syncRespositoryMock.attemptSyncClosure).toHaveBeenCalledWith('syncId');
@@ -114,16 +118,16 @@ describe('syncsQueueWorkerFactory', () => {
   it('should process a single sync closure job with single affected results', async () => {
     worker = factory(containerMock as unknown as DependencyContainer);
     const processFn = worker['processFn'];
-    syncRespositoryMock.transactionify.mockImplementation(async (_: TransactionParams, fn: () => Promise<unknown>) => fn());
     syncRespositoryMock.attemptSyncClosure.mockResolvedValue([[{ id: 'syncId' }], 1]);
     const job = { data: { id: 'syncId', kind: 'sync' }, attemptsMade: 0, opts: { attempts: 10 } } as Job<ClosureJob, ClosureReturn>;
 
     await expect(processFn(job)).resolves.toMatchObject({ closedCount: 1, closedIds: ['syncId'], invokedJobCount: 0, invokedJobs: [] });
 
-    expect(syncRespositoryMock.transactionify).toHaveBeenCalledTimes(1);
-    expect(syncRespositoryMock.transactionify).toHaveBeenCalledWith(
+    expect(transactionify).toHaveBeenCalledTimes(1);
+    expect(transactionify).toHaveBeenCalledWith(
       expect.objectContaining({ transactionName: TransactionName.ATTEMPT_SYNC_CLOSURE, isolationLevel: 'c' }),
-      expect.anything()
+      expect.anything(),
+      childLogger
     );
     expect(syncRespositoryMock.attemptSyncClosure).toHaveBeenCalledTimes(1);
     expect(syncRespositoryMock.attemptSyncClosure).toHaveBeenCalledWith('syncId');
@@ -132,16 +136,16 @@ describe('syncsQueueWorkerFactory', () => {
   it('should process a single sync closure job with multiple affected results', async () => {
     worker = factory(containerMock as unknown as DependencyContainer);
     const processFn = worker['processFn'];
-    syncRespositoryMock.transactionify.mockImplementation(async (_: TransactionParams, fn: () => Promise<unknown>) => fn());
     syncRespositoryMock.attemptSyncClosure.mockResolvedValue([[{ id: 'syncId' }, { id: 'rerunId' }], 2]);
     const job = { data: { id: 'syncId', kind: 'sync' }, attemptsMade: 0, opts: { attempts: 10 } } as Job<ClosureJob, ClosureReturn>;
 
     await expect(processFn(job)).resolves.toMatchObject({ closedCount: 2, closedIds: ['syncId', 'rerunId'], invokedJobCount: 0, invokedJobs: [] });
 
-    expect(syncRespositoryMock.transactionify).toHaveBeenCalledTimes(1);
-    expect(syncRespositoryMock.transactionify).toHaveBeenCalledWith(
+    expect(transactionify).toHaveBeenCalledTimes(1);
+    expect(transactionify).toHaveBeenCalledWith(
       expect.objectContaining({ transactionName: TransactionName.ATTEMPT_SYNC_CLOSURE, isolationLevel: 'c' }),
-      expect.anything()
+      expect.anything(),
+      childLogger
     );
     expect(syncRespositoryMock.attemptSyncClosure).toHaveBeenCalledTimes(1);
     expect(syncRespositoryMock.attemptSyncClosure).toHaveBeenCalledWith('syncId');
@@ -156,10 +160,11 @@ describe('syncsQueueWorkerFactory', () => {
 
     await expect(processFn(job)).rejects.toThrow(someError);
 
-    expect(syncRespositoryMock.transactionify).toHaveBeenCalledTimes(1);
-    expect(syncRespositoryMock.transactionify).toHaveBeenCalledWith(
+    expect(transactionify).toHaveBeenCalledTimes(1);
+    expect(transactionify).toHaveBeenCalledWith(
       expect.objectContaining({ transactionName: TransactionName.ATTEMPT_SYNC_CLOSURE, isolationLevel: 'c' }),
-      expect.anything()
+      expect.anything(),
+      childLogger
     );
     expect(syncRespositoryMock.attemptSyncClosure).toHaveBeenCalledTimes(1);
     expect(syncRespositoryMock.attemptSyncClosure).toHaveBeenCalledWith('syncId');
@@ -176,10 +181,11 @@ describe('syncsQueueWorkerFactory', () => {
 
     await expect(processFn(job)).rejects.toThrow(DelayedError);
 
-    expect(syncRespositoryMock.transactionify).toHaveBeenCalledTimes(1);
-    expect(syncRespositoryMock.transactionify).toHaveBeenCalledWith(
+    expect(transactionify).toHaveBeenCalledTimes(1);
+    expect(transactionify).toHaveBeenCalledWith(
       expect.objectContaining({ transactionName: TransactionName.ATTEMPT_SYNC_CLOSURE, isolationLevel: 'c' }),
-      expect.anything()
+      expect.anything(),
+      childLogger
     );
     expect(syncRespositoryMock.attemptSyncClosure).toHaveBeenCalledTimes(1);
     expect(syncRespositoryMock.attemptSyncClosure).toHaveBeenCalledWith('syncId');

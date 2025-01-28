@@ -12,7 +12,7 @@ import { SERVICES } from '../../../src/common/constants';
 import { SyncRequestSender } from '../sync/helpers/requestSender';
 import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions, LONG_RUNNING_TEST_TIMEOUT, RERUN_TEST_TIMEOUT, waitForJobToBeResolved } from '../helpers';
 import { Status } from '../../../src/common/enums';
-import { FILE_CUSTOM_REPOSITORY_SYMBOL, FileRepository } from '../../../src/file/DAL/fileRepository';
+import { FILE_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/file/DAL/fileRepository';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/sync/DAL/syncRepository';
 import { QUEUE_PROVIDER_FACTORY } from '../../../src/queueProvider/constants';
 import { FILES_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/filesQueueWorker';
@@ -470,15 +470,13 @@ describe('file', function () {
       it(
         'should fail job processing due to query error',
         async function () {
-          const fileRepository = depContainer.resolve<FileRepository>(FILE_CUSTOM_REPOSITORY_SYMBOL);
-
           const mockError = new QueryFailedError('select *', [], new Error('failed'));
           const attemptFileClosureMock = jest.fn().mockRejectedValue(mockError);
           const mockRegisterOptions = getBaseRegisterOptions();
           mockRegisterOptions.override.push({
             token: FILE_CUSTOM_REPOSITORY_SYMBOL,
             provider: {
-              useValue: { attemptFileClosure: attemptFileClosureMock, transactionify: fileRepository.transactionify.bind(fileRepository) },
+              useValue: { attemptFileClosure: attemptFileClosureMock },
             },
           });
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
@@ -509,7 +507,6 @@ describe('file', function () {
         'should fail job processing due to transaction error and increase counter with each time',
         async function () {
           let eventCounter = 0;
-          const fileRepository = depContainer.resolve<FileRepository>(FILE_CUSTOM_REPOSITORY_SYMBOL);
 
           const transactionError = new QueryFailedError('select *', [], new Error());
           (transactionError as QueryFailedErrorWithCode).code = TransactionFailure.SERIALIZATION_FAILURE;
@@ -519,7 +516,7 @@ describe('file', function () {
           mockRegisterOptions.override.push({
             token: FILE_CUSTOM_REPOSITORY_SYMBOL,
             provider: {
-              useValue: { attemptFileClosure: attemptFileClosureMock, transactionify: fileRepository.transactionify.bind(fileRepository) },
+              useValue: { attemptFileClosure: attemptFileClosureMock },
             },
           });
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);

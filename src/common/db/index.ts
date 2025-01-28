@@ -31,10 +31,9 @@ export const createDataSourceOptions = (dbConfig: DbConfig): DataSourceOptions =
   return { entities: [...DB_ENTITIES, '**/DAL/*.js'], ...connectionOptions };
 };
 
-export const initDataSource = async (dbConfig: DbConfig): Promise<DataSource> => {
+export const getCachedDataSource = (dbConfig: DbConfig): DataSource => {
   if (connectionSingleton === undefined || !connectionSingleton.isInitialized) {
     connectionSingleton = new DataSource(createDataSourceOptions(dbConfig));
-    await connectionSingleton.initialize();
   }
   return connectionSingleton;
 };
@@ -62,6 +61,6 @@ export type ReturningResult<T> = [T[], number];
 export const dataSourceFactory: FactoryFunction<DataSource> = (container: DependencyContainer): DataSource => {
   const config = container.resolve<ConfigType>(SERVICES.CONFIG);
   const dbConfig = config.get('db') as DbConfig;
-  const dataSourceOptions = createDataSourceOptions(dbConfig);
-  return new DataSource(dataSourceOptions);
+  const dataSource = getCachedDataSource(dbConfig);
+  return dataSource;
 };

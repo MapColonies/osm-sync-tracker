@@ -12,7 +12,7 @@ import { Status } from '../../common/enums';
 import { JobQueueProvider } from '../interfaces';
 import { TransactionFailureError } from '../../common/errors';
 import { delayJob, updateJobCounter } from '../helpers';
-import { TransactionName } from '../../common/db/transactions';
+import { DEFAULT_TRANSACTION_PROPAGATION, transactionify, TransactionName } from '../../common/db/transactions';
 import { ExtendedWorkerOptions } from './options';
 
 export const CHANGESETS_QUEUE_WORKER_NAME = 'ChangesetsQueueWorker';
@@ -50,9 +50,16 @@ export const changesetsQueueWorkerFactory: FactoryFunction<Worker> = (container)
       try {
         const isBatch = Array.isArray(batchIds) && batchIds.every((id) => typeof id === 'string');
         const changesetIds = isBatch ? batchIds : [id];
-        const fileIds = await entityRepository.transactionify(
-          { transactionId: nanoid(), transactionName: TransactionName.FIND_FILES_BY_CHANGESETS, isolationLevel: transactionIsolationLevel },
-          async () => entityRepository.findFilesByChangesets(changesetIds, [Status.IN_PROGRESS])
+
+        const fileIds = await transactionify(
+          {
+            transactionId: nanoid(),
+            transactionName: TransactionName.FIND_FILES_BY_CHANGESETS,
+            isolationLevel: transactionIsolationLevel,
+            propagation: DEFAULT_TRANSACTION_PROPAGATION,
+          },
+          async () => entityRepository.findFilesByChangesets(changesetIds, [Status.IN_PROGRESS]),
+          workerLogger
         );
 
         workerLogger.info({ msg: 'found the following files in the changeset', jobId: id, fileIds });

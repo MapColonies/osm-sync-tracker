@@ -23,7 +23,7 @@ import { SYNCS_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/s
 import { hashBatch } from '../../../src/common/utils';
 import * as queueHelpers from '../../../src/queueProvider/helpers';
 import { TRANSACTIONAL_FAILURE_COUNT_KEY, DEDUPLICATION_COUNT_KEY } from '../../../src/queueProvider/helpers';
-import { ENTITY_CUSTOM_REPOSITORY_SYMBOL, EntityRepository } from '../../../src/entity/DAL/entityRepository';
+import { ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/entity/DAL/entityRepository';
 import { QueryFailedErrorWithCode, TransactionFailure } from '../../../src/common/db/transactions';
 import { MAX_RANDOM_NUMERIC_VALUE } from '../../helpers/helper';
 import { createStringifiedFakeChangeset } from './helpers/generators';
@@ -361,15 +361,13 @@ describe('changeset', function () {
       it(
         'should fail job processing due to query error',
         async function () {
-          const entityRepository = depContainer.resolve<EntityRepository>(ENTITY_CUSTOM_REPOSITORY_SYMBOL);
-
           const mockError = new QueryFailedError('select *', [], new Error('failed'));
           const findFilesByChangesetsMock = jest.fn().mockRejectedValue(mockError);
           const mockRegisterOptions = getBaseRegisterOptions();
           mockRegisterOptions.override.push({
             token: ENTITY_CUSTOM_REPOSITORY_SYMBOL,
             provider: {
-              useValue: { findFilesByChangesets: findFilesByChangesetsMock, transactionify: entityRepository.transactionify.bind(entityRepository) },
+              useValue: { findFilesByChangesets: findFilesByChangesetsMock },
             },
           });
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
@@ -400,7 +398,6 @@ describe('changeset', function () {
         'should fail job processing due to transaction error and increase counter with each time',
         async function () {
           let eventCounter = 0;
-          const entityRepository = depContainer.resolve<EntityRepository>(ENTITY_CUSTOM_REPOSITORY_SYMBOL);
 
           const transactionError = new QueryFailedError('select *', [], new Error());
           (transactionError as QueryFailedErrorWithCode).code = TransactionFailure.SERIALIZATION_FAILURE;
@@ -410,7 +407,7 @@ describe('changeset', function () {
           mockRegisterOptions.override.push({
             token: ENTITY_CUSTOM_REPOSITORY_SYMBOL,
             provider: {
-              useValue: { findFilesByChangesets: findFilesByChangesetsMock, transactionify: entityRepository.transactionify.bind(entityRepository) },
+              useValue: { findFilesByChangesets: findFilesByChangesetsMock },
             },
           });
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);

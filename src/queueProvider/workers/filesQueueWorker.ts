@@ -11,7 +11,7 @@ import { FILE_CUSTOM_REPOSITORY_SYMBOL, FileRepository } from '../../file/DAL/fi
 import { BullQueueProvider } from '../queues/bullQueueProvider';
 import { TransactionFailureError } from '../../common/errors';
 import { delayJob, updateJobCounter } from '../helpers';
-import { TransactionName } from '../../common/db/transactions';
+import { DEFAULT_TRANSACTION_PROPAGATION, transactionify, TransactionName } from '../../common/db/transactions';
 import { ExtendedWorkerOptions } from './options';
 
 export const FILES_QUEUE_WORKER_NAME = 'FilesQueueWorker';
@@ -49,9 +49,15 @@ export const filesQueueWorkerFactory: FactoryFunction<Worker> = (container) => {
       workerLogger.debug({ msg: 'started job processing', ...baseLoggedObject });
 
       try {
-        const [closedIds, closedCount] = await fileRepository.transactionify(
-          { transactionId: nanoid(), transactionName: TransactionName.ATTEMPT_FILE_CLOSURE, isolationLevel: transactionIsolationLevel },
-          async () => fileRepository.attemptFileClosure(id)
+        const [closedIds, closedCount] = await transactionify(
+          {
+            transactionId: nanoid(),
+            transactionName: TransactionName.ATTEMPT_FILE_CLOSURE,
+            isolationLevel: transactionIsolationLevel,
+            propagation: DEFAULT_TRANSACTION_PROPAGATION,
+          },
+          async () => fileRepository.attemptFileClosure(id),
+          workerLogger
         );
 
         workerLogger.debug({ msg: 'attempting to close file resulted in', jobId: id, fileId: id, closedIds, closedCount });

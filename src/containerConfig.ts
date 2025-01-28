@@ -7,6 +7,7 @@ import { trace } from '@opentelemetry/api';
 import { HealthCheck } from '@godaddy/terminus';
 import { Registry } from 'prom-client';
 import { Worker } from 'bullmq';
+import { addTransactionalDataSource, initializeTransactionalContext, StorageDriver } from 'typeorm-transactional';
 import { HEALTHCHECK, ON_SIGNAL, SERVICES, SERVICE_NAME } from './common/constants';
 import { DATA_SOURCE_PROVIDER, dataSourceFactory, getDbHealthCheckFunction } from './common/db';
 import { getTracing } from './common/tracing';
@@ -141,7 +142,7 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
         provider: {
           useFactory: instancePerContainerCachingFactory((container) => {
             const cleanupRegistry = container.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
-            cleanupRegistry.register({ func: getTracing().stop.bind(getTracing()), id: SERVICES.TRACER });
+            cleanupRegistry.register({ id: SERVICES.TRACER, func: getTracing().stop.bind(getTracing()) });
             const tracer = trace.getTracer(SERVICE_NAME);
             return tracer;
           }),
@@ -163,8 +164,12 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
         provider: { useFactory: instancePerContainerCachingFactory(dataSourceFactory) },
         postInjectionHook: async (deps: DependencyContainer): Promise<void> => {
           const dataSource = deps.resolve<DataSource>(DATA_SOURCE_PROVIDER);
-          cleanupRegistry.register({ func: dataSource.destroy.bind(dataSource), id: DATA_SOURCE_PROVIDER });
-          await dataSource.initialize();
+          if (!dataSource.isInitialized) {
+            await dataSource.initialize();
+            initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
+            addTransactionalDataSource(dataSource);
+            cleanupRegistry.register({ id: DATA_SOURCE_PROVIDER, func: dataSource.destroy.bind(dataSource) });
+          }
         },
       },
       { token: FILE_CUSTOM_REPOSITORY_SYMBOL, provider: { useFactory: fileRepositoryFactory } },

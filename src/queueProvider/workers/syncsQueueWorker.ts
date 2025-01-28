@@ -10,7 +10,7 @@ import { TransactionFailureError } from '../../common/errors';
 import { ClosureJob, ClosureReturn } from '../types';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../../sync/DAL/syncRepository';
 import { delayJob, updateJobCounter } from '../helpers';
-import { TransactionName } from '../../common/db/transactions';
+import { DEFAULT_TRANSACTION_PROPAGATION, transactionify, TransactionName } from '../../common/db/transactions';
 import { ExtendedWorkerOptions } from './options';
 
 export const SYNCS_QUEUE_WORKER_NAME = 'SyncsQueueWorker';
@@ -47,9 +47,15 @@ export const syncsQueueWorkerFactory: FactoryFunction<Worker> = (container) => {
       workerLogger.debug({ msg: 'started job processing', ...baseLoggedObject });
 
       try {
-        const [closedIds, closedCount] = await syncRepository.transactionify(
-          { transactionId: nanoid(), transactionName: TransactionName.ATTEMPT_SYNC_CLOSURE, isolationLevel: transactionIsolationLevel },
-          async () => syncRepository.attemptSyncClosure(id)
+        const [closedIds, closedCount] = await transactionify(
+          {
+            transactionId: nanoid(),
+            transactionName: TransactionName.ATTEMPT_SYNC_CLOSURE,
+            isolationLevel: transactionIsolationLevel,
+            propagation: DEFAULT_TRANSACTION_PROPAGATION,
+          },
+          async () => syncRepository.attemptSyncClosure(id),
+          workerLogger
         );
 
         workerLogger.debug({ msg: 'attempting to close sync resulted in', jobId: id, syncId: id, closedIds, closedCount });
