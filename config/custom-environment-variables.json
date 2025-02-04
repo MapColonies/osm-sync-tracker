@@ -39,19 +39,6 @@
       }
     }
   },
-  "application": {
-    "isolationLevel": "APP_TRANSACTION_ISOLATION_LEVEL",
-    "transactionRetryPolicy": {
-      "enabled": {
-        "__name": "APP_TRANSACTION_RETRIES_ENABLED",
-        "__format": "boolean"
-      },
-      "numRetries": {
-        "__name": "APP_TRANSACTION_NUM_RETRIES",
-        "__format": "number"
-      }
-    }
-  },
   "db": {
     "type": "DB_TYPE",
     "host": "DB_HOST",
@@ -71,5 +58,278 @@
       "cert": "DB_CERT_PATH"
     },
     "database": "DB_NAME"
+  },
+  "redis": {
+    "host": "REDIS_HOST",
+    "port": {
+      "__name": "REDIS_PORT",
+      "__format": "number"
+    },
+    "username": "REDIS_USERNAME",
+    "password": "REDIS_PASSWORD",
+    "enableSslAuth": {
+      "__name": "REDIS_ENABLE_SSL_AUTH",
+      "__format": "boolean"
+    },
+    "sslPaths": {
+      "ca": "REDIS_CA_PATH",
+      "key": "REDIS_KEY_PATH",
+      "cert": "REDIS_CERT_PATH"
+    },
+    "db": {
+      "__name": "REDIS_DB",
+      "__format": "number"
+    }
+  },
+  "closure": {
+    "uiPath": "CLOSURE_UI_PATH",
+    "queues": {
+      "changesets": {
+        "queueOptions": {
+          "enabledBatchJobs": {
+            "__name": "CHANGESETS_QUEUE_ENABLED_BATCH_JOBS",
+            "__format": "boolean"
+          },
+          "maxBatchSize": {
+            "__name": "CHANGESETS_QUEUE_MAX_BATCH_SIZE",
+            "__format": "number"
+          }
+        },
+        "jobOptions": {
+          "attempts": {
+            "__name": "CHANGESETS_QUEUE_JOB_ATTEMPTS",
+            "__format": "number"
+          },
+          "delay": {
+            "__name": "CHANGESETS_QUEUE_JOB_DELAY",
+            "__format": "number"
+          },
+          "deduplicationDelay": {
+            "__name": "CHANGESETS_QUEUE_JOB_DEDUPLICATION_DELAY",
+            "__format": "number"
+          },
+          "backoff": {
+            "type": "CHANGESETS_QUEUE_JOB_BACKOFF_TYPE",
+            "delay": {
+              "__name": "CHANGESETS_QUEUE_JOB_BACKOFF_DELAY",
+              "__format": "number"
+            }
+          }
+        },
+        "workerOptions": {
+          "concurrency": {
+            "__name": "CHANGESETS_QUEUE_WORKER_CONCURRENCY",
+            "__format": "number"
+          },
+          "limiter": {
+            "max": {
+              "__name": "CHANGESETS_QUEUE_WORKER_LIMITER_MAX",
+              "__format": "number"
+            },
+            "duration": {
+              "__name": "CHANGESETS_QUEUE_WORKER_LIMITER_DURATION",
+              "__format": "number"
+            }
+          },
+          "maxStalledCount": {
+            "__name": "CHANGESETS_QUEUE_WORKER_MAX_STALLED_COUNT",
+            "__format": "number"
+          },
+          "stalledInterval": {
+            "__name": "CHANGESETS_QUEUE_WORKER_STALLED_INTERVAL",
+            "__format": "number"
+          },
+          "removeOnComplete": {
+            "age": {
+              "__name": "CHANGESETS_QUEUE_WORKER_REMOVE_ON_COMPLETE_AGE",
+              "__format": "number"
+            },
+            "count": {
+              "__name": "CHANGESETS_QUEUE_WORKER_REMOVE_ON_COMPLETE_COUNT",
+              "__format": "number"
+            }
+          },
+          "removeOnFail": {
+            "age": {
+              "__name": "CHANGESETS_QUEUE_WORKER_REMOVE_ON_FAIL_AGE",
+              "__format": "number"
+            },
+            "count": {
+              "__name": "CHANGESETS_QUEUE_WORKER_REMOVE_ON_FAIL_COUNT",
+              "__format": "number"
+            }
+          },
+          "transactionIsolationLevel": "CHANGESETS_QUEUE_WORKER_TRANSACTION_ISOLATION_LEVEL",
+          "transactionFailureDelay": {
+            "__name": "CHANGESETS_QUEUE_WORKER_TRANSACTION_FAILURE_DELAY",
+            "__format": "number"
+          }
+        }
+      },
+      "files": {
+        "queueOptions": {
+          "enabledBatchJobs": {
+            "__name": "FILES_QUEUE_ENABLED_BATCH_JOBS",
+            "__format": "boolean"
+          },
+          "maxBatchSize": {
+            "__name": "FILES_QUEUE_MAX_BATCH_SIZE",
+            "__format": "number"
+          }
+        },
+        "jobOptions": {
+          "attempts": {
+            "__name": "FILES_QUEUE_JOB_ATTEMPTS",
+            "__format": "number"
+          },
+          "delay": {
+            "__name": "FILES_QUEUE_JOB_DELAY",
+            "__format": "number"
+          },
+          "deduplicationDelay": {
+            "__name": "FILES_QUEUE_JOB_DEDUPLICATION_DELAY",
+            "__format": "number"
+          },
+          "backoff": {
+            "type": "FILES_QUEUE_JOB_BACKOFF_TYPE",
+            "delay": {
+              "__name": "FILES_QUEUE_JOB_BACKOFF_DELAY",
+              "__format": "number"
+            }
+          }
+        },
+        "workerOptions": {
+          "concurrency": {
+            "__name": "FILES_QUEUE_WORKER_CONCURRENCY",
+            "__format": "number"
+          },
+          "limiter": {
+            "max": {
+              "__name": "FILES_QUEUE_WORKER_LIMITER_MAX",
+              "__format": "number"
+            },
+            "duration": {
+              "__name": "FILES_QUEUE_WORKER_LIMITER_DURATION",
+              "__format": "number"
+            }
+          },
+          "maxStalledCount": {
+            "__name": "FILES_QUEUE_WORKER_MAX_STALLED_COUNT",
+            "__format": "number"
+          },
+          "stalledInterval": {
+            "__name": "FILES_QUEUE_WORKER_STALLED_INTERVAL",
+            "__format": "number"
+          },
+          "removeOnComplete": {
+            "age": {
+              "__name": "FILES_QUEUE_WORKER_REMOVE_ON_COMPLETE_AGE",
+              "__format": "number"
+            },
+            "count": {
+              "__name": "FILES_QUEUE_WORKER_REMOVE_ON_COMPLETE_COUNT",
+              "__format": "number"
+            }
+          },
+          "removeOnFail": {
+            "age": {
+              "__name": "FILES_QUEUE_WORKER_REMOVE_ON_FAIL_AGE",
+              "__format": "number"
+            },
+            "count": {
+              "__name": "FILES_QUEUE_WORKER_REMOVE_ON_FAIL_COUNT",
+              "__format": "number"
+            }
+          },
+          "transactionIsolationLevel": "FILES_QUEUE_WORKER_TRANSACTION_ISOLATION_LEVEL",
+          "transactionFailureDelay": {
+            "__name": "FILES_QUEUE_WORKER_TRANSACTION_FAILURE_DELAY",
+            "__format": "number"
+          }
+        }
+      },
+      "syncs": {
+        "queueOptions": {
+          "enabledBatchJobs": {
+            "__name": "SYNCS_QUEUE_ENABLED_BATCH_JOBS",
+            "__format": "boolean"
+          },
+          "maxBatchSize": {
+            "__name": "SYNCS_QUEUE_MAX_BATCH_SIZE",
+            "__format": "number"
+          }
+        },
+        "jobOptions": {
+          "attempts": {
+            "__name": "SYNCS_QUEUE_JOB_ATTEMPTS",
+            "__format": "number"
+          },
+          "delay": {
+            "__name": "SYNCS_QUEUE_JOB_DELAY",
+            "__format": "number"
+          },
+          "deduplicationDelay": {
+            "__name": "SYNCS_QUEUE_JOB_DEDUPLICATION_DELAY",
+            "__format": "number"
+          },
+          "backoff": {
+            "type": "SYNCS_QUEUE_JOB_BACKOFF_TYPE",
+            "delay": {
+              "__name": "SYNCS_QUEUE_JOB_BACKOFF_DELAY",
+              "__format": "number"
+            }
+          }
+        },
+        "workerOptions": {
+          "concurrency": {
+            "__name": "SYNCS_QUEUE_WORKER_CONCURRENCY",
+            "__format": "number"
+          },
+          "limiter": {
+            "max": {
+              "__name": "SYNCS_QUEUE_WORKER_LIMITER_MAX",
+              "__format": "number"
+            },
+            "duration": {
+              "__name": "SYNCS_QUEUE_WORKER_LIMITER_DURATION",
+              "__format": "number"
+            }
+          },
+          "maxStalledCount": {
+            "__name": "SYNCS_QUEUE_WORKER_MAX_STALLED_COUNT",
+            "__format": "number"
+          },
+          "stalledInterval": {
+            "__name": "SYNCS_QUEUE_WORKER_STALLED_INTERVAL",
+            "__format": "number"
+          },
+          "removeOnComplete": {
+            "age": {
+              "__name": "SYNCS_QUEUE_WORKER_REMOVE_ON_COMPLETE_AGE",
+              "__format": "number"
+            },
+            "count": {
+              "__name": "SYNCS_QUEUE_WORKER_REMOVE_ON_COMPLETE_COUNT",
+              "__format": "number"
+            }
+          },
+          "removeOnFail": {
+            "age": {
+              "__name": "SYNCS_QUEUE_WORKER_REMOVE_ON_FAIL_AGE",
+              "__format": "number"
+            },
+            "count": {
+              "__name": "SYNCS_QUEUE_WORKER_REMOVE_ON_FAIL_COUNT",
+              "__format": "number"
+            }
+          },
+          "transactionIsolationLevel": "SYNCS_QUEUE_WORKER_TRANSACTION_ISOLATION_LEVEL",
+          "transactionFailureDelay": {
+            "__name": "SYNCS_QUEUE_WORKER_TRANSACTION_FAILURE_DELAY",
+            "__format": "number"
+          }
+        }
+      }
+    }
   }
 }

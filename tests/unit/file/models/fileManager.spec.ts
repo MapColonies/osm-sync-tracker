@@ -6,20 +6,21 @@ import { SyncRepository } from '../../../../src/sync/DAL/syncRepository';
 import { createFakeFile, createFakeSync, createFakeFiles, createFakeRerunSync } from '../../../helpers/helper';
 import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from '../../../../src/file/models/errors';
 import { SyncNotFoundError } from '../../../../src/sync/models/errors';
-import { DEFAULT_ISOLATION_LEVEL } from '../../../integration/helpers';
-import { ExceededNumberOfRetriesError, TransactionFailureError } from '../../../../src/changeset/models/errors';
+import { JobQueueProvider } from '../../../../src/queueProvider/interfaces';
+import { ClosureJob } from '../../../../src/queueProvider/types';
+
+let fileManager: FileManager;
 
 let fileRepository: FileRepository;
 let syncRepository: SyncRepository;
+let queue: JobQueueProvider<ClosureJob>;
 
-let fileManager: FileManager;
 describe('FileManager', () => {
   const createFile = jest.fn();
   const createFiles = jest.fn();
   const findOneFile = jest.fn();
   const updateFile = jest.fn();
   const findManyFilesByIds = jest.fn();
-  const tryClosingFile = jest.fn();
 
   const getLatestSync = jest.fn();
   const findOneSync = jest.fn();
@@ -29,10 +30,13 @@ describe('FileManager', () => {
   const findOneSyncWithLastRerun = jest.fn();
   const createRerun = jest.fn();
 
+  const pushMock = jest.fn();
+
   beforeEach(() => {
     jest.resetAllMocks();
 
-    fileRepository = { createFile, createFiles, findOneFile, findManyFilesByIds, tryClosingFile, updateFile } as unknown as FileRepository;
+    fileRepository = { createFile, createFiles, findOneFile, findManyFilesByIds, updateFile } as unknown as FileRepository;
+
     syncRepository = {
       getLatestSync,
       createSync,
@@ -43,13 +47,11 @@ describe('FileManager', () => {
       createRerun,
     } as unknown as SyncRepository;
 
-    fileManager = new FileManager(
-      fileRepository,
-      syncRepository,
-      jsLogger({ enabled: false }),
-      { get: jest.fn(), has: jest.fn() },
-      { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
-    );
+    queue = {
+      push: pushMock,
+    } as unknown as JobQueueProvider<ClosureJob>;
+
+    fileManager = new FileManager(fileRepository, syncRepository, jsLogger({ enabled: false }), queue);
   });
 
   describe('#updateFile', () => {
@@ -60,34 +62,11 @@ describe('FileManager', () => {
       findOneSync.mockResolvedValue(sync);
       findOneFile.mockResolvedValue(file);
       updateFile.mockResolvedValue(undefined);
-      tryClosingFile.mockResolvedValue([]);
 
       const updatePromise = fileManager.updateFile(sync.id, file.fileId, { totalEntities: 1 });
 
       await expect(updatePromise).resolves.not.toThrow();
       expect(updateFile).toHaveBeenCalled();
-    });
-
-    it('resolves without errors for valid update file when retry policy is configured and transaction fails once', async () => {
-      const sync = createFakeSync();
-      const file = createFakeFile();
-
-      findOneSync.mockResolvedValue(sync);
-      findOneFile.mockResolvedValue(file);
-      updateFile.mockResolvedValue(undefined);
-      tryClosingFile.mockRejectedValueOnce(new TransactionFailureError('transaction failure')).mockResolvedValueOnce([]);
-
-      const fileManagerWithRetries = new FileManager(
-        fileRepository,
-        syncRepository,
-        jsLogger({ enabled: false }),
-        { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, numRetries: 1 }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
-      );
-      const updatePromise = fileManagerWithRetries.updateFile(sync.id, file.fileId, { totalEntities: 1 });
-
-      await expect(updatePromise).resolves.not.toThrow();
-      expect(tryClosingFile).toHaveBeenCalledTimes(2);
     });
 
     it('rejects if a sync not found', async () => {
@@ -113,53 +92,6 @@ describe('FileManager', () => {
 
       await expect(updatePromise).rejects.toThrow(FileNotFoundError);
       expect(updateFile).not.toHaveBeenCalled();
-    });
-
-    it('rejects with exceeded number of retries error if closing file has failed when retries is configured', async () => {
-      const sync = createFakeSync();
-      const file = createFakeFile();
-
-      findOneSync.mockResolvedValue(sync);
-      findOneFile.mockResolvedValue(file);
-      updateFile.mockResolvedValue(undefined);
-      tryClosingFile.mockRejectedValue(new TransactionFailureError('transaction failure'));
-
-      const retries = faker.datatype.number({ min: 1, max: 10 });
-      const fileManagerWithRetries = new FileManager(
-        fileRepository,
-        syncRepository,
-        jsLogger({ enabled: false }),
-        { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: true, numRetries: retries }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
-      );
-
-      const updatePromise = fileManagerWithRetries.updateFile(sync.id, file.fileId, { totalEntities: 1 });
-
-      await expect(updatePromise).rejects.toThrow(ExceededNumberOfRetriesError);
-      expect(tryClosingFile).toHaveBeenCalledTimes(retries + 1);
-    });
-
-    it('rejects with transaction failure error if closing file fails', async () => {
-      const sync = createFakeSync();
-      const file = createFakeFile();
-
-      findOneSync.mockResolvedValue(sync);
-      findOneFile.mockResolvedValue(file);
-      updateFile.mockResolvedValue(undefined);
-      tryClosingFile.mockRejectedValue(new TransactionFailureError('transaction failure'));
-
-      const fileManagerWithRetries = new FileManager(
-        fileRepository,
-        syncRepository,
-        jsLogger({ enabled: false }),
-        { get: jest.fn(), has: jest.fn() },
-        { transactionRetryPolicy: { enabled: false }, isolationLevel: DEFAULT_ISOLATION_LEVEL }
-      );
-
-      const closePromise = fileManagerWithRetries.updateFile(sync.id, file.fileId, { totalEntities: 1 });
-
-      await expect(closePromise).rejects.toThrow(TransactionFailureError);
-      expect(tryClosingFile).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -223,7 +155,7 @@ describe('FileManager', () => {
       findOneSync.mockResolvedValue(undefined);
       findOneFile.mockResolvedValue(undefined);
 
-      const createPromise = fileManager.createFile(faker.datatype.uuid(), file);
+      const createPromise = fileManager.createFile(faker.string.uuid(), file);
 
       await expect(createPromise).rejects.toThrow(SyncNotFoundError);
     });
@@ -325,9 +257,35 @@ describe('FileManager', () => {
 
       findOneSync.mockResolvedValue(undefined);
 
-      const createBulkPromise = fileManager.createFiles(faker.datatype.uuid(), files);
+      const createBulkPromise = fileManager.createFiles(faker.string.uuid(), files);
 
       await expect(createBulkPromise).rejects.toThrow(SyncNotFoundError);
+    });
+  });
+
+  describe('#createClosures', () => {
+    it('resolves without errors and push changesets to the queue', async () => {
+      pushMock.mockResolvedValueOnce(undefined);
+      const closurePromise = fileManager.createClosures(['1', '2', '2', '3']);
+
+      await expect(closurePromise).resolves.not.toThrow();
+
+      expect(pushMock).toHaveBeenCalledTimes(1);
+      expect(pushMock).toHaveBeenCalledWith([
+        { id: '1', kind: 'file' },
+        { id: '2', kind: 'file' },
+        { id: '3', kind: 'file' },
+      ]);
+    });
+
+    it('rejects if queue push has failed', async () => {
+      const queueError = new Error('queue error');
+      pushMock.mockRejectedValueOnce(queueError);
+
+      const closurePromise = fileManager.createClosures(['1']);
+
+      await expect(closurePromise).rejects.toThrow(queueError);
+      expect(pushMock).toHaveBeenCalledWith([{ id: '1', kind: 'file' }]);
     });
   });
 });

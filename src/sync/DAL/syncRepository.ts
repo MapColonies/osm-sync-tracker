@@ -1,14 +1,20 @@
-import { DataSource, EntityManager, FindOptionsWhere, In, MoreThan } from 'typeorm';
+import { Brackets, DataSource, EntityManager, FindOptionsWhere, In, MoreThan } from 'typeorm';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
-import { EntityStatus, GeometryType } from '../../common/enums';
+import { EntityStatus, GeometryType, Status } from '../../common/enums';
+import { isTransactionFailure, TransactionName } from '../../common/db/transactions';
 import { CreateRerunRequest, Sync, SyncsFilter, SyncUpdate, SyncWithReruns } from '../models/sync';
-import { isTransactionFailure, ReturningId, ReturningResult, TransactionName } from '../../common/db';
-import { TransactionFailureError } from '../../changeset/models/errors';
-import { getIsolationLevel } from '../../common/utils/db';
+import { CLOSED_PARAMS, DATA_SOURCE_PROVIDER, ReturningId, ReturningResult } from '../../common/db';
+import { TransactionFailureError } from '../../common/errors';
 import { SERVICES } from '../../common/constants';
-import { SyncDb } from './sync';
+import { File as FileDb } from '../../file/DAL/file';
+import { ILogger } from '../../common/interfaces';
+import { SYNC_IDENTIFIER_COLUMN, SyncDb } from './sync';
+
+interface SyncId {
+  [SYNC_IDENTIFIER_COLUMN]: string;
+}
 
 // deletes a file who has no entities registered to it
 async function deleteEmptyFiles(
@@ -216,8 +222,62 @@ const createSyncRepo = (dataSource: DataSource) => {
         .getOne();
     },
 
+    /**
+     * Attempting to close a sync and its reruns by its id.
+     *
+     * sync is up for closure if it matches the following parameters:
+     * 1. Its id is the given syncId
+     * 2. Its status is not already completed
+     * 3. Its totalFiles amount matches the number of files in the
+     * sync that are are already closed, meaning have completed status
+     *
+     * A sync might have multiple reruns or none,
+     * rerun is up for closure if it matches the following parameters:
+     * 1. Its base_sync_id is the given syncId
+     * 2. Its status is inprogress
+     * 3. Its totalFiles amount matches the number of files in the
+     * base sync that are are already closed, meaning have completed status
+     *
+     * Once closed the sync (and reruns) will be updated to have completed status and an endDate.
+     *
+     * @param syncId - The sync id
+     * @param transactionManager - Optional typeorm transacation manager
+     * @returns The affected syncId or the sync and possibly reruns
+     */
+    async attemptSyncClosure(syncId: string): Promise<ReturningResult<SyncId>> {
+      const result = await this.manager
+        .createQueryBuilder(SyncDb, 'sync')
+        .update(SyncDb)
+        .set(CLOSED_PARAMS)
+        .andWhere((qb) => {
+          // a workaround due to UpdateQueryBuilder not supporting subQuery function
+          const subQuery = this.manager
+            .createQueryBuilder(FileDb, 'file')
+            .select('COUNT(*)')
+            .where('file.sync_id = :syncId', { syncId })
+            .andWhere('file.status = :fileStatus', { fileStatus: Status.COMPLETED });
+
+          qb.setParameters(subQuery.getParameters());
+
+          return qb
+            .where(
+              new Brackets((qb) => {
+                qb.where('sync.id = :syncId', { syncId })
+                  .andWhere('sync.status != :syncStatus', { syncStatus: Status.COMPLETED })
+                  .orWhere('sync.base_sync_id = :syncId', { syncId })
+                  .andWhere('sync.status = :inprogress', { inprogress: Status.IN_PROGRESS });
+              })
+            )
+            .andWhere(`sync.total_files = (${subQuery.getQuery()})`);
+        })
+        .returning([SYNC_IDENTIFIER_COLUMN])
+        .execute();
+
+      return [result.raw as SyncId[], result.affected ?? 0];
+    },
+
     async createRerun(rerunRequest: CreateRerunRequest, schema: string): Promise<boolean> {
-      const isolationLevel = getIsolationLevel();
+      const isolationLevel = 'SERIALIZABLE';
       const transaction = { transactionId: nanoid(), transactionName: TransactionName.CREATE_RERUN, isolationLevel };
 
       const { shouldRerunNotSynced, ...rerunSync } = rerunRequest;
@@ -324,14 +384,15 @@ const createSyncRepo = (dataSource: DataSource) => {
   });
 };
 
-let logger: Logger;
+let logger: ILogger;
 
 export type SyncRepository = ReturnType<typeof createSyncRepo>;
 
 export const syncRepositoryFactory: FactoryFunction<SyncRepository> = (depContainer) => {
-  logger = depContainer.resolve<Logger>(SERVICES.LOGGER);
+  const baseLogger = depContainer.resolve<Logger>(SERVICES.LOGGER);
+  logger = baseLogger.child({ component: 'syncRepository' });
 
-  return createSyncRepo(depContainer.resolve<DataSource>(DataSource));
+  return createSyncRepo(depContainer.resolve<DataSource>(DATA_SOURCE_PROVIDER));
 };
 
 export const SYNC_CUSTOM_REPOSITORY_SYMBOL = Symbol('SYNC_CUSTOM_REPOSITORY_SYMBOL');

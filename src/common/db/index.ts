@@ -1,6 +1,8 @@
 import { readFileSync } from 'fs';
 import { HealthCheck } from '@godaddy/terminus';
-import { DataSource, DataSourceOptions, QueryFailedError } from 'typeorm';
+import { DataSource, DataSourceOptions } from 'typeorm';
+import { DependencyContainer, FactoryFunction } from 'tsyringe';
+import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { DbConfig } from '../interfaces';
 import { promiseTimeout } from '../utils/promiseTimeout';
 import { SyncDb } from '../../sync/DAL/sync';
@@ -8,38 +10,19 @@ import { Entity } from '../../entity/DAL/entity';
 import { Changeset } from '../../changeset/DAL/changeset';
 import { File } from '../../file/DAL/file';
 import { EntityHistory } from '../../entity/DAL/entityHistory';
+import { SERVICES } from '../constants';
+import { Status } from '../enums';
+import { ConfigType } from '../config';
 
 let connectionSingleton: DataSource | undefined;
 
 const DB_TIMEOUT = 5000;
 
-enum TransactionFailure {
-  SERIALIZATION_FAILURE = '40001',
-  DEADLOCK_DETECTED = '40P01',
-}
-
-interface QueryFailedErrorWithCode extends QueryFailedError {
-  code: string | undefined;
-}
-
-export enum TransactionName {
-  TRY_CLOSING_FILE = 'TryClosingFile',
-  CREATE_RERUN = 'CreateRerun',
-  TRY_CLOSING_CHANGESET = 'TryClosingChangeset',
-  TRY_CLOSING_CHANGESETS = 'TryClosingChangesets',
-}
-
-export const isTransactionFailure = (error: unknown): boolean => {
-  if (error instanceof QueryFailedError) {
-    const code = (error as QueryFailedErrorWithCode).code;
-    return code === TransactionFailure.SERIALIZATION_FAILURE || code === TransactionFailure.DEADLOCK_DETECTED;
-  }
-  return false;
-};
+export const DATA_SOURCE_PROVIDER = Symbol('dataSourceProvider');
 
 export const DB_ENTITIES = [Changeset, Entity, File, SyncDb, EntityHistory];
 
-export const createConnectionOptions = (dbConfig: DbConfig): DataSourceOptions => {
+export const createDataSourceOptions = (dbConfig: DbConfig): DataSourceOptions => {
   const { enableSslAuth, sslPaths, ...connectionOptions } = dbConfig;
   if (enableSslAuth && connectionOptions.type === 'postgres') {
     connectionOptions.password = undefined;
@@ -48,10 +31,9 @@ export const createConnectionOptions = (dbConfig: DbConfig): DataSourceOptions =
   return { entities: [...DB_ENTITIES, '**/DAL/*.js'], ...connectionOptions };
 };
 
-export const initDataSource = async (dbConfig: DbConfig): Promise<DataSource> => {
+export const getCachedDataSource = (dbConfig: DbConfig): DataSource => {
   if (connectionSingleton === undefined || !connectionSingleton.isInitialized) {
-    connectionSingleton = new DataSource(createConnectionOptions(dbConfig));
-    await connectionSingleton.initialize();
+    connectionSingleton = new DataSource(createDataSourceOptions(dbConfig));
   }
   return connectionSingleton;
 };
@@ -65,8 +47,20 @@ export const getDbHealthCheckFunction = (connection: DataSource): HealthCheck =>
   };
 };
 
+export const CLOSED_PARAMS: QueryDeepPartialEntity<File | SyncDb> = {
+  status: Status.COMPLETED,
+  endDate: (): string => 'LOCALTIMESTAMP',
+};
+
 export interface ReturningId {
   id: string;
 }
 
 export type ReturningResult<T> = [T[], number];
+
+export const dataSourceFactory: FactoryFunction<DataSource> = (container: DependencyContainer): DataSource => {
+  const config = container.resolve<ConfigType>(SERVICES.CONFIG);
+  const dbConfig = config.get('db') as DbConfig;
+  const dataSource = getCachedDataSource(dbConfig);
+  return dataSource;
+};

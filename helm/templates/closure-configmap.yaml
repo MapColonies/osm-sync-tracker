@@ -1,0 +1,50 @@
+{{- $releaseName := .Release.Name -}}
+{{- $tracingUrl := include "osm-sync-tracker.tracingUrl" . -}}
+{{- $metricsUrl := include "osm-sync-tracker.metricsUrl" . -}}
+{{- if .Values.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "%s-closure-configmap" (include "osm-sync-tracker.fullname" .) }}
+data:
+  {{- with .Values.redis }}
+  REDIS_HOST: {{ .host }}
+  REDIS_DB: {{ .db | quote}}
+  REDIS_PORT: {{ .port | quote }}
+  {{- if .sslAuth.enabled }}
+  REDIS_ENABLE_SSL_AUTH: "true"
+  REDIS_CERT_PATH: /tmp/certs/{{ .sslAuth.certFileName }}
+  REDIS_KEY_PATH: /tmp/certs/{{ .sslAuth.keyFileName }}
+  REDIS_CA_PATH: /tmp/certs/{{ .sslAuth.caFileName }}
+  {{- else }}
+  REDIS_ENABLE_SSL_AUTH: "false"
+  {{- end }}
+  {{- end }}
+  CLOSURE_UI_PATH: {{ .Values.closure.uiPath | quote }}
+  {{- range $queueName, $queueConfig := .Values.closure.queues }}
+  {{- if $queueConfig.queueOptions.enabledBatchJobs }}
+  {{ $queueName | upper }}_QUEUE_ENABLED_BATCH_JOBS: "true"
+  {{ $queueName | upper }}_QUEUE_MAX_BATCH_SIZE: {{ $queueConfig.queueOptions.maxBatchSize | quote }}
+  {{- else }}
+  {{ $queueName | upper }}_QUEUE_ENABLED_BATCH_JOBS: "false"
+  {{- end }}
+  {{ $queueName | upper }}_QUEUE_JOB_ATTEMPTS: {{ $queueConfig.jobOptions.attempts | quote }}
+  {{ $queueName | upper }}_QUEUE_JOB_DELAY: {{ $queueConfig.jobOptions.delay | quote }}
+  {{ $queueName | upper }}_QUEUE_JOB_DEDUPLICATION_DELAY: {{ $queueConfig.jobOptions.deduplicationDelay | quote }}
+  {{ $queueName | upper }}_QUEUE_JOB_BACKOFF_TYPE: {{ $queueConfig.jobOptions.backoff.type | quote }}
+  {{ $queueName | upper }}_QUEUE_JOB_BACKOFF_DELAY: {{ $queueConfig.jobOptions.backoff.delay | quote }}
+  {{ $queueName | upper }}_QUEUE_WORKER_CONCURRENCY: {{ $queueConfig.workerOptions.concurrency | quote }}
+  {{- if $queueConfig.workerOptions.limiter.enabled }}
+  {{ $queueName | upper }}_QUEUE_WORKER_LIMITER_MAX: {{ $queueConfig.workerOptions.limiter.max | quote }}
+  {{ $queueName | upper }}_QUEUE_WORKER_LIMITER_DURATION: {{ $queueConfig.workerOptions.limiter.duration | quote }}
+  {{- end }}
+  {{ $queueName | upper }}_QUEUE_WORKER_MAX_STALLED_COUNT: {{ $queueConfig.workerOptions.maxStalledCount | quote }}
+  {{ $queueName | upper }}_QUEUE_WORKER_STALLED_INTERVAL: {{ $queueConfig.workerOptions.stalledInterval | quote }}
+  {{ $queueName | upper }}_QUEUE_WORKER_REMOVE_ON_COMPLETE_AGE: {{ $queueConfig.workerOptions.removeOnComplete.age | quote }}
+  # {{ $queueName | upper }}_QUEUE_WORKER_REMOVE_ON_COMPLETE_COUNT: {{ $queueConfig.workerOptions.removeOnComplete.count | quote }}
+  {{ $queueName | upper }}_QUEUE_WORKER_REMOVE_ON_FAIL_AGE: {{ $queueConfig.workerOptions.removeOnFail.age | quote }}
+  # {{ $queueName | upper }}_QUEUE_WORKER_REMOVE_ON_FAIL_COUNT: {{ $queueConfig.workerOptions.removeOnFail.count | quote }}
+  {{ $queueName | upper }}_QUEUE_WORKER_TRANSACTION_ISOLATION_LEVEL: {{ $queueConfig.workerOptions.transactionIsolationLevel | quote }}
+  {{ $queueName | upper }}_QUEUE_WORKER_TRANSACTION_FAILURE_DELAY: {{ $queueConfig.workerOptions.transactionFailureDelay | quote }}
+  {{- end }}
+{{- end }}

@@ -1,11 +1,8 @@
 import { Logger } from '@map-colonies/js-logger';
 import lodash from 'lodash';
 import { inject, injectable } from 'tsyringe';
-import { TransactionFailureError } from '../../changeset/models/errors';
 import { SERVICES } from '../../common/constants';
 import { EntityStatus } from '../../common/enums';
-import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
-import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
 import { FileRepository, FILE_CUSTOM_REPOSITORY_SYMBOL } from '../../file/DAL/fileRepository';
 import { FileNotFoundError } from '../../file/models/errors';
 import { SyncRepository, SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../sync/DAL/syncRepository';
@@ -20,20 +17,12 @@ export interface EntityBulkCreationResult {
 
 @injectable()
 export class EntityManager {
-  private readonly dbSchema: string;
-  private readonly transactionRetryPolicy: TransactionRetryPolicy;
-
   public constructor(
     @inject(ENTITY_CUSTOM_REPOSITORY_SYMBOL) private readonly entityRepository: EntityRepository,
     @inject(FILE_CUSTOM_REPOSITORY_SYMBOL) private readonly fileRepository: FileRepository,
     @inject(SYNC_CUSTOM_REPOSITORY_SYMBOL) private readonly syncRepository: SyncRepository,
-    @inject(SERVICES.LOGGER) private readonly logger: Logger,
-    @inject(SERVICES.CONFIG) private readonly config: IConfig,
-    @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication
-  ) {
-    this.dbSchema = this.config.get('db.schema');
-    this.transactionRetryPolicy = this.appConfig.transactionRetryPolicy;
-  }
+    @inject(SERVICES.LOGGER) private readonly logger: Logger
+  ) {}
 
   public async createEntity(fileId: string, entity: Entity): Promise<void> {
     this.logger.info({ msg: 'creating entity on file', fileId, entityId: entity.entityId });
@@ -130,7 +119,7 @@ export class EntityManager {
     return result;
   }
 
-  public async updateEntity(fileId: string, entityId: string, entity: UpdateEntity): Promise<string[]> {
+  public async updateEntity(fileId: string, entityId: string, entity: UpdateEntity): Promise<void> {
     this.logger.info({ msg: 'updating entity', fileId, entityId });
 
     const fileEntity = await this.fileRepository.findOneFile(fileId);
@@ -141,26 +130,11 @@ export class EntityManager {
 
     const entityEntity = await this.entityRepository.findOneEntity(entityId, fileId);
     if (!entityEntity) {
-      this.logger.error({ msg: 'could not create entity due to entity with the same id already existing', fileId, entityId });
+      this.logger.error({ msg: 'could not update entity due to entity with the same id not already existing', fileId, entityId });
       throw new EntityNotFoundError(`entity = ${entityId} not found`);
     }
 
     await this.entityRepository.updateEntity(entityId, fileId, entity);
-
-    let completedSyncIds: string[] = [];
-    if (entity.status === EntityStatus.NOT_SYNCED) {
-      completedSyncIds = await this.closeFile(fileId);
-
-      this.logger.debug({
-        msg: 'updating entity resulted in the complition of following syncs',
-        entityId,
-        fileId,
-        completedSyncIds,
-        completedSyncsCount: completedSyncIds.length,
-      });
-    }
-
-    return completedSyncIds;
   }
 
   public async updateEntities(entities: UpdateEntities): Promise<void> {
@@ -191,21 +165,5 @@ export class EntityManager {
     }
 
     await this.entityRepository.updateEntities(entities);
-    const possiblyFileClosingEntities = entities.filter(
-      (entity) => entity.status === EntityStatus.NOT_SYNCED || entity.status === EntityStatus.FAILED || entity.status === EntityStatus.COMPLETED
-    );
-    const uniqueFileIds = lodash.uniqBy(possiblyFileClosingEntities, 'fileId');
-    await Promise.all(uniqueFileIds.map(async (entity) => this.closeFile(entity.fileId)));
-  }
-
-  private async closeFile(fileId: string): Promise<string[]> {
-    this.logger.info({ msg: 'attempting to close file', fileId, transactionRetryPolicy: this.transactionRetryPolicy });
-
-    if (!this.transactionRetryPolicy.enabled) {
-      return this.fileRepository.tryClosingFile(fileId, this.dbSchema);
-    }
-    const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
-    const functionRef = this.fileRepository.tryClosingFile.bind(this.fileRepository);
-    return retryFunctionWrapper(retryOptions, functionRef, fileId, this.dbSchema);
   }
 }

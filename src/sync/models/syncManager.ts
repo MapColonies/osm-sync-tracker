@@ -1,11 +1,14 @@
 import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
+import { ConfigType } from '../../common/config';
 import { SERVICES } from '../../common/constants';
 import { GeometryType, Status } from '../../common/enums';
-import { IConfig } from '../../common/interfaces';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../DAL/syncRepository';
-import { FullSyncAlreadyExistsError, InvalidSyncForRerunError, RerunAlreadyExistsError, SyncAlreadyExistsError, SyncNotFoundError } from './errors';
+import { SYNCS_QUEUE_NAME } from '../../queueProvider/constants';
+import { JobQueueProvider } from '../../queueProvider/interfaces';
+import { ClosureJob } from '../../queueProvider/types';
 import { BaseSync, CreateRerunRequest, Sync, SyncsFilter, SyncUpdate } from './sync';
+import { FullSyncAlreadyExistsError, InvalidSyncForRerunError, RerunAlreadyExistsError, SyncAlreadyExistsError, SyncNotFoundError } from './errors';
 
 @injectable()
 export class SyncManager {
@@ -14,9 +17,10 @@ export class SyncManager {
   public constructor(
     @inject(SYNC_CUSTOM_REPOSITORY_SYMBOL) private readonly syncRepository: SyncRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
-    @inject(SERVICES.CONFIG) private readonly config: IConfig
+    @inject(SERVICES.CONFIG) private readonly config: ConfigType,
+    @inject(SYNCS_QUEUE_NAME) private readonly syncsQueue: JobQueueProvider<ClosureJob>
   ) {
-    this.dbSchema = this.config.get('db.schema');
+    this.dbSchema = this.config.get('db.schema') as string;
   }
 
   public async getSyncs(filter: SyncsFilter): Promise<BaseSync[]> {
@@ -75,6 +79,16 @@ export class SyncManager {
     }
 
     await this.syncRepository.updateSync(syncId, { ...updatedSync, metadata: { ...currentSync.metadata, ...updatedSync.metadata } });
+  }
+
+  public async createClosures(syncIds: string[]): Promise<void> {
+    this.logger.info({ msg: 'creating sync closures', amount: syncIds.length, syncIds });
+
+    const uniqueFileIds = Array.from(new Set(syncIds));
+
+    const jobs: ClosureJob[] = uniqueFileIds.map((id) => ({ id, kind: 'sync' }));
+
+    await this.syncsQueue.push(jobs);
   }
 
   public async rerunSyncIfNeeded(syncId: string, rerunId: string, startDate: Date, shouldRerunNotSynced?: boolean): Promise<boolean> {

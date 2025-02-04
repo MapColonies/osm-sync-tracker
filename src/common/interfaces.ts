@@ -1,19 +1,11 @@
 import { DataSourceOptions } from 'typeorm';
-import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
+import { RedisOptions } from 'ioredis';
+import { ExtendedJobOptions, QueueOptions } from '../queueProvider/queues/options';
+import { ExtendedWorkerOptions } from '../queueProvider/workers/options';
 
-export interface IConfig {
-  get: <T>(setting: string) => T;
-  has: (setting: string) => boolean;
-}
-
-export interface TransactionRetryPolicy {
-  enabled: boolean;
-  numRetries?: number;
-}
-
-export interface IApplication {
-  isolationLevel: IsolationLevel;
-  transactionRetryPolicy: TransactionRetryPolicy;
+interface LogFn {
+  (obj: unknown, msg?: string, ...args: unknown[]): void;
+  (msg: string, ...args: unknown[]): void;
 }
 
 export interface IServerConfig {
@@ -25,9 +17,33 @@ export type DbConfig = {
   sslPaths: { ca: string; cert: string; key: string };
 } & DataSourceOptions;
 
-export interface OpenApiConfig {
-  filePath: string;
-  basePath: string;
-  jsonPath: string;
+export type RedisConfig = {
+  host: string;
+  port: number;
+  enableSslAuth: boolean;
+  sslPaths: { ca: string; cert: string; key: string };
+} & RedisOptions;
+
+export interface ILogger {
+  trace?: LogFn;
+  debug: LogFn;
+  info: LogFn;
+  warn: LogFn;
+  error: LogFn;
+  fatal?: LogFn;
+}
+
+export type QueueName = 'changesets' | 'files' | 'syncs';
+
+export interface ClosureQueueConfig {
+  queueOptions: QueueOptions;
+  jobOptions: ExtendedJobOptions;
+  workerOptions: ExtendedWorkerOptions;
+}
+
+export interface ClosureConfig {
   uiPath: string;
+  queues: {
+    [key in QueueName]: ClosureQueueConfig;
+  };
 }

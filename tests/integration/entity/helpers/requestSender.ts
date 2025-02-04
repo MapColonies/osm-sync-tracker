@@ -1,8 +1,9 @@
 import * as supertest from 'supertest';
+import { Application } from 'express';
 import { StringifiedEntity } from './generators';
 
 export class EntityRequestSender {
-  public constructor(private readonly app: Express.Application) {}
+  public constructor(private readonly app: Application) {}
 
   public async postEntity(fileId: string, body: StringifiedEntity): Promise<supertest.Response> {
     return supertest.agent(this.app).post(`/file/${fileId}/entity`).set('Content-Type', 'application/json').send(body);

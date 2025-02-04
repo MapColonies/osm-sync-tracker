@@ -1,0 +1,20 @@
+import { JobsOptions, Queue, QueueEvents } from 'bullmq';
+import { ILogger } from '../../../common/interfaces';
+
+export interface ExtendedJobOptions extends JobsOptions {
+  deduplicationDelay?: number;
+}
+
+export interface QueueOptions {
+  enabledBatchJobs: boolean;
+  maxBatchSize?: number;
+}
+
+export interface QueueConfig {
+  queue: Queue;
+  queueName: string;
+  queueEvents?: QueueEvents;
+  queueOptions: QueueOptions;
+  jobOptions: ExtendedJobOptions;
+  logger?: ILogger;
+}

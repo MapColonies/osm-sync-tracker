@@ -6,27 +6,20 @@ import { SYNC_CUSTOM_REPOSITORY_SYMBOL, SyncRepository } from '../../sync/DAL/sy
 import { SyncNotFoundError } from '../../sync/models/errors';
 import { FILE_CUSTOM_REPOSITORY_SYMBOL, FileRepository } from '../DAL/fileRepository';
 import { Sync } from '../../sync/models/sync';
-import { TransactionFailureError } from '../../changeset/models/errors';
-import { retryFunctionWrapper } from '../../common/utils/retryFunctionWrapper';
-import { IApplication, IConfig, TransactionRetryPolicy } from '../../common/interfaces';
+import { JobQueueProvider } from '../../queueProvider/interfaces';
+import { ClosureJob } from '../../queueProvider/types';
+import { FILES_QUEUE_NAME } from '../../queueProvider/constants';
 import { ConflictingRerunFileError, DuplicateFilesError, FileAlreadyExistsError, FileNotFoundError } from './errors';
 import { File, FileUpdate } from './file';
 
 @injectable()
 export class FileManager {
-  private readonly dbSchema: string;
-  private readonly transactionRetryPolicy: TransactionRetryPolicy;
-
   public constructor(
     @inject(FILE_CUSTOM_REPOSITORY_SYMBOL) private readonly fileRepository: FileRepository,
     @inject(SYNC_CUSTOM_REPOSITORY_SYMBOL) private readonly syncRepository: SyncRepository,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
-    @inject(SERVICES.CONFIG) private readonly config: IConfig,
-    @inject(SERVICES.APPLICATION) private readonly appConfig: IApplication
-  ) {
-    this.dbSchema = this.config.get('db.schema');
-    this.transactionRetryPolicy = this.appConfig.transactionRetryPolicy;
-  }
+    @inject(FILES_QUEUE_NAME) private readonly filesQueue: JobQueueProvider<ClosureJob>
+  ) {}
 
   public async createFile(syncId: string, file: File): Promise<void> {
     this.logger.info({ msg: 'creating file on sync', syncId, fileId: file.fileId });
@@ -89,7 +82,7 @@ export class FileManager {
     await this.fileRepository.createFiles(filesWithSyncId);
   }
 
-  public async updateFile(syncId: string, fileId: string, fileUpdate: FileUpdate): Promise<string[]> {
+  public async updateFile(syncId: string, fileId: string, fileUpdate: FileUpdate): Promise<void> {
     this.logger.info({ msg: 'updating file on sync', syncId, fileId: fileId, fileUpdate });
 
     const syncEntity = await this.syncRepository.findOneSync(syncId);
@@ -107,19 +100,16 @@ export class FileManager {
     }
 
     await this.fileRepository.updateFile(fileId, fileUpdate);
+  }
 
-    // try closing the file which in turn if if succeeded will try compliting the sync
-    const completedSyncIds = await this.closeFile(fileId);
+  public async createClosures(fileIds: string[]): Promise<void> {
+    this.logger.info({ msg: 'creating file closures', amount: fileIds.length, fileIds });
 
-    this.logger.debug({
-      msg: 'closing file resulted in the complition of following syncs',
-      fileId,
-      syncId,
-      completedSyncIds,
-      completedSyncIdsCount: completedSyncIds.length,
-    });
+    const uniqueFileIds = Array.from(new Set(fileIds));
 
-    return completedSyncIds;
+    const jobs: ClosureJob[] = uniqueFileIds.map((id) => ({ id, kind: 'file' }));
+
+    await this.filesQueue.push(jobs);
   }
 
   private async createRerunFile(rerunSync: Sync, rerunFile: File): Promise<void> {
@@ -159,17 +149,5 @@ export class FileManager {
       });
       throw new ConflictingRerunFileError(`rerun file = ${rerunFile.fileId} conflicting total entities`);
     }
-  }
-
-  private async closeFile(fileId: string): Promise<string[]> {
-    this.logger.info({ msg: 'attempting to close file', fileId, transactionRetryPolicy: this.transactionRetryPolicy });
-
-    if (!this.transactionRetryPolicy.enabled) {
-      return this.fileRepository.tryClosingFile(fileId, this.dbSchema);
-    }
-
-    const retryOptions = { retryErrorType: TransactionFailureError, numberOfRetries: this.transactionRetryPolicy.numRetries as number };
-    const functionRef = this.fileRepository.tryClosingFile.bind(this.fileRepository);
-    return retryFunctionWrapper(retryOptions, functionRef, fileId, this.dbSchema);
   }
 }

@@ -1,5 +1,7 @@
 import { Status, GeometryType } from '../../common/enums';
 
+export type GeometryTypeString = 'point' | 'linestring' | 'polygon';
+
 export interface Sync {
   id: string;
 

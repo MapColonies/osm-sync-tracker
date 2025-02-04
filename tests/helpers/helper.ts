@@ -5,15 +5,17 @@ import { File } from '../../src/file/models/file';
 import { Entity } from '../../src/entity/models/entity';
 import { Changeset } from '../../src/changeset/models/changeset';
 
-const MAX_GENERATED_FAKES = 1000;
 const MIN_GENERATED_FAKES = 1;
+const MAX_GENERATED_FAKES = 1000;
 
 const previouslyGeneratedNumbers = new Set<number>();
 
+export const MAX_RANDOM_NUMERIC_VALUE = 99999;
+
 export const generateUniqueNumber = (): number => {
-  let number;
+  let number: number;
   do {
-    number = faker.datatype.number();
+    number = faker.number.int({ max: MAX_RANDOM_NUMERIC_VALUE });
   } while (previouslyGeneratedNumbers.has(number));
 
   previouslyGeneratedNumbers.add(number);
@@ -25,11 +27,11 @@ export type FakeSyncParams = Partial<Sync>;
 
 export const createFakeSync = (params: FakeSyncParams = {}): Sync => {
   return {
-    id: params.id ?? faker.datatype.uuid(),
+    id: params.id ?? faker.string.uuid(),
 
-    dumpDate: params.dumpDate ?? faker.datatype.datetime(),
+    dumpDate: params.dumpDate ?? faker.date.anytime(),
 
-    startDate: params.startDate ?? faker.datatype.datetime(),
+    startDate: params.startDate ?? faker.date.anytime(),
 
     status: params.status ?? Status.IN_PROGRESS,
 
@@ -37,7 +39,7 @@ export const createFakeSync = (params: FakeSyncParams = {}): Sync => {
 
     isFull: params.isFull ?? faker.datatype.boolean(),
 
-    totalFiles: params.totalFiles ?? faker.datatype.number(),
+    totalFiles: params.totalFiles ?? faker.number.int({ max: MAX_RANDOM_NUMERIC_VALUE }),
 
     geometryType: params.geometryType ?? GeometryType.POLYGON,
 
@@ -59,11 +61,11 @@ export const createMultipleSyncData = (amount: number): Sync[] => {
 
 export const createFakeRerunSync = (params: FakeSyncParams = {}): Sync => {
   return {
-    id: params.id ?? faker.datatype.uuid(),
+    id: params.id ?? faker.string.uuid(),
 
-    dumpDate: params.dumpDate ?? faker.datatype.datetime(),
+    dumpDate: params.dumpDate ?? faker.date.anytime(),
 
-    startDate: params.startDate ?? faker.datatype.datetime(),
+    startDate: params.startDate ?? faker.date.anytime(),
 
     status: params.status ?? Status.IN_PROGRESS,
 
@@ -71,13 +73,13 @@ export const createFakeRerunSync = (params: FakeSyncParams = {}): Sync => {
 
     isFull: params.isFull ?? faker.datatype.boolean(),
 
-    totalFiles: params.totalFiles ?? faker.datatype.number(),
+    totalFiles: params.totalFiles ?? faker.number.int({ max: MAX_RANDOM_NUMERIC_VALUE }),
 
     geometryType: params.geometryType ?? GeometryType.POLYGON,
 
-    runNumber: params.runNumber ?? faker.datatype.number({ min: 1 }),
+    runNumber: params.runNumber ?? faker.number.int({ min: 1, max: MAX_RANDOM_NUMERIC_VALUE }),
 
-    baseSyncId: params.baseSyncId ?? faker.datatype.uuid(),
+    baseSyncId: params.baseSyncId ?? faker.string.uuid(),
 
     metadata: params.metadata ?? null,
   };
@@ -85,13 +87,13 @@ export const createFakeRerunSync = (params: FakeSyncParams = {}): Sync => {
 
 export const createFakeFile = (): File => {
   return {
-    fileId: faker.datatype.uuid(),
+    fileId: faker.string.uuid(),
 
-    syncId: faker.datatype.uuid(),
+    syncId: faker.string.uuid(),
 
-    totalEntities: faker.datatype.number(),
+    totalEntities: faker.number.int({ max: MAX_RANDOM_NUMERIC_VALUE }),
 
-    startDate: faker.datatype.datetime(),
+    startDate: faker.date.anytime(),
 
     endDate: undefined,
 
@@ -99,7 +101,7 @@ export const createFakeFile = (): File => {
   };
 };
 
-export const createFakeFiles = (quantity: number = faker.datatype.number({ max: MAX_GENERATED_FAKES, min: MIN_GENERATED_FAKES })): File[] => {
+export const createFakeFiles = (quantity: number = faker.number.int({ min: MIN_GENERATED_FAKES, max: MAX_GENERATED_FAKES })): File[] => {
   const files: File[] = [];
   for (let i = 0; i < quantity; i++) {
     files.push(createFakeFile());
@@ -109,11 +111,11 @@ export const createFakeFiles = (quantity: number = faker.datatype.number({ max: 
 
 export const createFakeEntity: () => Entity = () => {
   return {
-    entityId: faker.datatype.uuid(),
+    entityId: faker.string.uuid(),
 
-    fileId: faker.datatype.uuid(),
+    fileId: faker.string.uuid(),
 
-    changesetId: faker.datatype.uuid(),
+    changesetId: faker.string.uuid(),
 
     status: EntityStatus.IN_PROGRESS,
 
@@ -121,7 +123,7 @@ export const createFakeEntity: () => Entity = () => {
   };
 };
 
-export const createFakeEntities = (quantity: number = faker.datatype.number({ max: MAX_GENERATED_FAKES, min: MIN_GENERATED_FAKES })): Entity[] => {
+export const createFakeEntities = (quantity: number = faker.number.int({ min: MIN_GENERATED_FAKES, max: MAX_GENERATED_FAKES })): Entity[] => {
   const entities: Entity[] = [];
   for (let i = 0; i < quantity; i++) {
     entities.push(createFakeEntity());
@@ -131,8 +133,8 @@ export const createFakeEntities = (quantity: number = faker.datatype.number({ ma
 
 export const createFakeChangeset: () => Changeset = () => {
   return {
-    changesetId: faker.datatype.uuid(),
+    changesetId: faker.string.uuid(),
 
-    osmId: faker.datatype.number(),
+    osmId: faker.number.int({ max: MAX_RANDOM_NUMERIC_VALUE }),
   };
 };

@@ -1,16 +1,103 @@
 {
-  "application": {
-    "isolationLevel": "SERIALIZABLE",
-    "transactionRetryPolicy": {
-      "enabled": false
-    }
-  },
   "db": {
-    "host": "postgres",
+    "host": "localhost",
     "schema": "osm_sync_tracker",
     "username": "postgres",
-    "password": "1234",
+    "password": "postgres",
     "database": "postgres",
     "enableSslAuth": false
+  },
+  "redis": {
+    "host": "localhost",
+    "port": 6379,
+    "username": "",
+    "password": "",
+    "enableSslAuth": false,
+    "sslPaths": {
+      "ca": "",
+      "key": "",
+      "cert": ""
+    },
+    "db": 0
+  },
+  "closure": {
+    "queues": {
+      "changesets": {
+        "queueOptions": {
+          "enabledBatchJobs": true,
+          "maxBatchSize": 10
+        },
+        "jobOptions": {
+          "attempts": 10,
+          "delay": 100,
+          "backoff": {
+            "type": "fixed",
+            "delay": 60000
+          },
+          "deduplicationDelay": 100
+        },
+        "workerOptions": {
+          "concurrency": 1,
+          "reomveOnComplete": {
+            "age": 604800
+          },
+          "reomveOnFail": {
+            "age": 2419200
+          },
+          "transactionIsolationLevel": "SERIALIZABLE",
+          "transactionFailureDelay": 100
+        }
+      },
+      "files": {
+        "queueOptions": {
+          "enabledBatchJobs": false
+        },
+        "jobOptions": {
+          "attempts": 10,
+          "delay": 100,
+          "backoff": {
+            "type": "fixed",
+            "delay": 60000
+          },
+          "deduplicationDelay": 100
+        },
+        "workerOptions": {
+          "concurrency": 1,
+          "reomveOnComplete": {
+            "age": 604800
+          },
+          "reomveOnFail": {
+            "age": 2419200
+          },
+          "transactionIsolationLevel": "SERIALIZABLE",
+          "transactionFailureDelay": 100
+        }
+      },
+      "syncs": {
+        "queueOptions": {
+          "enabledBatchJobs": false
+        },
+        "jobOptions": {
+          "attempts": 10,
+          "delay": 100,
+          "backoff": {
+            "type": "fixed",
+            "delay": 60000
+          },
+          "deduplicationDelay": 100
+        },
+        "workerOptions": {
+          "concurrency": 1,
+          "reomveOnComplete": {
+            "age": 604800
+          },
+          "reomveOnFail": {
+            "age": 2419200
+          },
+          "transactionIsolationLevel": "SERIALIZABLE",
+          "transactionFailureDelay": 100
+        }
+      }
+    }
   }
 }
