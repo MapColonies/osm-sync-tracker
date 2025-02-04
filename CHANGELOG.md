@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [4.0.0](https://github.com/MapColonies/osm-sync-tracker/compare/v3.6.0...v4.0.0) (2025-02-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **closure:** new closing mechanism (MAPCO-6155) ([#64](https://github.com/MapColonies/osm-sync-tracker/issues/64))
+
+### Features
+
+* **closure:** new closing mechanism (MAPCO-6155) ([#64](https://github.com/MapColonies/osm-sync-tracker/issues/64)) ([2773747](https://github.com/MapColonies/osm-sync-tracker/commit/2773747b6bf74903aa6c946e8bc014b0b9b344f0))
+
 ## [3.5.0](https://github.com/MapColonies/osm-sync-tracker/compare/v3.4.2...v3.5.0) (2024-01-28)
 
 
