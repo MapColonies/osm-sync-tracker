@@ -8,16 +8,19 @@ describe('BullQueueProvider', () => {
   let provider: BullQueueProvider<Identifiable>;
 
   const getJobMock = jest.fn();
+  const addJobMock = jest.fn();
 
   const queueMock = {
     close: jest.fn(),
-    add: jest.fn(),
+    add: addJobMock,
     addBulk: jest.fn(),
     getJob: getJobMock,
   } as unknown as Queue;
 
   const queueName = 'test-queue-name';
   const jobOptions = { key: 'value' } as unknown as ExtendedJobOptions;
+
+  provider = new BullQueueProvider({ queue: queueMock, queueName, jobOptions, queueOptions: { enabledBatchJobs: false } });
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -104,9 +107,10 @@ describe('BullQueueProvider', () => {
   describe('#changeJobDelay', () => {
     it('should change the delay of a job with no previous deduplication count', async () => {
       const delay = 200;
+      const jobIsDelayedMock = jest.fn().mockResolvedValue(true);
       const jobChangeDelayMock = jest.fn();
       const jobUpdateDataMock = jest.fn();
-      const job = { id: 'id', data: {}, changeDelay: jobChangeDelayMock, updateData: jobUpdateDataMock };
+      const job = { id: 'id', data: {}, changeDelay: jobChangeDelayMock, updateData: jobUpdateDataMock, isDelayed: jobIsDelayedMock };
       getJobMock.mockResolvedValue(job);
       const promise = provider.changeJobDelay(job.id, delay);
 
@@ -114,6 +118,7 @@ describe('BullQueueProvider', () => {
 
       expect(queueMock['getJob']).toHaveBeenCalledTimes(1);
       expect(queueMock['getJob']).toHaveBeenCalledWith(job.id);
+      expect(jobIsDelayedMock).toHaveBeenCalledTimes(1);
       expect(jobChangeDelayMock).toHaveBeenCalledTimes(1);
       expect(jobChangeDelayMock).toHaveBeenCalledWith(delay);
       expect(jobUpdateDataMock).toHaveBeenCalledTimes(1);
@@ -122,9 +127,16 @@ describe('BullQueueProvider', () => {
 
     it('should change the delay of a job with some previous deduplication count', async () => {
       const delay = 200;
+      const jobIsDelayedMock = jest.fn().mockResolvedValue(true);
       const jobChangeDelayMock = jest.fn();
       const jobUpdateDataMock = jest.fn();
-      const job = { id: 'id', data: { deduplicationCount: 3 }, changeDelay: jobChangeDelayMock, updateData: jobUpdateDataMock };
+      const job = {
+        id: 'id',
+        data: { deduplicationCount: 3 },
+        changeDelay: jobChangeDelayMock,
+        updateData: jobUpdateDataMock,
+        isDelayed: jobIsDelayedMock,
+      };
       getJobMock.mockResolvedValue(job);
       const promise = provider.changeJobDelay(job.id, delay);
 
@@ -132,6 +144,7 @@ describe('BullQueueProvider', () => {
 
       expect(queueMock['getJob']).toHaveBeenCalledTimes(1);
       expect(queueMock['getJob']).toHaveBeenCalledWith(job.id);
+      expect(jobIsDelayedMock).toHaveBeenCalledTimes(1);
       expect(jobChangeDelayMock).toHaveBeenCalledTimes(1);
       expect(jobChangeDelayMock).toHaveBeenCalledWith(delay);
       expect(jobUpdateDataMock).toHaveBeenCalledTimes(1);
@@ -163,6 +176,84 @@ describe('BullQueueProvider', () => {
 
       expect(queueMock['getJob']).toHaveBeenCalledTimes(1);
       expect(queueMock['getJob']).toHaveBeenCalledWith('id');
+    });
+
+    it('should add again a job if it is no longer delayed', async () => {
+      const delay = 200;
+      const jobIsDelayedMock = jest.fn().mockResolvedValue(false);
+      const jobChangeDelayMock = jest.fn();
+      const jobUpdateDataMock = jest.fn();
+      const job = { id: 'id', data: { id: 'someId' }, changeDelay: jobChangeDelayMock, updateData: jobUpdateDataMock, isDelayed: jobIsDelayedMock };
+      getJobMock.mockResolvedValue(job);
+      const promise = provider.changeJobDelay(job.id, delay);
+
+      await expect(promise).resolves.not.toThrow();
+
+      expect(queueMock['getJob']).toHaveBeenCalledTimes(1);
+      expect(queueMock['getJob']).toHaveBeenCalledWith(job.id);
+      expect(jobIsDelayedMock).toHaveBeenCalledTimes(1);
+      expect(jobChangeDelayMock).toHaveBeenCalledTimes(0);
+      expect(jobUpdateDataMock).toHaveBeenCalledTimes(0);
+      expect(queueMock['add']).toHaveBeenCalledWith(job.data.id, job.data, { ...jobOptions, deduplication: { id: job.data.id } });
+    });
+
+    it('should add again a job if provider could not determine if job is delayed', async () => {
+      const delay = 200;
+      const jobIsDelayedMock = jest.fn().mockRejectedValue(new Error('could not determine is job is delayed'));
+      const jobChangeDelayMock = jest.fn();
+      const jobUpdateDataMock = jest.fn();
+      const job = { id: 'id', data: { id: 'someId' }, changeDelay: jobChangeDelayMock, updateData: jobUpdateDataMock, isDelayed: jobIsDelayedMock };
+      getJobMock.mockResolvedValue(job);
+      const promise = provider.changeJobDelay(job.id, delay);
+
+      await expect(promise).resolves.not.toThrow();
+
+      expect(queueMock['getJob']).toHaveBeenCalledTimes(1);
+      expect(queueMock['getJob']).toHaveBeenCalledWith(job.id);
+      expect(jobIsDelayedMock).toHaveBeenCalledTimes(1);
+      expect(jobChangeDelayMock).toHaveBeenCalledTimes(0);
+      expect(jobUpdateDataMock).toHaveBeenCalledTimes(0);
+      expect(queueMock['add']).toHaveBeenCalledWith(job.data.id, job.data, { ...jobOptions, deduplication: { id: job.data.id } });
+    });
+
+    it('should add again a job if provider could not delay the job when needed', async () => {
+      const delay = 200;
+      const jobIsDelayedMock = jest.fn().mockResolvedValue(true);
+      const jobChangeDelayMock = jest.fn().mockRejectedValue(new Error('could not delay job'));
+      const jobUpdateDataMock = jest.fn();
+      const job = { id: 'id', data: { id: 'someId' }, changeDelay: jobChangeDelayMock, updateData: jobUpdateDataMock, isDelayed: jobIsDelayedMock };
+      getJobMock.mockResolvedValue(job);
+      const promise = provider.changeJobDelay(job.id, delay);
+
+      await expect(promise).resolves.not.toThrow();
+
+      expect(queueMock['getJob']).toHaveBeenCalledTimes(1);
+      expect(queueMock['getJob']).toHaveBeenCalledWith(job.id);
+      expect(jobIsDelayedMock).toHaveBeenCalledTimes(1);
+      expect(jobChangeDelayMock).toHaveBeenCalledTimes(1);
+      expect(jobChangeDelayMock).toHaveBeenCalledWith(delay);
+      expect(queueMock['add']).toHaveBeenCalledWith(job.data.id, job.data, { ...jobOptions, deduplication: { id: job.data.id } });
+    });
+
+    it('should not throw if add job failed in an attempt to add a job again if provider could not change delay', async () => {
+      const delay = 200;
+      const jobIsDelayedMock = jest.fn().mockResolvedValue(true);
+      const jobChangeDelayMock = jest.fn().mockRejectedValue(new Error('could not delay job'));
+      const jobUpdateDataMock = jest.fn();
+      addJobMock.mockRejectedValue(new Error('failed to add job'));
+
+      const job = { id: 'id', data: { id: 'someId' }, changeDelay: jobChangeDelayMock, updateData: jobUpdateDataMock, isDelayed: jobIsDelayedMock };
+      getJobMock.mockResolvedValue(job);
+      const promise = provider.changeJobDelay(job.id, delay);
+
+      await expect(promise).resolves.not.toThrow();
+
+      expect(queueMock['getJob']).toHaveBeenCalledTimes(1);
+      expect(queueMock['getJob']).toHaveBeenCalledWith(job.id);
+      expect(jobIsDelayedMock).toHaveBeenCalledTimes(1);
+      expect(jobChangeDelayMock).toHaveBeenCalledTimes(1);
+      expect(jobChangeDelayMock).toHaveBeenCalledWith(delay);
+      expect(queueMock['add']).toHaveBeenCalledWith(job.data.id, job.data, { ...jobOptions, deduplication: { id: job.data.id } });
     });
   });
 

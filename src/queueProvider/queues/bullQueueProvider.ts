@@ -83,7 +83,27 @@ export class BullQueueProvider<T extends Identifiable> implements JobQueueProvid
         return;
       }
 
-      await job.changeDelay(delay);
+      try {
+        const isDelayed = await job.isDelayed();
+
+        if (!isDelayed) {
+          throw new Error('job is no longer in delayed state.');
+        }
+
+        await job.changeDelay(delay);
+      } catch (err) {
+        this.logger?.error({
+          msg: 'an error accord during job delay change. attempting to add the job newly',
+          queueName: this.queueName,
+          jobId,
+          delay,
+          err,
+        });
+
+        await this.addJob(job.data as T);
+
+        return;
+      }
 
       await updateJobCounter(job, 'deduplication');
     } catch (err) {
