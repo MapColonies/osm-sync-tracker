@@ -105,8 +105,9 @@ describe('BullQueueProvider', () => {
   });
 
   describe('#changeJobDelay', () => {
+    const delay = 200;
+
     it('should change the delay of a job with no previous deduplication count', async () => {
-      const delay = 200;
       const jobIsDelayedMock = jest.fn().mockResolvedValue(true);
       const jobChangeDelayMock = jest.fn();
       const jobUpdateDataMock = jest.fn();
@@ -126,7 +127,6 @@ describe('BullQueueProvider', () => {
     });
 
     it('should change the delay of a job with some previous deduplication count', async () => {
-      const delay = 200;
       const jobIsDelayedMock = jest.fn().mockResolvedValue(true);
       const jobChangeDelayMock = jest.fn();
       const jobUpdateDataMock = jest.fn();
@@ -152,7 +152,6 @@ describe('BullQueueProvider', () => {
     });
 
     it('should retrun void if job was not found', async () => {
-      const delay = 200;
       const jobChangeDelayMock = jest.fn();
       const jobUpdateDataMock = jest.fn();
       getJobMock.mockResolvedValue(undefined);
@@ -179,7 +178,6 @@ describe('BullQueueProvider', () => {
     });
 
     it('should add again a job if it is no longer delayed', async () => {
-      const delay = 200;
       const jobIsDelayedMock = jest.fn().mockResolvedValue(false);
       const jobChangeDelayMock = jest.fn();
       const jobUpdateDataMock = jest.fn();
@@ -198,7 +196,6 @@ describe('BullQueueProvider', () => {
     });
 
     it('should add again a job if provider could not determine if job is delayed', async () => {
-      const delay = 200;
       const jobIsDelayedMock = jest.fn().mockRejectedValue(new Error('could not determine is job is delayed'));
       const jobChangeDelayMock = jest.fn();
       const jobUpdateDataMock = jest.fn();
@@ -217,7 +214,6 @@ describe('BullQueueProvider', () => {
     });
 
     it('should add again a job if provider could not delay the job when needed', async () => {
-      const delay = 200;
       const jobIsDelayedMock = jest.fn().mockResolvedValue(true);
       const jobChangeDelayMock = jest.fn().mockRejectedValue(new Error('could not delay job'));
       const jobUpdateDataMock = jest.fn();
@@ -236,7 +232,6 @@ describe('BullQueueProvider', () => {
     });
 
     it('should not throw if add job failed in an attempt to add a job again if provider could not change delay', async () => {
-      const delay = 200;
       const jobIsDelayedMock = jest.fn().mockResolvedValue(true);
       const jobChangeDelayMock = jest.fn().mockRejectedValue(new Error('could not delay job'));
       const jobUpdateDataMock = jest.fn();
