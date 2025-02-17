@@ -1,4 +1,4 @@
-import { Queue } from 'bullmq';
+import { Queue, QueueEvents } from 'bullmq';
 import { BullQueueProvider } from '../../../../src/queueProvider/queues/bullQueueProvider';
 import { Identifiable } from '../../../../src/queueProvider/interfaces';
 import { ExtendedJobOptions } from '../../../../src/queueProvider/queues/options';
@@ -17,10 +17,20 @@ describe('BullQueueProvider', () => {
     getJob: getJobMock,
   } as unknown as Queue;
 
+  const queueEventsMock = {
+    on: jest.fn(),
+  } as unknown as QueueEvents;
+
   const queueName = 'test-queue-name';
   const jobOptions = { key: 'value' } as unknown as ExtendedJobOptions;
 
-  provider = new BullQueueProvider({ queue: queueMock, queueName, jobOptions, queueOptions: { enabledBatchJobs: false } });
+  provider = new BullQueueProvider({
+    queue: queueMock,
+    queueName,
+    jobOptions,
+    queueEvents: queueEventsMock,
+    queueOptions: { enabledBatchJobs: false },
+  });
 
   beforeEach(() => {
     jest.resetAllMocks();

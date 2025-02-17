@@ -3,7 +3,12 @@ import { DependencyContainer, FactoryFunction } from 'tsyringe';
 import jsLogger from '@map-colonies/js-logger';
 import { changesetsQueueWorkerFactory } from '../../../../src/queueProvider/workers/changesetsQueueWorker';
 import { SERVICES } from '../../../../src/common/constants';
-import { FILES_QUEUE_NAME } from '../../../../src/queueProvider/constants';
+import {
+  CHANGESETS_QUEUE_NAME,
+  FILES_QUEUE_NAME,
+  JOB_STALLED_FAILURE_ERROR_MESSAGE,
+  SYNCS_QUEUE_NAME,
+} from '../../../../src/queueProvider/constants';
 import { BatchClosureJob, ClosureReturn } from '../../../../src/queueProvider/types';
 import { ENTITY_CUSTOM_REPOSITORY_SYMBOL } from '../../../../src/entity/DAL/entityRepository';
 import { filesQueueWorkerFactory } from '../../../../src/queueProvider/workers/filesQueueWorker';
@@ -39,7 +44,15 @@ describe('commonQueueWorkerFactory', () => {
     findFilesByChangesets: jest.fn(),
   };
 
+  const changesetsQueueMock = {
+    push: jest.fn(),
+  };
+
   const filesQueueMock = {
+    push: jest.fn(),
+  };
+
+  const syncsQueueMock = {
     push: jest.fn(),
   };
 
@@ -60,8 +73,14 @@ describe('commonQueueWorkerFactory', () => {
       if (token === ENTITY_CUSTOM_REPOSITORY_SYMBOL) {
         return entityRespositoryMock;
       }
+      if (token === CHANGESETS_QUEUE_NAME) {
+        return changesetsQueueMock;
+      }
       if (token === FILES_QUEUE_NAME) {
         return filesQueueMock;
+      }
+      if (token === SYNCS_QUEUE_NAME) {
+        return syncsQueueMock;
       }
       return jest.fn();
     }),
@@ -83,8 +102,11 @@ describe('commonQueueWorkerFactory', () => {
 
     worker.emit('completed', job, undefined, '');
     worker.emit('failed', job, new Error(), '');
+    worker.emit('failed', job, new Error(JOB_STALLED_FAILURE_ERROR_MESSAGE), 'prev');
     worker.emit('error', new Error());
 
+    expect(changesetsQueueMock.push).toHaveBeenCalledTimes(1);
+    expect(changesetsQueueMock.push).toHaveBeenCalledWith([{ ...job.data, stalledFailureCount: 1 }]);
     await worker.close(true);
   });
 
@@ -100,7 +122,11 @@ describe('commonQueueWorkerFactory', () => {
 
     worker.emit('completed', job, undefined, '');
     worker.emit('failed', job, new Error(), '');
+    worker.emit('failed', job, new Error(JOB_STALLED_FAILURE_ERROR_MESSAGE), 'prev');
     worker.emit('error', new Error());
+
+    expect(filesQueueMock.push).toHaveBeenCalledTimes(1);
+    expect(filesQueueMock.push).toHaveBeenCalledWith([{ ...job.data, stalledFailureCount: 1 }]);
 
     await worker.close(true);
   });
@@ -117,7 +143,11 @@ describe('commonQueueWorkerFactory', () => {
 
     worker.emit('completed', job, undefined, '');
     worker.emit('failed', job, new Error(), '');
+    worker.emit('failed', job, new Error(JOB_STALLED_FAILURE_ERROR_MESSAGE), 'prev');
     worker.emit('error', new Error());
+
+    expect(syncsQueueMock.push).toHaveBeenCalledTimes(1);
+    expect(syncsQueueMock.push).toHaveBeenCalledWith([{ ...job.data, stalledFailureCount: 1 }]);
 
     await worker.close(true);
   });

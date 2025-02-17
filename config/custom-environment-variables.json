@@ -108,6 +108,10 @@
             "__name": "CHANGESETS_QUEUE_JOB_DEDUPLICATION_DELAY",
             "__format": "number"
           },
+          "deduplicationTtl": {
+            "__name": "CHANGESETS_QUEUE_JOB_DEDUPLICATION_TTL",
+            "__format": "number"
+          },
           "backoff": {
             "type": "CHANGESETS_QUEUE_JOB_BACKOFF_TYPE",
             "delay": {
@@ -190,6 +194,10 @@
             "__name": "FILES_QUEUE_JOB_DEDUPLICATION_DELAY",
             "__format": "number"
           },
+          "deduplicationTtl": {
+            "__name": "FILES_QUEUE_JOB_DEDUPLICATION_TTL",
+            "__format": "number"
+          },
           "backoff": {
             "type": "FILES_QUEUE_JOB_BACKOFF_TYPE",
             "delay": {
@@ -270,6 +278,10 @@
           },
           "deduplicationDelay": {
             "__name": "SYNCS_QUEUE_JOB_DEDUPLICATION_DELAY",
+            "__format": "number"
+          },
+          "deduplicationTtl": {
+            "__name": "SYNCS_QUEUE_JOB_DEDUPLICATION_TTL",
             "__format": "number"
           },
           "backoff": {
