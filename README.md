@@ -45,7 +45,7 @@ Each type has its own queue and configuration as follows:
 - `closure.queues.${queueName}.workerOptions.removeOnFailed.age` - automatically remove failed jobs after being failed for this seconds duration
 - `closure.queues.${queueName}.workerOptions.removeOnFailed.count` - automatically remove failed jobs if the number of failed jobs exceeds this count
 - `closure.queues.${queueName}.workerOptions.transactionIsolationLevel` - the transaction isolation level in which the job processing's database actions should be in, default to 'SERIALIZABLE'
-- `closure.queues.${queueName}.workerOptions.transactionFailureDelay` - the amount of ms that will be used to delay a job when it has failed due to transaction failure, these failures will not count as one of the attempts set by `jobOptions.attempts`
+- `closure.queues.${queueName}.workerOptions.transactionFailureDelay.minimum/maximum` - the amount of ms between minimum and miximum that will be used to delay a job when it has failed due to transaction failure, these failures will not count as one of the attempts set by `jobOptions.attempts`
 
 ## API
 Checkout the OpenAPI spec [here](/openapi3.yaml)
