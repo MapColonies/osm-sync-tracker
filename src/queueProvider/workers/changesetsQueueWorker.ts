@@ -12,6 +12,7 @@ import { Status } from '../../common/enums';
 import { JobQueueProvider } from '../interfaces';
 import { TransactionFailureError } from '../../common/errors';
 import { delayJob, incrementJobCounter, updateJobCounter } from '../helpers';
+import { randomIntFromInterval } from '../../common/utils';
 import { DEFAULT_TRANSACTION_PROPAGATION, transactionify, TransactionName } from '../../common/db/transactions';
 import { ExtendedWorkerOptions } from './options';
 
@@ -81,17 +82,20 @@ export const changesetsQueueWorkerFactory: FactoryFunction<Worker> = (container)
           err: error,
         });
 
+        const delay = randomIntFromInterval(transactionFailureDelay.minimum, transactionFailureDelay.maximum);
+
         if (error instanceof TransactionFailureError) {
           workerLogger.info({
             msg: 'delaying job due to transaction failure',
             ...baseLoggedObject,
             transactionIsolationLevel,
             transactionFailureDelay,
+            delay,
           });
 
           await updateJobCounter(job, 'transactionFailure');
 
-          await delayJob(job, transactionFailureDelay);
+          await delayJob(job, delay);
 
           throw new DelayedError();
         }

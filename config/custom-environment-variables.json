@@ -165,8 +165,14 @@
           },
           "transactionIsolationLevel": "CHANGESETS_QUEUE_WORKER_TRANSACTION_ISOLATION_LEVEL",
           "transactionFailureDelay": {
-            "__name": "CHANGESETS_QUEUE_WORKER_TRANSACTION_FAILURE_DELAY",
-            "__format": "number"
+            "minimum": {
+              "__name": "CHANGESETS_QUEUE_WORKER_TRANSACTION_FAILURE_DELAY_MIN",
+              "__format": "number"
+            },
+            "maximum": {
+              "__name": "CHANGESETS_QUEUE_WORKER_TRANSACTION_FAILURE_DELAY_MAX",
+              "__format": "number"
+            }
           }
         }
       },
@@ -251,8 +257,14 @@
           },
           "transactionIsolationLevel": "FILES_QUEUE_WORKER_TRANSACTION_ISOLATION_LEVEL",
           "transactionFailureDelay": {
-            "__name": "FILES_QUEUE_WORKER_TRANSACTION_FAILURE_DELAY",
-            "__format": "number"
+            "minimum": {
+              "__name": "FILES_QUEUE_WORKER_TRANSACTION_FAILURE_DELAY_MIN",
+              "__format": "number"
+            },
+            "maximum": {
+              "__name": "FILES_QUEUE_WORKER_TRANSACTION_FAILURE_DELAY_MAX",
+              "__format": "number"
+            }
           }
         }
       },
@@ -337,8 +349,14 @@
           },
           "transactionIsolationLevel": "SYNCS_QUEUE_WORKER_TRANSACTION_ISOLATION_LEVEL",
           "transactionFailureDelay": {
-            "__name": "SYNCS_QUEUE_WORKER_TRANSACTION_FAILURE_DELAY",
-            "__format": "number"
+            "minimum": {
+              "__name": "SYNCS_QUEUE_WORKER_TRANSACTION_FAILURE_DELAY_MIN",
+              "__format": "number"
+            },
+            "maximum": {
+              "__name": "SYNCS_QUEUE_WORKER_TRANSACTION_FAILURE_DELAY_MAX",
+              "__format": "number"
+            }
           }
         }
       }

@@ -18,7 +18,7 @@ describe('commonQueueWorkerFactory', () => {
   let factory: FactoryFunction<Worker>;
   let worker: Worker;
 
-  const workerOptionsMock = { transactionIsolationLevel: 'a', transactionFailureDelay: 10 };
+  const workerOptionsMock = { transactionIsolationLevel: 'a', transactionFailureDelay: { minimum: 10, maximum: 10 } };
 
   const configMock = {
     get: jest.fn(() => {

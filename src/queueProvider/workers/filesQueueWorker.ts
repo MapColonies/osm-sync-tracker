@@ -3,6 +3,7 @@ import { Worker, Job, DelayedError } from 'bullmq';
 import { FactoryFunction } from 'tsyringe';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
+import { randomIntFromInterval } from '../../common/utils';
 import { ConfigType } from '../../common/config';
 import { FILES_QUEUE_NAME, JOB_STALLED_FAILURE_ERROR_MESSAGE, KEY_PREFIX, SYNCS_QUEUE_NAME } from '../constants';
 import { SERVICES } from '../../common/constants';
@@ -80,17 +81,20 @@ export const filesQueueWorkerFactory: FactoryFunction<Worker> = (container) => {
           err: error,
         });
 
+        const delay = randomIntFromInterval(transactionFailureDelay.minimum, transactionFailureDelay.maximum);
+
         if (error instanceof TransactionFailureError) {
           workerLogger.info({
             msg: 'delaying job due to transaction failure',
             ...baseLoggedObject,
             transactionIsolationLevel,
             transactionFailureDelay,
+            delay,
           });
 
           await updateJobCounter(job, 'transactionFailure');
 
-          await delayJob(job, transactionFailureDelay);
+          await delayJob(job, delay);
 
           throw new DelayedError();
         }
