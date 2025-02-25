@@ -27,5 +27,5 @@ export const hashBatch = (input: string[]): string => {
 };
 
 export const randomIntFromInterval = (min: number, max: number): number => {
-  return min !== max ? Math.random() * (max - min + 1) + min : min;
+  return min !== max ? Math.floor(Math.random() * (max - min + 1)) + min : min;
 };
