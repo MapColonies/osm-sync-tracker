@@ -127,7 +127,10 @@ closure:
       jobOptions:
         attempts: 10
         delay: 60000
-        deduplicationDelay: 60000
+        deduplicationDelayEnabled: false
+        # deduplicationDelay: 60000
+        deduplicationTtlEnabled: true
+        deduplicationTtl: 10000
         backoff:
           type: fixed
           delay: 60000
@@ -146,7 +149,9 @@ closure:
           age: 2419200
           # count: 100000
         transactionIsolationLevel: 'SERIALIZABLE'
-        transactionFailureDelay: 10000
+        transactionFailureDelay:
+          minimum: 1000
+          maximum: 1500
     files:
       queueOptions:
         enabledBatchJobs: false
@@ -154,7 +159,10 @@ closure:
       jobOptions:
         attempts: 10
         delay: 60000
-        deduplicationDelay: 60000
+        deduplicationDelayEnabled: false
+        # deduplicationDelay: 60000
+        deduplicationTtlEnabled: true
+        deduplicationTtl: 10000
         backoff:
           type: fixed
           delay: 60000
@@ -173,7 +181,9 @@ closure:
           age: 2419200
           # count: 100000
         transactionIsolationLevel: 'SERIALIZABLE'
-        transactionFailureDelay: 10000
+        transactionFailureDelay:
+          minimum: 1000
+          maximum: 1500
     syncs:
       queueOptions:
         enabledBatchJobs: false
@@ -181,7 +191,10 @@ closure:
       jobOptions:
         attempts: 10
         delay: 60000
-        deduplicationDelay: 60000
+        deduplicationDelayEnabled: false
+        # deduplicationDelay: 60000
+        deduplicationTtlEnabled: true
+        deduplicationTtl: 10000
         backoff:
           type: fixed
           delay: 60000
@@ -200,7 +213,9 @@ closure:
           age: 2419200
           # count: 100000
         transactionIsolationLevel: 'SERIALIZABLE'
-        transactionFailureDelay: 10000
+        transactionFailureDelay:
+          minimum: 1000
+          maximum: 1500
 
 route:
   enabled: true
