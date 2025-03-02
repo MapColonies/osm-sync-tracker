@@ -30,7 +30,12 @@ data:
   {{- end }}
   {{ $queueName | upper }}_QUEUE_JOB_ATTEMPTS: {{ $queueConfig.jobOptions.attempts | quote }}
   {{ $queueName | upper }}_QUEUE_JOB_DELAY: {{ $queueConfig.jobOptions.delay | quote }}
+  {{- if $queueConfig.jobOptions.deduplicationDelayEnabled }}
   {{ $queueName | upper }}_QUEUE_JOB_DEDUPLICATION_DELAY: {{ $queueConfig.jobOptions.deduplicationDelay | quote }}
+  {{- end }}
+  {{- if $queueConfig.jobOptions.deduplicationTtlEnabled }}
+  {{ $queueName | upper }}_QUEUE_JOB_DEDUPLICATION_TTL: {{ $queueConfig.jobOptions.deduplicationTtl | quote }}
+  {{- end }}
   {{ $queueName | upper }}_QUEUE_JOB_BACKOFF_TYPE: {{ $queueConfig.jobOptions.backoff.type | quote }}
   {{ $queueName | upper }}_QUEUE_JOB_BACKOFF_DELAY: {{ $queueConfig.jobOptions.backoff.delay | quote }}
   {{ $queueName | upper }}_QUEUE_WORKER_CONCURRENCY: {{ $queueConfig.workerOptions.concurrency | quote }}
@@ -45,6 +50,7 @@ data:
   {{ $queueName | upper }}_QUEUE_WORKER_REMOVE_ON_FAIL_AGE: {{ $queueConfig.workerOptions.removeOnFail.age | quote }}
   # {{ $queueName | upper }}_QUEUE_WORKER_REMOVE_ON_FAIL_COUNT: {{ $queueConfig.workerOptions.removeOnFail.count | quote }}
   {{ $queueName | upper }}_QUEUE_WORKER_TRANSACTION_ISOLATION_LEVEL: {{ $queueConfig.workerOptions.transactionIsolationLevel | quote }}
-  {{ $queueName | upper }}_QUEUE_WORKER_TRANSACTION_FAILURE_DELAY: {{ $queueConfig.workerOptions.transactionFailureDelay | quote }}
+  {{ $queueName | upper }}_QUEUE_WORKER_TRANSACTION_FAILURE_DELAY_MIN: {{ $queueConfig.workerOptions.transactionFailureDelay.minimum | quote }}
+  {{ $queueName | upper }}_QUEUE_WORKER_TRANSACTION_FAILURE_DELAY_MAX: {{ $queueConfig.workerOptions.transactionFailureDelay.maximum | quote }}
   {{- end }}
 {{- end }}
