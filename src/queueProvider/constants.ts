@@ -16,3 +16,5 @@ export const CONSTANT_BULLMQ_CONNECTION_OPTIONS = {
 };
 
 export const CLOSURE_WORKERS_INITIALIZER = Symbol('ClosureWorkersInitializer');
+
+export const JOB_STALLED_FAILURE_ERROR_MESSAGE = 'job stalled more than allowable limit';

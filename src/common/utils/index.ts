@@ -25,3 +25,7 @@ export const hashBatch = (input: string[]): string => {
 
   return createHash('sha256').update(sortedJoinedInput).digest('hex');
 };
+
+export const randomIntFromInterval = (min: number, max: number): number => {
+  return min !== max ? Math.floor(Math.random() * (max - min + 1)) + min : min;
+};

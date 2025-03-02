@@ -31,6 +31,7 @@ Each type has its own queue and configuration as follows:
 - `closure.queues.{queueName}.queueOptions.maxBatchSize` - the maximum number of entities in a single batch job when batch jobs are enabled
 - `closure.queues.{queueName}.jobOptions.attempts` - the maximum number of attempts for each job
 - `closure.queues.{queueName}.jobOptions.delay` - the amount of ms a job should be delayed before being processed after creation
+- `closure.queues.{queueName}.jobOptions.deduplicationTtl` - the amount of ms upon job creation a job would be detected as deduplicated
 - `closure.queues.{queueName}.jobOptions.deduplicationDelay` - the amount of ms a job should be delayed if a job with the same id is being inserted to the queue while the first job was in delayed state
 - `closure.queues.{queueName}.jobOptions.backoff.type` - the type of delay between retry attempts, could be either `fixed` or `exponential`
 - `closure.queues.{queueName}.jobOptions.backoff.delay` - the amount of ms that will be used in the `backoff.type` to delay a job after a failed attempt
@@ -44,7 +45,7 @@ Each type has its own queue and configuration as follows:
 - `closure.queues.${queueName}.workerOptions.removeOnFailed.age` - automatically remove failed jobs after being failed for this seconds duration
 - `closure.queues.${queueName}.workerOptions.removeOnFailed.count` - automatically remove failed jobs if the number of failed jobs exceeds this count
 - `closure.queues.${queueName}.workerOptions.transactionIsolationLevel` - the transaction isolation level in which the job processing's database actions should be in, default to 'SERIALIZABLE'
-- `closure.queues.${queueName}.workerOptions.transactionFailureDelay` - the amount of ms that will be used to delay a job when it has failed due to transaction failure, these failures will not count as one of the attempts set by `jobOptions.attempts`
+- `closure.queues.${queueName}.workerOptions.transactionFailureDelay.minimum/maximum` - the amount of ms between minimum and miximum that will be used to delay a job when it has failed due to transaction failure, these failures will not count as one of the attempts set by `jobOptions.attempts`
 
 ## API
 Checkout the OpenAPI spec [here](/openapi3.yaml)

@@ -35,7 +35,7 @@ describe('filesQueueWorkerFactory', () => {
   let factory: FactoryFunction<Worker>;
   let worker: Worker;
 
-  const filesWorkerOptionsMock = { b: 2, transactionIsolationLevel: 'b', transactionFailureDelay: 20 };
+  const filesWorkerOptionsMock = { b: 2, transactionIsolationLevel: 'b', transactionFailureDelay: { minimum: 20, maximum: 20 } };
 
   const configMock = {
     get: jest.fn((key) => {
@@ -186,6 +186,6 @@ describe('filesQueueWorkerFactory', () => {
     expect(updateJobCounter).toHaveBeenCalledTimes(1);
     expect(updateJobCounter).toHaveBeenCalledWith(job, 'transactionFailure');
     expect(delayJob).toHaveBeenCalledTimes(1);
-    expect(delayJob).toHaveBeenCalledWith(job, 20);
+    expect(delayJob).toHaveBeenCalledWith(job, expect.any(Number));
   });
 });

@@ -38,7 +38,7 @@ describe('changesetsQueueWorkerFactory', () => {
   let factory: FactoryFunction<Worker>;
   let worker: Worker;
 
-  const changestsWorkerOptionsMock = { a: 1, transactionIsolationLevel: 'a', transactionFailureDelay: 10 };
+  const changestsWorkerOptionsMock = { a: 1, transactionIsolationLevel: 'a', transactionFailureDelay: { minimum: 10, maximum: 15 } };
 
   const configMock = {
     get: jest.fn((key) => {
@@ -245,6 +245,6 @@ describe('changesetsQueueWorkerFactory', () => {
     expect(updateJobCounter).toHaveBeenCalledTimes(1);
     expect(updateJobCounter).toHaveBeenCalledWith(job, 'transactionFailure');
     expect(delayJob).toHaveBeenCalledTimes(1);
-    expect(delayJob).toHaveBeenCalledWith(job, 10);
+    expect(delayJob).toHaveBeenCalledWith(job, expect.any(Number));
   });
 });

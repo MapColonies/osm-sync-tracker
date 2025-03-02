@@ -26,9 +26,7 @@ export class BullQueueProvider<T extends Identifiable> implements JobQueueProvid
 
     this.logger?.info({ msg: 'initializing queue', queueName, queueOptions, jobOptions, enabledQueueEvents: queueEvents !== undefined });
 
-    this.queueEvents?.on('deduplicated', async ({ jobId, deduplicationId }) => {
-      this.logger?.info({ msg: 'deduplicated detected, changing delay', queueName, jobId, deduplicationId });
-
+    this.queueEvents?.on('deduplicated', async ({ jobId }) => {
       await this.changeJobDelay(jobId, this.jobOptions.deduplicationDelay as number);
     });
   }
@@ -83,18 +81,38 @@ export class BullQueueProvider<T extends Identifiable> implements JobQueueProvid
         return;
       }
 
-      await job.changeDelay(delay);
+      try {
+        const isDelayed = await job.isDelayed();
+
+        if (!isDelayed) {
+          throw new Error('job is no longer in delayed state.');
+        }
+
+        await job.changeDelay(delay);
+      } catch (err) {
+        this.logger?.error({
+          msg: 'an error occurred during job delay change. attempting to add the job newly',
+          queueName: this.queueName,
+          jobId,
+          delay,
+          err,
+        });
+
+        await this.addJob(job.data as T);
+
+        return;
+      }
 
       await updateJobCounter(job, 'deduplication');
     } catch (err) {
-      this.logger?.error({ msg: 'an error accord during job delay change', queueName: this.queueName, jobId, delay, err: err });
+      this.logger?.error({ msg: 'an error accord during job delay change', queueName: this.queueName, jobId, delay, err });
     }
   }
 
   private async addJob(job: T): Promise<void> {
     this.logger?.info({ msg: 'adding single job to queue', queueName: this.queueName, jobId: job.id, job, jobOptions: this.jobOptions });
 
-    await this.queue.add(job.id, job, { ...this.jobOptions, deduplication: { id: job.id } });
+    await this.queue.add(job.id, job, { ...this.jobOptions, deduplication: { id: job.id, ttl: this.jobOptions.deduplicationTtl } });
   }
 
   private async addBulk(bulk: T[]): Promise<void> {
@@ -105,7 +123,7 @@ export class BullQueueProvider<T extends Identifiable> implements JobQueueProvid
     const jobBulk: Parameters<typeof this.queue.addBulk>[0] = bulk.map((job) => ({
       name: job.id,
       data: job,
-      opts: { ...this.jobOptions, deduplication: { id: job.id } },
+      opts: { ...this.jobOptions, deduplication: { id: job.id, ttl: this.jobOptions.deduplicationTtl } },
     }));
 
     await this.queue.addBulk(jobBulk);

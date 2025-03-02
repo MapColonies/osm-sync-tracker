@@ -3,6 +3,7 @@ import { ILogger } from '../../../common/interfaces';
 
 export interface ExtendedJobOptions extends JobsOptions {
   deduplicationDelay?: number;
+  deduplicationTtl?: number;
 }
 
 export interface QueueOptions {

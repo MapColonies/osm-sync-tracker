@@ -1755,7 +1755,7 @@ describe('sync', function () {
 
     describe('GET /sync/latest', function () {
       it('should return 400 if the layerId is not valid', async function () {
-        const response = await syncRequestSender.getLatestSync(faker.string.alphanumeric() as unknown as number, GeometryType.POLYGON);
+        const response = await syncRequestSender.getLatestSync(faker.word.words() as unknown as number, GeometryType.POLYGON);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
         expect(response.body).toHaveProperty('message', 'request.query.layerId should be integer');

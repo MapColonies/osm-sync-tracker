@@ -45,7 +45,10 @@
             "age": 2419200
           },
           "transactionIsolationLevel": "SERIALIZABLE",
-          "transactionFailureDelay": 100
+          "transactionFailureDelay": {
+            "minimum": 100,
+            "maximum": 100
+          }
         }
       },
       "files": {
@@ -70,7 +73,10 @@
             "age": 2419200
           },
           "transactionIsolationLevel": "SERIALIZABLE",
-          "transactionFailureDelay": 100
+          "transactionFailureDelay": {
+            "minimum": 100,
+            "maximum": 100
+          }
         }
       },
       "syncs": {
@@ -95,7 +101,10 @@
             "age": 2419200
           },
           "transactionIsolationLevel": "SERIALIZABLE",
-          "transactionFailureDelay": 100
+          "transactionFailureDelay": {
+            "minimum": 100,
+            "maximum": 100
+          }
         }
       }
     }

@@ -4,14 +4,15 @@ import IORedis from 'ioredis';
 import { Logger } from '@map-colonies/js-logger';
 import { nanoid } from 'nanoid';
 import { ConfigType } from '../../common/config';
-import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, KEY_PREFIX } from '../constants';
+import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, JOB_STALLED_FAILURE_ERROR_MESSAGE, KEY_PREFIX } from '../constants';
 import { SERVICES } from '../../common/constants';
 import { BatchClosureJob, ClosureJob, ClosureReturn } from '../types';
 import { ENTITY_CUSTOM_REPOSITORY_SYMBOL, EntityRepository } from '../../entity/DAL/entityRepository';
 import { Status } from '../../common/enums';
 import { JobQueueProvider } from '../interfaces';
 import { TransactionFailureError } from '../../common/errors';
-import { delayJob, updateJobCounter } from '../helpers';
+import { delayJob, incrementJobCounter, updateJobCounter } from '../helpers';
+import { randomIntFromInterval } from '../../common/utils';
 import { DEFAULT_TRANSACTION_PROPAGATION, transactionify, TransactionName } from '../../common/db/transactions';
 import { ExtendedWorkerOptions } from './options';
 
@@ -26,6 +27,7 @@ export const changesetsQueueWorkerFactory: FactoryFunction<Worker> = (container)
   const workerOptions = config.get(`closure.queues.${queueName}.workerOptions`) as ExtendedWorkerOptions;
   const redisConnection = container.resolve<IORedis>(SERVICES.REDIS);
   const entityRepository = container.resolve<EntityRepository>(ENTITY_CUSTOM_REPOSITORY_SYMBOL);
+  const changesetsQueue = container.resolve<JobQueueProvider<ClosureJob>>(CHANGESETS_QUEUE_NAME);
   const filesQueue = container.resolve<JobQueueProvider<ClosureJob>>(FILES_QUEUE_NAME);
 
   workerLogger.info({ msg: `initializing ${queueName} queue worker`, workerOptions: workerOptions });
@@ -80,17 +82,20 @@ export const changesetsQueueWorkerFactory: FactoryFunction<Worker> = (container)
           err: error,
         });
 
+        const delay = randomIntFromInterval(transactionFailureDelay.minimum, transactionFailureDelay.maximum);
+
         if (error instanceof TransactionFailureError) {
           workerLogger.info({
             msg: 'delaying job due to transaction failure',
             ...baseLoggedObject,
             transactionIsolationLevel,
             transactionFailureDelay,
+            delay,
           });
 
           await updateJobCounter(job, 'transactionFailure');
 
-          await delayJob(job, transactionFailureDelay);
+          await delayJob(job, delay);
 
           throw new DelayedError();
         }
@@ -111,8 +116,14 @@ export const changesetsQueueWorkerFactory: FactoryFunction<Worker> = (container)
     workerLogger.info({ msg: `Job ${job.id ?? 'unknown_id'} in Queue ${queueName} completed`, queueName });
   });
 
-  worker.on('failed', (job, err) => {
-    workerLogger.error({ msg: `Job ${job?.id ?? 'unknown_id'} in Queue ${queueName} failed:`, queueName, err });
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  worker.on('failed', async (job, err) => {
+    workerLogger.error({ msg: `Job ${job?.id ?? 'unknown_id'} in Queue ${queueName} failed`, queueName, err });
+
+    if (job !== undefined && err.message === JOB_STALLED_FAILURE_ERROR_MESSAGE) {
+      const incremented = incrementJobCounter(job.data, 'stalledFailure');
+      await changesetsQueue.push([incremented]);
+    }
   });
 
   worker.on('error', (err) => {

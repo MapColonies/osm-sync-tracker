@@ -9,6 +9,8 @@ import { CONSTANT_BULLMQ_CONNECTION_OPTIONS, REDIS_CONNECTION_OPTIONS_SYMBOL } f
 
 const RETRY_CONNECTION_DELAY = 1000;
 
+const CONNECTION_CLOSED_ERROR_MESSAGE = 'Connection is closed.';
+
 const isTestEnv = (): boolean => {
   return process.env.JEST_WORKER_ID !== undefined;
 };
@@ -54,7 +56,19 @@ export const createReusableRedisConnectionFactory: FactoryFunction<IORedis> = (c
 
   const redis = new IORedis(connectionOptions);
 
-  cleanupRegistry.register({ id: SERVICES.REDIS, func: redis.quit.bind(redis) });
+  cleanupRegistry.register({
+    id: SERVICES.REDIS,
+    func: async (): Promise<void> => {
+      try {
+        await redis.quit();
+      } catch (err) {
+        if ((err as Error).message === CONNECTION_CLOSED_ERROR_MESSAGE) {
+          return;
+        }
+        throw err;
+      }
+    },
+  });
 
   return redis;
 };
