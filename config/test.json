@@ -41,7 +41,7 @@
           "reomveOnComplete": {
             "age": 604800
           },
-          "reomveOnFail": {
+          "removeOnFail": {
             "age": 2419200
           },
           "transactionIsolationLevel": "SERIALIZABLE",
@@ -69,7 +69,7 @@
           "reomveOnComplete": {
             "age": 604800
           },
-          "reomveOnFail": {
+          "removeOnFail": {
             "age": 2419200
           },
           "transactionIsolationLevel": "SERIALIZABLE",
@@ -97,7 +97,7 @@
           "reomveOnComplete": {
             "age": 604800
           },
-          "reomveOnFail": {
+          "removeOnFail": {
             "age": 2419200
           },
           "transactionIsolationLevel": "SERIALIZABLE",
