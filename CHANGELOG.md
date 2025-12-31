@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [4.1.1](https://github.com/MapColonies/osm-sync-tracker/compare/v4.1.0...v4.1.1) (2025-12-31)
+
+
+### Bug Fixes
+
+* rename tracing.enabled to tracing.isEnabled ([14798d2](https://github.com/MapColonies/osm-sync-tracker/commit/14798d22a3cb2a9ce584645b83c4057795f97537))
+
 ## [4.1.0](https://github.com/MapColonies/osm-sync-tracker/compare/v4.0.0...v4.1.0) (2025-03-02)
 
 
