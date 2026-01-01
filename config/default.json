@@ -9,7 +9,9 @@
     "tracing": {
       "isEnabled": false
     },
-    "shared": {},
+    "shared": {
+      "serviceName": "osm-sync-tracker"
+    },
     "logger": {
       "level": "info",
       "prettyPrint": false
@@ -78,7 +80,7 @@
           "reomveOnComplete": {
             "age": 604800
           },
-          "reomveOnFail": {
+          "removeOnFail": {
             "age": 2419200
           },
           "transactionIsolationLevel": "SERIALIZABLE",
@@ -105,7 +107,7 @@
           "reomveOnComplete": {
             "age": 604800
           },
-          "reomveOnFail": {
+          "removeOnFail": {
             "age": 2419200
           },
           "transactionIsolationLevel": "SERIALIZABLE",
@@ -132,7 +134,7 @@
           "reomveOnComplete": {
             "age": 604800
           },
-          "reomveOnFail": {
+          "removeOnFail": {
             "age": 2419200
           },
           "transactionIsolationLevel": "SERIALIZABLE",
