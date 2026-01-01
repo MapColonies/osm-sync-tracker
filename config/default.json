@@ -9,7 +9,9 @@
     "tracing": {
       "isEnabled": false
     },
-    "shared": {},
+    "shared": {
+      "serviceName": "osm-sync-tracker"
+    },
     "logger": {
       "level": "info",
       "prettyPrint": false
