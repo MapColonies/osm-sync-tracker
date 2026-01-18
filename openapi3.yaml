@@ -4,13 +4,19 @@ info:
   description: Api to update on the progress of a cycle of entities sync
   license:
     name: MIT
+    url: https://opensource.org/licenses/MIT
   version: 4.1.0
 tags:
   - name: sync
+    description: sync entity related operations
   - name: file
+    description: file entity related operations
   - name: entity
+    description: entity entity related operations
   - name: changeset
+    description: changeset entity related operations
   - name: closure
+    description: closure related operations
 security: []
 paths:
   /sync:
