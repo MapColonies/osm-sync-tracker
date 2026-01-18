@@ -2,10 +2,11 @@ import { Logger } from '@map-colonies/js-logger';
 import { inject, injectable } from 'tsyringe';
 import IORedis from 'ioredis';
 import { ConnectionOptions, Queue, QueueEvents } from 'bullmq';
+import { Registry } from 'prom-client';
 import { ConfigType } from '../../common/config';
 import { ClosureQueueConfig, QueueName } from '../../common/interfaces';
 import { SERVICES } from '../../common/constants';
-import { KEY_PREFIX, REDIS_CONNECTION_OPTIONS_SYMBOL } from '../constants';
+import { QUEUE_KEY_PREFIX, REDIS_CONNECTION_OPTIONS_SYMBOL } from '../constants';
 import { Identifiable, JobQueueProvider } from '../interfaces';
 import { BullQueueProvider } from './bullQueueProvider';
 
@@ -14,8 +15,9 @@ export class BullQueueProviderFactory {
   public constructor(
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
     @inject(SERVICES.CONFIG) private readonly config: ConfigType,
-    @inject(SERVICES.REDIS) private readonly reusableRedis: IORedis,
-    @inject(REDIS_CONNECTION_OPTIONS_SYMBOL) private readonly connectionOptions: ConnectionOptions
+    @inject(SERVICES.REDIS_QUEUE_CONNECTION) private readonly reusableRedis: IORedis,
+    @inject(REDIS_CONNECTION_OPTIONS_SYMBOL) private readonly connectionOptions: ConnectionOptions,
+    @inject(SERVICES.METRICS) private readonly metricsRegistry?: Registry
   ) {}
 
   public createQueue<T extends Identifiable>(queueName: QueueName): JobQueueProvider<T> {
@@ -25,12 +27,12 @@ export class BullQueueProviderFactory {
 
     let queueEvents: QueueEvents | undefined;
     if (queueConfig.jobOptions.deduplicationDelay !== undefined) {
-      queueEvents = new QueueEvents(queueName, { connection: this.connectionOptions, prefix: KEY_PREFIX });
+      queueEvents = new QueueEvents(queueName, { connection: this.connectionOptions, prefix: QUEUE_KEY_PREFIX });
     }
 
     const queue = new Queue<T, unknown, string, T, unknown, string>(queueName, {
       connection: this.reusableRedis,
-      prefix: KEY_PREFIX,
+      prefix: QUEUE_KEY_PREFIX,
     });
 
     return new BullQueueProvider<T>({
@@ -40,6 +42,7 @@ export class BullQueueProviderFactory {
       queueOptions: queueConfig.queueOptions,
       jobOptions: queueConfig.jobOptions,
       logger: queueLogger,
+      metricsRegistry: this.metricsRegistry,
     });
   }
 }

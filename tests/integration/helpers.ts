@@ -10,7 +10,7 @@ import { SERVICES } from '../../src/common/constants';
 import { RegisterOptions } from '../../src/containerConfig';
 import { SyncDb } from '../../src/sync/DAL/sync';
 import { ClosureJob, ClosureReturn } from '../../src/queueProvider/types';
-import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, KEY_PREFIX, SYNCS_QUEUE_NAME } from '../../src/queueProvider/constants';
+import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, QUEUE_KEY_PREFIX, SYNCS_QUEUE_NAME } from '../../src/queueProvider/constants';
 import { Identifiable } from '../../src/queueProvider/interfaces';
 
 interface ClosureJobTest {
@@ -52,7 +52,7 @@ export const clearQueues = async (connection: IORedis): Promise<void> => {
   const promises = [CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, SYNCS_QUEUE_NAME].map(async (queueName) => {
     const queue = new Queue(queueName, {
       connection,
-      prefix: KEY_PREFIX,
+      prefix: QUEUE_KEY_PREFIX,
     });
     await queue.obliterate();
     await queue.close();

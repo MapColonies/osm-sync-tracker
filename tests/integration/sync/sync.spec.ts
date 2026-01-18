@@ -19,12 +19,9 @@ import { EntityRequestSender } from '../entity/helpers/requestSender';
 import { ChangesetRequestSender } from '../changeset/helpers/requestSender';
 import { createStringifiedFakeEntity } from '../entity/helpers/generators';
 import { createStringifiedFakeChangeset } from '../changeset/helpers/generators';
-import { CHANGESETS_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/changesetsQueueWorker';
-import { FILES_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/filesQueueWorker';
-import { SYNCS_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/syncsQueueWorker';
 import { DATA_SOURCE_PROVIDER } from '../../../src/common/db';
 import { DEDUPLICATION_COUNT_KEY, TRANSACTIONAL_FAILURE_COUNT_KEY } from '../../../src/queueProvider/helpers';
-import { QUEUE_PROVIDER_FACTORY } from '../../../src/queueProvider/constants';
+import { QUEUE_PROVIDER_FACTORY, WorkerEnum } from '../../../src/queueProvider/constants';
 import { QueryFailedErrorWithCode, TransactionFailure } from '../../../src/common/db/transactions';
 import { SyncRequestSender } from './helpers/requestSender';
 import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from './helpers/generators';
@@ -64,9 +61,9 @@ describe('sync', function () {
     const connection = depContainer.resolve<DataSource>(DATA_SOURCE_PROVIDER);
     entityHistoryRepository = connection.getRepository(EntityHistory);
 
-    changesetWorker = container.resolve<Worker>(CHANGESETS_QUEUE_WORKER_FACTORY);
-    fileWorker = container.resolve<Worker>(FILES_QUEUE_WORKER_FACTORY);
-    syncWorker = container.resolve<Worker>(SYNCS_QUEUE_WORKER_FACTORY);
+    changesetWorker = container.resolve<Worker>(WorkerEnum.CHANGESETS);
+    fileWorker = container.resolve<Worker>(WorkerEnum.FILES);
+    syncWorker = container.resolve<Worker>(WorkerEnum.SYNCS);
   }, BEFORE_ALL_TIMEOUT);
 
   beforeEach(function () {
@@ -2122,7 +2119,7 @@ describe('sync', function () {
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
           mockDepContainer = mockContainer;
           mockSyncRequestSender = new SyncRequestSender(mockApp);
-          const mockSyncWorker = mockContainer.resolve<Worker>(SYNCS_QUEUE_WORKER_FACTORY);
+          const mockSyncWorker = mockContainer.resolve<Worker>(WorkerEnum.SYNCS);
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
           const delayJobSpy = jest.spyOn(queueHelpers, 'delayJob').mockImplementation(async () => Promise.resolve());
 
@@ -2162,7 +2159,7 @@ describe('sync', function () {
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
           mockDepContainer = mockContainer;
           mockSyncRequestSender = new SyncRequestSender(mockApp);
-          const mockSyncWorker = mockContainer.resolve<Worker>(SYNCS_QUEUE_WORKER_FACTORY);
+          const mockSyncWorker = mockContainer.resolve<Worker>(WorkerEnum.SYNCS);
           mockSyncWorker.on('error', () => eventCounter++);
           mockSyncWorker.on('failed', () => eventCounter++);
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');

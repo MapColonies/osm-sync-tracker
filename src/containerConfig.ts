@@ -6,7 +6,6 @@ import { CleanupRegistry } from '@map-colonies/cleanup-registry';
 import { trace } from '@opentelemetry/api';
 import { HealthCheck } from '@godaddy/terminus';
 import { Registry } from 'prom-client';
-import { Worker } from 'bullmq';
 import { addTransactionalDataSource, initializeTransactionalContext, StorageDriver } from 'typeorm-transactional';
 import { HEALTHCHECK, ON_SIGNAL, SERVICES, SERVICE_NAME } from './common/constants';
 import { DATA_SOURCE_PROVIDER, dataSourceFactory, getDbHealthCheckFunction } from './common/db';
@@ -20,13 +19,6 @@ import { entityRouterFactory, ENTITY_ROUTER_SYMBOL } from './entity/routes/entit
 import { CHANGESET_ROUTER_SYMBOL, changesetRouterFactory } from './changeset/routes/changesetRouter';
 import { InjectionObject, registerDependencies } from './common/dependencyRegistration';
 import { fileRepositoryFactory, FILE_CUSTOM_REPOSITORY_SYMBOL } from './file/DAL/fileRepository';
-import { FILES_QUEUE_WORKER_FACTORY, FILES_QUEUE_WORKER_NAME, filesQueueWorkerFactory } from './queueProvider/workers/filesQueueWorker';
-import {
-  CHANGESETS_QUEUE_WORKER_FACTORY,
-  CHANGESETS_QUEUE_WORKER_NAME,
-  changesetsQueueWorkerFactory,
-} from './queueProvider/workers/changesetsQueueWorker';
-import { SYNCS_QUEUE_WORKER_FACTORY, SYNCS_QUEUE_WORKER_NAME, syncsQueueWorkerFactory } from './queueProvider/workers/syncsQueueWorker';
 import { BullQueueProviderFactory } from './queueProvider/queues/bullQueueProviderFactory';
 import {
   CHANGESETS_QUEUE_NAME,
@@ -35,14 +27,28 @@ import {
   CLOSURE_WORKERS_INITIALIZER,
   REDIS_CONNECTION_OPTIONS_SYMBOL,
   SYNCS_QUEUE_NAME,
+  WorkerEnum,
 } from './queueProvider/constants';
-import { createConnectionOptionsFactory, createReusableRedisConnectionFactory } from './queueProvider/connection';
+import {
+  createConnectionOptionsFactory,
+  createReusableRedisQueueConnectionFactory,
+  createReusableRedisWorkerConnectionFactory,
+} from './queueProvider/connection';
 import { ConfigType, getConfig } from './common/config';
+import { bullWorkerPostInjectionHookFactory, workerIdToClass } from './queueProvider/workers';
+import { BullWorkerProvider } from './queueProvider/workers/bullWorkerProvider';
 
 const registerClosureDeps = (): InjectionObject<unknown>[] => {
   const closureDependencies: InjectionObject<unknown>[] = [
     { token: REDIS_CONNECTION_OPTIONS_SYMBOL, provider: { useFactory: instancePerContainerCachingFactory(createConnectionOptionsFactory) } },
-    { token: SERVICES.REDIS, provider: { useFactory: instancePerContainerCachingFactory(createReusableRedisConnectionFactory) } },
+    {
+      token: SERVICES.REDIS_WORKER_CONNECTION,
+      provider: { useFactory: instancePerContainerCachingFactory(createReusableRedisWorkerConnectionFactory) },
+    },
+    {
+      token: SERVICES.REDIS_QUEUE_CONNECTION,
+      provider: { useFactory: instancePerContainerCachingFactory(createReusableRedisQueueConnectionFactory) },
+    },
     {
       token: QUEUE_PROVIDER_FACTORY,
       provider: { useClass: BullQueueProviderFactory },
@@ -58,42 +64,23 @@ const registerClosureDeps = (): InjectionObject<unknown>[] => {
         }
       },
     },
-    {
-      token: CHANGESETS_QUEUE_WORKER_FACTORY,
-      provider: { useFactory: instancePerContainerCachingFactory(changesetsQueueWorkerFactory) },
-      postInjectionHook(container): void {
-        const worker = container.resolve<Worker>(CHANGESETS_QUEUE_WORKER_FACTORY);
-        const cleanupRegistry = container.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
-        cleanupRegistry.register({ id: CHANGESETS_QUEUE_WORKER_NAME, func: worker.close.bind(worker) });
-      },
-    },
-    {
-      token: FILES_QUEUE_WORKER_FACTORY,
-      provider: { useFactory: instancePerContainerCachingFactory(filesQueueWorkerFactory) },
-      postInjectionHook(container): void {
-        const worker = container.resolve<Worker>(FILES_QUEUE_WORKER_FACTORY);
-        const cleanupRegistry = container.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
-        cleanupRegistry.register({ id: FILES_QUEUE_WORKER_NAME, func: worker.close.bind(worker) });
-      },
-    },
-    {
-      token: SYNCS_QUEUE_WORKER_FACTORY,
-      provider: { useFactory: instancePerContainerCachingFactory(syncsQueueWorkerFactory) },
-      postInjectionHook(container): void {
-        const worker = container.resolve<Worker>(SYNCS_QUEUE_WORKER_FACTORY);
-        const cleanupRegistry = container.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
-        cleanupRegistry.register({ id: SYNCS_QUEUE_WORKER_NAME, func: worker.close.bind(worker) });
-      },
-    },
+    ...Object.values(WorkerEnum).map((workerId) => ({
+      token: workerId,
+      provider: { useClass: workerIdToClass(workerId) },
+      options: { lifecycle: Lifecycle.ContainerScoped },
+      postInjectionHook: bullWorkerPostInjectionHookFactory(workerId),
+    })),
     {
       token: CLOSURE_WORKERS_INITIALIZER,
       provider: {
         useFactory: (container): (() => Promise<void>) => {
-          const changesetWorker = container.resolve<Worker>(CHANGESETS_QUEUE_WORKER_FACTORY);
-          const fileWorker = container.resolve<Worker>(FILES_QUEUE_WORKER_FACTORY);
-          const syncWorker = container.resolve<Worker>(SYNCS_QUEUE_WORKER_FACTORY);
+          const promises = Object.values(WorkerEnum).map(async (workerName) => {
+            const worker = container.resolve<BullWorkerProvider>(workerName);
+            await worker.start();
+          });
+
           return async (): Promise<void> => {
-            await Promise.all([changesetWorker.run(), fileWorker.run(), syncWorker.run()]);
+            await Promise.all(promises);
           };
         },
       },

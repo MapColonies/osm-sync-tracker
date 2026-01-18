@@ -14,8 +14,7 @@ import { BEFORE_ALL_TIMEOUT, getBaseRegisterOptions, LONG_RUNNING_TEST_TIMEOUT, 
 import { Status } from '../../../src/common/enums';
 import { FILE_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/file/DAL/fileRepository';
 import { SYNC_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/sync/DAL/syncRepository';
-import { QUEUE_PROVIDER_FACTORY } from '../../../src/queueProvider/constants';
-import { FILES_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/filesQueueWorker';
+import { QUEUE_PROVIDER_FACTORY, WorkerEnum } from '../../../src/queueProvider/constants';
 import { TRANSACTIONAL_FAILURE_COUNT_KEY } from '../../../src/queueProvider/helpers';
 import { QueryFailedErrorWithCode, TransactionFailure } from '../../../src/common/db/transactions';
 import * as queueHelpers from '../../../src/queueProvider/helpers';
@@ -152,7 +151,7 @@ describe('file', function () {
       });
 
       it('should return 201 status code and process the job even if file is not found', async function () {
-        const fileWorker = depContainer.resolve<Worker>(FILES_QUEUE_WORKER_FACTORY);
+        const fileWorker = depContainer.resolve<Worker>(WorkerEnum.FILES);
         const fileId = faker.string.uuid();
 
         const response = await fileRequestSender.postFilesClosure([fileId]);
@@ -165,7 +164,7 @@ describe('file', function () {
       });
 
       it('should return 201 status code and process the job with deduplication counter', async function () {
-        const fileWorker = depContainer.resolve<Worker>(FILES_QUEUE_WORKER_FACTORY);
+        const fileWorker = depContainer.resolve<Worker>(WorkerEnum.FILES);
         const fileId = faker.string.uuid();
 
         expect(await fileRequestSender.postFilesClosure([fileId])).toHaveStatus(StatusCodes.CREATED);
@@ -482,7 +481,7 @@ describe('file', function () {
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
           mockDepContainer = mockContainer;
           mockFileRequestSender = new FileRequestSender(mockApp);
-          const mockFileWorker = mockContainer.resolve<Worker>(FILES_QUEUE_WORKER_FACTORY);
+          const mockFileWorker = mockContainer.resolve<Worker>(WorkerEnum.FILES);
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
           const delayJobSpy = jest.spyOn(queueHelpers, 'delayJob').mockImplementation(async () => Promise.resolve());
 
@@ -522,7 +521,7 @@ describe('file', function () {
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
           mockDepContainer = mockContainer;
           mockFileRequestSender = new FileRequestSender(mockApp);
-          const mockFileWorker = mockContainer.resolve<Worker>(FILES_QUEUE_WORKER_FACTORY);
+          const mockFileWorker = mockContainer.resolve<Worker>(WorkerEnum.FILES);
           mockFileWorker.on('error', () => eventCounter++);
           mockFileWorker.on('failed', () => eventCounter++);
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');

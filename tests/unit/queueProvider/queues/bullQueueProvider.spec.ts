@@ -1,11 +1,10 @@
 import { Queue, QueueEvents } from 'bullmq';
 import { BullQueueProvider } from '../../../../src/queueProvider/queues/bullQueueProvider';
-import { Identifiable } from '../../../../src/queueProvider/interfaces';
 import { ExtendedJobOptions } from '../../../../src/queueProvider/queues/options';
 import { hashBatch } from '../../../../src/common/utils';
 
 describe('BullQueueProvider', () => {
-  let provider: BullQueueProvider<Identifiable>;
+  let provider: BullQueueProvider;
 
   const getJobMock = jest.fn();
   const addJobMock = jest.fn();

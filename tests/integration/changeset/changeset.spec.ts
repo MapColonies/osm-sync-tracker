@@ -16,10 +16,7 @@ import { SyncRequestSender } from '../sync/helpers/requestSender';
 import { SERVICES } from '../../../src/common/constants';
 import { CHANGESET_CUSTOM_REPOSITORY_SYMBOL } from '../../../src/changeset/DAL/changesetRepository';
 import { BEFORE_ALL_TIMEOUT, LONG_RUNNING_TEST_TIMEOUT, getBaseRegisterOptions, waitForJobToBeResolved } from '../helpers';
-import { QUEUE_PROVIDER_FACTORY } from '../../../src/queueProvider/constants';
-import { CHANGESETS_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/changesetsQueueWorker';
-import { FILES_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/filesQueueWorker';
-import { SYNCS_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/syncsQueueWorker';
+import { QUEUE_PROVIDER_FACTORY, WorkerEnum } from '../../../src/queueProvider/constants';
 import { hashBatch } from '../../../src/common/utils';
 import * as queueHelpers from '../../../src/queueProvider/helpers';
 import { TRANSACTIONAL_FAILURE_COUNT_KEY, DEDUPLICATION_COUNT_KEY } from '../../../src/queueProvider/helpers';
@@ -59,9 +56,9 @@ describe('changeset', function () {
     fileRequestSender = new FileRequestSender(app);
     syncRequestSender = new SyncRequestSender(app);
 
-    changesetWorker = container.resolve<Worker>(CHANGESETS_QUEUE_WORKER_FACTORY);
-    fileWorker = container.resolve<Worker>(FILES_QUEUE_WORKER_FACTORY);
-    syncWorker = container.resolve<Worker>(SYNCS_QUEUE_WORKER_FACTORY);
+    changesetWorker = container.resolve<Worker>(WorkerEnum.CHANGESETS);
+    fileWorker = container.resolve<Worker>(WorkerEnum.FILES);
+    syncWorker = container.resolve<Worker>(WorkerEnum.SYNCS);
   }, BEFORE_ALL_TIMEOUT);
 
   beforeEach(function () {
@@ -373,7 +370,7 @@ describe('changeset', function () {
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
           mockDepContainer = mockContainer;
           mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
-          const mockChangesetWorker = mockContainer.resolve<Worker>(CHANGESETS_QUEUE_WORKER_FACTORY);
+          const mockChangesetWorker = mockContainer.resolve<Worker>(WorkerEnum.CHANGESETS);
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
           const delayJobSpy = jest.spyOn(queueHelpers, 'delayJob').mockImplementation(async () => Promise.resolve());
 
@@ -413,7 +410,7 @@ describe('changeset', function () {
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
           mockDepContainer = mockContainer;
           mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
-          const mockChangesetWorker = mockContainer.resolve<Worker>(CHANGESETS_QUEUE_WORKER_FACTORY);
+          const mockChangesetWorker = mockContainer.resolve<Worker>(WorkerEnum.CHANGESETS);
           mockChangesetWorker.on('error', () => eventCounter++);
           mockChangesetWorker.on('failed', () => eventCounter++);
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
