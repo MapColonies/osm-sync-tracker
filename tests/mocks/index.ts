@@ -8,6 +8,8 @@ import { ConfigType } from '../../src/common/config';
 import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, SYNCS_QUEUE_NAME } from '../../src/queueProvider/constants';
 import { JobQueueProvider } from '../../src/queueProvider/interfaces';
 import { ClosureJob } from '../../src/queueProvider/types';
+import { FileRepository } from '../../src/file/DAL/fileRepository';
+import { SyncRepository } from '../../src/sync/DAL/syncRepository';
 
 export const CHANGESETS_WORKER_OPTIONS_MOCK = { a: 1, transactionIsolationLevel: 'a', transactionFailureDelay: { minimum: 10, maximum: 15 } };
 export const FILES_WORKER_OPTIONS_MOCK = { b: 2, transactionIsolationLevel: 'b', transactionFailureDelay: { minimum: 20, maximum: 20 } };
@@ -62,6 +64,7 @@ export const entityRepositoryFn = {
   transactionifyMock: jest.fn().mockImplementation(async (_: TransactionParams, fn: () => Promise<unknown>) => fn()),
   findFilesByChangesetsMock: jest.fn(),
 };
+
 export const entityRespositoryMock = {
   transactionify: entityRepositoryFn.transactionifyMock,
   findFilesByChangesets: entityRepositoryFn.findFilesByChangesetsMock,
@@ -81,7 +84,7 @@ export const fileRepositoryMockFn = {
 
 export const fileRepositoryMock = {
   attemptFileClosure: fileRepositoryMockFn.attemptFileClosureMock,
-};
+} as unknown as FileRepository;
 
 export const syncsQueueMockFn = {
   pushMock: jest.fn(),
@@ -97,7 +100,7 @@ export const syncRepositoryMockFn = {
 
 export const syncRepositoryMock = {
   attemptSyncClosure: syncRepositoryMockFn.attemptSyncClosureMock,
-};
+} as unknown as SyncRepository;
 
 export const queueMockFn = {
   closeMock: jest.fn(),

@@ -10,6 +10,7 @@ import {
   childLoggerMock,
   configMock,
   fileRepositoryMock,
+  fileRepositoryMockFn,
   FILES_WORKER_OPTIONS_MOCK,
   loggerMock,
   queueProviderHelpersFn,
@@ -130,7 +131,7 @@ describe('filesWorker', () => {
     it('should process a single file closure job with no affected result', async () => {
       await expect(worker.start()).resolves.not.toThrow();
       const processJobWrapper = worker['processJobWrapper'].bind(worker);
-      fileRepositoryMock.attemptFileClosure.mockResolvedValue([[], 0]);
+      fileRepositoryMockFn.attemptFileClosureMock.mockResolvedValue([[], 0]);
       const job = { data: { id: 'fileId', kind: 'file' }, attemptsMade: 0, opts: { attempts: 10 } } as Job<ClosureJob, ClosureReturn>;
 
       await expect(processJobWrapper(job)).resolves.toMatchObject({ closedCount: 0, invokedJobCount: 0, invokedJobs: [] });
@@ -141,15 +142,15 @@ describe('filesWorker', () => {
         expect.anything(),
         childLoggerMock
       );
-      expect(fileRepositoryMock.attemptFileClosure).toHaveBeenCalledTimes(1);
-      expect(fileRepositoryMock.attemptFileClosure).toHaveBeenCalledWith('fileId');
+      expect(fileRepositoryMockFn.attemptFileClosureMock).toHaveBeenCalledTimes(1);
+      expect(fileRepositoryMockFn.attemptFileClosureMock).toHaveBeenCalledWith('fileId');
       expect(syncsQueueMock.push).not.toHaveBeenCalled();
     });
 
     it('should process a single file closure job with affected results', async () => {
       await expect(worker.start()).resolves.not.toThrow();
       const processJobWrapper = worker['processJobWrapper'].bind(worker);
-      fileRepositoryMock.attemptFileClosure.mockResolvedValue([[{ fileId: 'fileId', syncId: 'syncId' }], 1]);
+      fileRepositoryMockFn.attemptFileClosureMock.mockResolvedValue([[{ fileId: 'fileId', syncId: 'syncId' }], 1]);
       const job = { data: { id: 'fileId', kind: 'file' }, attemptsMade: 0, opts: { attempts: 10 } } as Job<ClosureJob, ClosureReturn>;
 
       await expect(processJobWrapper(job)).resolves.toMatchObject({
@@ -164,8 +165,8 @@ describe('filesWorker', () => {
         expect.anything(),
         childLoggerMock
       );
-      expect(fileRepositoryMock.attemptFileClosure).toHaveBeenCalledTimes(1);
-      expect(fileRepositoryMock.attemptFileClosure).toHaveBeenCalledWith('fileId');
+      expect(fileRepositoryMockFn.attemptFileClosureMock).toHaveBeenCalledTimes(1);
+      expect(fileRepositoryMockFn.attemptFileClosureMock).toHaveBeenCalledWith('fileId');
       expect(syncsQueueMock.push).toHaveBeenCalledTimes(1);
       expect(syncsQueueMock.push).toHaveBeenCalledWith([{ id: 'syncId', kind: 'sync' }]);
     });
@@ -174,7 +175,7 @@ describe('filesWorker', () => {
       await expect(worker.start()).resolves.not.toThrow();
       const processJobWrapper = worker['processJobWrapper'].bind(worker);
       const someError = new Error('some error');
-      fileRepositoryMock.attemptFileClosure.mockRejectedValue(someError);
+      fileRepositoryMockFn.attemptFileClosureMock.mockRejectedValue(someError);
       const job = { data: { id: 'fileId', kind: 'file' }, attemptsMade: 0, opts: { attempts: 10 } } as Job<BatchClosureJob, ClosureReturn>;
 
       await expect(processJobWrapper(job)).rejects.toThrow(someError);
@@ -185,8 +186,8 @@ describe('filesWorker', () => {
         expect.anything(),
         childLoggerMock
       );
-      expect(fileRepositoryMock.attemptFileClosure).toHaveBeenCalledTimes(1);
-      expect(fileRepositoryMock.attemptFileClosure).toHaveBeenCalledWith('fileId');
+      expect(fileRepositoryMockFn.attemptFileClosureMock).toHaveBeenCalledTimes(1);
+      expect(fileRepositoryMockFn.attemptFileClosureMock).toHaveBeenCalledWith('fileId');
       expect(syncsQueueMock.push).not.toHaveBeenCalled();
       expect(updateJobCounter).not.toHaveBeenCalled();
       expect(delayJob).not.toHaveBeenCalled();
@@ -196,7 +197,7 @@ describe('filesWorker', () => {
       await expect(worker.start()).resolves.not.toThrow();
       const processJobWrapper = worker['processJobWrapper'].bind(worker);
       const transactionError = new TransactionFailureError('error');
-      fileRepositoryMock.attemptFileClosure.mockRejectedValue(transactionError);
+      fileRepositoryMockFn.attemptFileClosureMock.mockRejectedValue(transactionError);
       const job = { data: { id: 'fileId', kind: 'file' }, attemptsMade: 0, opts: { attempts: 10 } } as Job<BatchClosureJob, ClosureReturn>;
 
       await expect(processJobWrapper(job)).rejects.toThrow(DelayedError);
@@ -207,8 +208,8 @@ describe('filesWorker', () => {
         expect.anything(),
         childLoggerMock
       );
-      expect(fileRepositoryMock.attemptFileClosure).toHaveBeenCalledTimes(1);
-      expect(fileRepositoryMock.attemptFileClosure).toHaveBeenCalledWith('fileId');
+      expect(fileRepositoryMockFn.attemptFileClosureMock).toHaveBeenCalledTimes(1);
+      expect(fileRepositoryMockFn.attemptFileClosureMock).toHaveBeenCalledWith('fileId');
       expect(syncsQueueMock.push).not.toHaveBeenCalled();
       expect(updateJobCounter).toHaveBeenCalledTimes(1);
       expect(updateJobCounter).toHaveBeenCalledWith(job, 'transactionFailure');

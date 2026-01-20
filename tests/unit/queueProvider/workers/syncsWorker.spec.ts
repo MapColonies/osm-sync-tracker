@@ -13,6 +13,7 @@ import {
   queueProviderHelpersFn,
   redisMock,
   syncRepositoryMock,
+  syncRepositoryMockFn,
   SYNCS_WORKER_OPTIONS_MOCK,
   workerMock,
   workerMockFn,
@@ -129,7 +130,7 @@ describe('syncsWorker', () => {
     it('should process a single sync closure job with no affected result', async () => {
       await expect(worker.start()).resolves.not.toThrow();
       const processJobWrapper = worker['processJobWrapper'].bind(worker);
-      syncRepositoryMock.attemptSyncClosure.mockResolvedValue([[], 0]);
+      syncRepositoryMockFn.attemptSyncClosureMock.mockResolvedValue([[], 0]);
       const job = { data: { id: 'syncId', kind: 'sync' }, attemptsMade: 0, opts: { attempts: 10 } } as Job<ClosureJob, ClosureReturn>;
 
       await expect(processJobWrapper(job)).resolves.toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
@@ -140,14 +141,14 @@ describe('syncsWorker', () => {
         expect.anything(),
         childLoggerMock
       );
-      expect(syncRepositoryMock.attemptSyncClosure).toHaveBeenCalledTimes(1);
-      expect(syncRepositoryMock.attemptSyncClosure).toHaveBeenCalledWith('syncId');
+      expect(syncRepositoryMockFn.attemptSyncClosureMock).toHaveBeenCalledTimes(1);
+      expect(syncRepositoryMockFn.attemptSyncClosureMock).toHaveBeenCalledWith('syncId');
     });
 
     it('should process a single sync closure job with single affected results', async () => {
       await expect(worker.start()).resolves.not.toThrow();
       const processJobWrapper = worker['processJobWrapper'].bind(worker);
-      syncRepositoryMock.attemptSyncClosure.mockResolvedValue([[{ id: 'syncId' }], 1]);
+      syncRepositoryMockFn.attemptSyncClosureMock.mockResolvedValue([[{ id: 'syncId' }], 1]);
       const job = { data: { id: 'syncId', kind: 'sync' }, attemptsMade: 0, opts: { attempts: 10 } } as Job<ClosureJob, ClosureReturn>;
 
       await expect(processJobWrapper(job)).resolves.toMatchObject({ closedCount: 1, closedIds: ['syncId'], invokedJobCount: 0, invokedJobs: [] });
@@ -158,14 +159,14 @@ describe('syncsWorker', () => {
         expect.anything(),
         childLoggerMock
       );
-      expect(syncRepositoryMock.attemptSyncClosure).toHaveBeenCalledTimes(1);
-      expect(syncRepositoryMock.attemptSyncClosure).toHaveBeenCalledWith('syncId');
+      expect(syncRepositoryMockFn.attemptSyncClosureMock).toHaveBeenCalledTimes(1);
+      expect(syncRepositoryMockFn.attemptSyncClosureMock).toHaveBeenCalledWith('syncId');
     });
 
     it('should process a single sync closure job with multiple affected results', async () => {
       await expect(worker.start()).resolves.not.toThrow();
       const processJobWrapper = worker['processJobWrapper'].bind(worker);
-      syncRepositoryMock.attemptSyncClosure.mockResolvedValue([[{ id: 'syncId' }, { id: 'rerunId' }], 2]);
+      syncRepositoryMockFn.attemptSyncClosureMock.mockResolvedValue([[{ id: 'syncId' }, { id: 'rerunId' }], 2]);
       const job = { data: { id: 'syncId', kind: 'sync' }, attemptsMade: 0, opts: { attempts: 10 } } as Job<ClosureJob, ClosureReturn>;
 
       await expect(processJobWrapper(job)).resolves.toMatchObject({
@@ -181,15 +182,15 @@ describe('syncsWorker', () => {
         expect.anything(),
         childLoggerMock
       );
-      expect(syncRepositoryMock.attemptSyncClosure).toHaveBeenCalledTimes(1);
-      expect(syncRepositoryMock.attemptSyncClosure).toHaveBeenCalledWith('syncId');
+      expect(syncRepositoryMockFn.attemptSyncClosureMock).toHaveBeenCalledTimes(1);
+      expect(syncRepositoryMockFn.attemptSyncClosureMock).toHaveBeenCalledWith('syncId');
     });
 
     it('should reject if an unknown error occurs', async () => {
       await expect(worker.start()).resolves.not.toThrow();
       const processJobWrapper = worker['processJobWrapper'].bind(worker);
       const someError = new Error('some error');
-      syncRepositoryMock.attemptSyncClosure.mockRejectedValue(someError);
+      syncRepositoryMockFn.attemptSyncClosureMock.mockRejectedValue(someError);
       const job = { data: { id: 'syncId', kind: 'sync' }, attemptsMade: 0, opts: { attempts: 10 } } as Job<BatchClosureJob, ClosureReturn>;
 
       await expect(processJobWrapper(job)).rejects.toThrow(someError);
@@ -200,8 +201,8 @@ describe('syncsWorker', () => {
         expect.anything(),
         childLoggerMock
       );
-      expect(syncRepositoryMock.attemptSyncClosure).toHaveBeenCalledTimes(1);
-      expect(syncRepositoryMock.attemptSyncClosure).toHaveBeenCalledWith('syncId');
+      expect(syncRepositoryMockFn.attemptSyncClosureMock).toHaveBeenCalledTimes(1);
+      expect(syncRepositoryMockFn.attemptSyncClosureMock).toHaveBeenCalledWith('syncId');
       expect(updateJobCounter).not.toHaveBeenCalled();
       expect(delayJob).not.toHaveBeenCalled();
     });
@@ -210,7 +211,7 @@ describe('syncsWorker', () => {
       await expect(worker.start()).resolves.not.toThrow();
       const processJobWrapper = worker['processJobWrapper'].bind(worker);
       const transactionError = new TransactionFailureError('error');
-      syncRepositoryMock.attemptSyncClosure.mockRejectedValue(transactionError);
+      syncRepositoryMockFn.attemptSyncClosureMock.mockRejectedValue(transactionError);
       const job = { data: { id: 'syncId', kind: 'sync' }, attemptsMade: 0, opts: { attempts: 10 } } as Job<BatchClosureJob, ClosureReturn>;
 
       await expect(processJobWrapper(job)).rejects.toThrow(DelayedError);
@@ -221,8 +222,8 @@ describe('syncsWorker', () => {
         expect.anything(),
         childLoggerMock
       );
-      expect(syncRepositoryMock.attemptSyncClosure).toHaveBeenCalledTimes(1);
-      expect(syncRepositoryMock.attemptSyncClosure).toHaveBeenCalledWith('syncId');
+      expect(syncRepositoryMockFn.attemptSyncClosureMock).toHaveBeenCalledTimes(1);
+      expect(syncRepositoryMockFn.attemptSyncClosureMock).toHaveBeenCalledWith('syncId');
       expect(updateJobCounter).toHaveBeenCalledTimes(1);
       expect(updateJobCounter).toHaveBeenCalledWith(job, 'transactionFailure');
       expect(delayJob).toHaveBeenCalledTimes(1);
