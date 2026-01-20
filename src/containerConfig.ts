@@ -35,10 +35,20 @@ import {
   createReusableRedisWorkerConnectionFactory,
 } from './queueProvider/connection';
 import { ConfigType, getConfig } from './common/config';
-import { bullWorkerPostInjectionHookFactory, workerIdToClass } from './queueProvider/workers';
+import { workerIdToClass } from './queueProvider/workers';
 import { BullWorkerProvider } from './queueProvider/workers/bullWorkerProvider';
 
 const registerClosureDeps = (): InjectionObject<unknown>[] => {
+  const bullWorkerPostInjectionHookFactory = (symbol: symbol | string): ((container: DependencyContainer) => void) => {
+    const postInjectionHookFn = (container: DependencyContainer): void => {
+      const worker = container.resolve<BullWorkerProvider>(symbol);
+      const cleanupRegistry = container.resolve<CleanupRegistry>(SERVICES.CLEANUP_REGISTRY);
+      cleanupRegistry.register({ id: symbol, func: worker.close.bind(worker) });
+    };
+
+    return postInjectionHookFn;
+  };
+
   const closureDependencies: InjectionObject<unknown>[] = [
     { token: REDIS_CONNECTION_OPTIONS_SYMBOL, provider: { useFactory: instancePerContainerCachingFactory(createConnectionOptionsFactory) } },
     {

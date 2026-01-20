@@ -22,8 +22,6 @@ export const CONSTANT_BULLMQ_QUEUE_CONNECTION_OPTIONS = {
 
 export const CLOSURE_WORKERS_INITIALIZER = Symbol('ClosureWorkersInitializer');
 
-export const JOB_STALLED_FAILURE_ERROR_MESSAGE = 'job stalled more than allowable limit';
-
 export const JOB_STATES: JobType[] = ['active', 'completed', 'delayed', 'failed', 'paused', 'wait', 'waiting', 'waiting-children'];
 
 export enum WorkerEnum {

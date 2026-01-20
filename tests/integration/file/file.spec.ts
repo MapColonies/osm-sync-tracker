@@ -20,6 +20,7 @@ import { QueryFailedErrorWithCode, TransactionFailure } from '../../../src/commo
 import * as queueHelpers from '../../../src/queueProvider/helpers';
 import { createStringifiedFakeEntity } from '../entity/helpers/generators';
 import { EntityRequestSender } from '../entity/helpers/requestSender';
+import { FilesWorker } from '../../../src/queueProvider/workers';
 import { createStringifiedFakeFile } from './helpers/generators';
 
 jest.mock('../../../src/queueProvider/helpers', (): object => {
@@ -151,7 +152,8 @@ describe('file', function () {
       });
 
       it('should return 201 status code and process the job even if file is not found', async function () {
-        const fileWorker = depContainer.resolve<Worker>(WorkerEnum.FILES);
+        const filesWorker = depContainer.resolve<FilesWorker>(WorkerEnum.FILES);
+        filesWorker['createWorker']();
         const fileId = faker.string.uuid();
 
         const response = await fileRequestSender.postFilesClosure([fileId]);
@@ -159,19 +161,20 @@ describe('file', function () {
         expect(response.status).toBe(httpStatus.CREATED);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
 
-        const fileClosure = await waitForJobToBeResolved(fileWorker, fileId);
+        const fileClosure = await waitForJobToBeResolved(filesWorker['worker'] as Worker, fileId);
         expect(fileClosure?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
       });
 
       it('should return 201 status code and process the job with deduplication counter', async function () {
-        const fileWorker = depContainer.resolve<Worker>(WorkerEnum.FILES);
+        const filesWorker = depContainer.resolve<FilesWorker>(WorkerEnum.FILES);
+        filesWorker['createWorker']();
         const fileId = faker.string.uuid();
 
         expect(await fileRequestSender.postFilesClosure([fileId])).toHaveStatus(StatusCodes.CREATED);
         expect(await fileRequestSender.postFilesClosure([fileId])).toHaveStatus(StatusCodes.CREATED);
         expect(await fileRequestSender.postFilesClosure([fileId])).toHaveStatus(StatusCodes.CREATED);
 
-        const fileClosure = await waitForJobToBeResolved(fileWorker, fileId);
+        const fileClosure = await waitForJobToBeResolved(filesWorker['worker'] as Worker, fileId);
         expect(fileClosure?.data).toMatchObject({ id: fileId, kind: 'file', [queueHelpers.DEDUPLICATION_COUNT_KEY]: 2 });
         expect(fileClosure?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
       });
@@ -481,7 +484,8 @@ describe('file', function () {
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
           mockDepContainer = mockContainer;
           mockFileRequestSender = new FileRequestSender(mockApp);
-          const mockFileWorker = mockContainer.resolve<Worker>(WorkerEnum.FILES);
+          const mockFilesWorker = mockContainer.resolve<FilesWorker>(WorkerEnum.FILES);
+          mockFilesWorker['createWorker']();
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
           const delayJobSpy = jest.spyOn(queueHelpers, 'delayJob').mockImplementation(async () => Promise.resolve());
 
@@ -489,7 +493,7 @@ describe('file', function () {
 
           expect(await mockFileRequestSender.postFilesClosure([fileId])).toHaveStatus(StatusCodes.CREATED);
 
-          const fileClosure = await waitForJobToBeResolved(mockFileWorker, fileId);
+          const fileClosure = await waitForJobToBeResolved(mockFilesWorker['worker'] as Worker, fileId);
 
           expect(fileClosure?.err).toMatchObject(mockError);
           expect(fileClosure?.data[TRANSACTIONAL_FAILURE_COUNT_KEY]).toBeUndefined();
@@ -521,9 +525,10 @@ describe('file', function () {
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
           mockDepContainer = mockContainer;
           mockFileRequestSender = new FileRequestSender(mockApp);
-          const mockFileWorker = mockContainer.resolve<Worker>(WorkerEnum.FILES);
-          mockFileWorker.on('error', () => eventCounter++);
-          mockFileWorker.on('failed', () => eventCounter++);
+          const mockFilesWorker = mockContainer.resolve<FilesWorker>(WorkerEnum.FILES);
+          mockFilesWorker['createWorker']();
+          (mockFilesWorker['worker'] as Worker).on('error', () => eventCounter++);
+          (mockFilesWorker['worker'] as Worker).on('failed', () => eventCounter++);
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
           const delayJobSpy = jest.spyOn(queueHelpers, 'delayJob').mockImplementation(async () => Promise.resolve());
 
@@ -532,7 +537,7 @@ describe('file', function () {
           expect(await mockFileRequestSender.postFilesClosure([fileId])).toHaveStatus(StatusCodes.CREATED);
 
           // attempt 1
-          const fileClosure1 = await waitForJobToBeResolved(mockFileWorker, fileId);
+          const fileClosure1 = await waitForJobToBeResolved(mockFilesWorker['worker'] as Worker, fileId);
 
           expect(fileClosure1?.err).toMatchObject(new DelayedError());
           expect(fileClosure1?.data[TRANSACTIONAL_FAILURE_COUNT_KEY]).toBe(1);
@@ -540,7 +545,7 @@ describe('file', function () {
           expect(delayJobSpy).toHaveBeenCalledTimes(1);
 
           // attempt 2
-          const fileClosure2 = await waitForJobToBeResolved(mockFileWorker, fileId);
+          const fileClosure2 = await waitForJobToBeResolved(mockFilesWorker['worker'] as Worker, fileId);
 
           expect(fileClosure2?.err).toMatchObject(new DelayedError());
           expect(fileClosure2?.data[TRANSACTIONAL_FAILURE_COUNT_KEY]).toBe(2);
@@ -548,13 +553,13 @@ describe('file', function () {
           expect(delayJobSpy).toHaveBeenCalledTimes(2);
 
           // last fake attempt to fail the job
-          await waitForJobToBeResolved(mockFileWorker, fileId, (job) => {
+          await waitForJobToBeResolved(mockFilesWorker['worker'] as Worker, fileId, (job) => {
             job.attemptsMade = 999;
             throw new Error();
           });
 
-          expect(mockFileWorker.listenerCount('error')).toBe(2);
-          expect(mockFileWorker.listenerCount('failed')).toBe(2);
+          expect((mockFilesWorker['worker'] as Worker).listenerCount('error')).toBe(2);
+          expect((mockFilesWorker['worker'] as Worker).listenerCount('failed')).toBe(2);
           expect(eventCounter).toBe(4); // 3 errors and 1 failure
 
           updateJobCounterSpy.mockRestore();

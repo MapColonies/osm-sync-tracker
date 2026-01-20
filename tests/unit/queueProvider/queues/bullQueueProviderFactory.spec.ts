@@ -1,6 +1,7 @@
 import jsLogger from '@map-colonies/js-logger';
 import IORedis from 'ioredis';
 import { ConnectionOptions, Queue, QueueEvents } from 'bullmq';
+import { Registry } from 'prom-client';
 import { BullQueueProviderFactory } from '../../../../src/queueProvider/queues/bullQueueProviderFactory';
 import { BullQueueProvider } from '../../../../src/queueProvider/queues/bullQueueProvider';
 import { ConfigType } from '../../../../src/common/config';
@@ -23,6 +24,7 @@ describe('BullQueueProviderFactory', () => {
   const connectionOptions = jest.fn() as unknown as ConnectionOptions;
   const childLogger = jest.fn();
   const configGetMock = jest.fn();
+  const metricsRegistry = new Registry();
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -32,7 +34,13 @@ describe('BullQueueProviderFactory', () => {
       child: jest.fn().mockImplementation(() => childLogger),
     };
 
-    bullFactory = new BullQueueProviderFactory(loggerMock, { get: configGetMock } as unknown as ConfigType, redis, connectionOptions);
+    bullFactory = new BullQueueProviderFactory(
+      loggerMock,
+      { get: configGetMock } as unknown as ConfigType,
+      redis,
+      connectionOptions,
+      metricsRegistry
+    );
   });
 
   describe('#createQueue', () => {
@@ -51,6 +59,7 @@ describe('BullQueueProviderFactory', () => {
         queueOptions: { a: 1 },
         jobOptions: { deduplicationDelay: undefined },
         logger: childLogger,
+        metricsRegistry: metricsRegistry,
       });
     });
 
@@ -69,6 +78,7 @@ describe('BullQueueProviderFactory', () => {
         queueOptions: { b: 2 },
         jobOptions: { deduplicationDelay: 100 },
         logger: childLogger,
+        metricsRegistry: metricsRegistry,
       });
     });
   });

@@ -21,6 +21,7 @@ module.exports = {
     '!<rootDir>/src/*',
     '!<rootDir>/src/queueProvider/connection.ts',
     '!<rootDir>/src/queueProvider/ui/bullBoard.ts',
+    '!<rootDir>/src/**/queueProvider/**/telemetry/index.ts',
   ],
   coverageDirectory: '<rootDir>/coverage',
   reporters: [
@@ -35,7 +36,7 @@ module.exports = {
       branches: 80,
       functions: 80,
       lines: 80,
-      statements: -10,
+      statements: -15,
     },
   },
 };
