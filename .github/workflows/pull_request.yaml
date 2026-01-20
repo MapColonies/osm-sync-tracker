@@ -21,7 +21,7 @@ jobs:
 
     strategy:
       matrix:
-        node: [24.x, 26.x]
+        node: [24.x]
 
     steps:
       - name: Check out TS Project Git repository
@@ -60,7 +60,7 @@ jobs:
 
     strategy:
       matrix:
-        node: [24.x, 26.x]
+        node: [24.x]
 
     services:
       postgres:
