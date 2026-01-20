@@ -1,11 +1,12 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryColumn, Relation } from 'typeorm';
+import { Column, Entity as EntityDecorator, Index, JoinColumn, ManyToOne, OneToMany, PrimaryColumn, Relation } from 'typeorm';
 import { GeometryType, Status } from '../../common/enums';
 import { File } from '../../file/DAL/file';
 import { Sync as ISync } from '../models/sync';
 
 export const SYNC_IDENTIFIER_COLUMN = 'id';
 
-@Entity({ name: 'sync' })
+@Index('idx_sync_base_status', ['baseSyncId', 'status'])
+@EntityDecorator({ name: 'sync' })
 export class SyncDb implements ISync {
   @PrimaryColumn({ type: 'uuid' })
   public id!: string;
