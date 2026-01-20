@@ -39,6 +39,8 @@ describe('file', function () {
 
   let sync: StringifiedSync;
 
+  let filesWorker: FilesWorker;
+
   let depContainer: DependencyContainer;
   let mockDepContainer: DependencyContainer;
 
@@ -51,6 +53,9 @@ describe('file', function () {
 
     sync = createStringifiedFakeSync();
     await syncRequestSender.postSync(sync);
+
+    filesWorker = container.resolve<FilesWorker>(WorkerEnum.FILES);
+    filesWorker['createWorker']();
   }, BEFORE_ALL_TIMEOUT);
 
   beforeEach(function () {
@@ -152,8 +157,6 @@ describe('file', function () {
       });
 
       it('should return 201 status code and process the job even if file is not found', async function () {
-        const filesWorker = depContainer.resolve<FilesWorker>(WorkerEnum.FILES);
-        filesWorker['createWorker']();
         const fileId = faker.string.uuid();
 
         const response = await fileRequestSender.postFilesClosure([fileId]);
@@ -166,8 +169,6 @@ describe('file', function () {
       });
 
       it('should return 201 status code and process the job with deduplication counter', async function () {
-        const filesWorker = depContainer.resolve<FilesWorker>(WorkerEnum.FILES);
-        filesWorker['createWorker']();
         const fileId = faker.string.uuid();
 
         expect(await fileRequestSender.postFilesClosure([fileId])).toHaveStatus(StatusCodes.CREATED);
@@ -502,6 +503,7 @@ describe('file', function () {
 
           updateJobCounterSpy.mockRestore();
           delayJobSpy.mockRestore();
+          await mockFilesWorker.close();
         },
         LONG_RUNNING_TEST_TIMEOUT
       );
@@ -564,6 +566,7 @@ describe('file', function () {
 
           updateJobCounterSpy.mockRestore();
           delayJobSpy.mockRestore();
+          await mockFilesWorker.close();
         },
         LONG_RUNNING_TEST_TIMEOUT
       );
