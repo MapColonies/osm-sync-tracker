@@ -570,7 +570,7 @@ describe('changeset', function () {
         expect(file2Closure2?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
 
         // close the sync
-        const syncClosure1 = await waitForJobToBeResolved(filesWorker['worker'] as Worker, sync.id as string);
+        const syncClosure1 = await waitForJobToBeResolved(syncsWorker['worker'] as Worker, sync.id as string);
         expect(syncClosure1?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
 
         // patch the not synced entity
