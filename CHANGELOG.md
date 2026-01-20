@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [4.1.1](https://github.com/MapColonies/osm-sync-tracker/compare/v4.1.0...v4.1.1) (2026-01-20)
+
+
+### Bug Fixes
+
+* fix config default naming issue ([#69](https://github.com/MapColonies/osm-sync-tracker/issues/69)) ([e045fe0](https://github.com/MapColonies/osm-sync-tracker/commit/e045fe090753d0b0974053bda05980c6ace3a826))
+
 ## [4.1.0](https://github.com/MapColonies/osm-sync-tracker/compare/v4.0.0...v4.1.0) (2025-03-02)
 
 
