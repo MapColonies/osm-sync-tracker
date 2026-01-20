@@ -1,9 +1,12 @@
-import { Column, Entity as EntityDecorator, JoinColumn, ManyToOne, PrimaryColumn, Relation } from 'typeorm';
+import { Column, Entity as EntityDecorator, Index, JoinColumn, ManyToOne, PrimaryColumn, Relation } from 'typeorm';
 import { Changeset } from '../../changeset/DAL/changeset';
 import { ActionType, EntityStatus } from '../../common/enums';
 import { File } from '../../file/DAL/file';
 import { Entity as IEntity } from '../models/entity';
 
+@Index('idx_entity_changeset_file', ['changesetId', 'fileId'])
+@Index('idx_entity_file_status', ['fileId', 'status'])
+@Index('idx_entity_file_closed', ['fileId'], { where: `status IN ('${EntityStatus.COMPLETED}', '${EntityStatus.NOT_SYNCED}')` })
 @EntityDecorator()
 export class Entity implements IEntity {
   @PrimaryColumn({ name: 'entity_id' })

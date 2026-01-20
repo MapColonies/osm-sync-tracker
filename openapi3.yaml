@@ -4,19 +4,19 @@ info:
   description: Api to update on the progress of a cycle of entities sync
   license:
     name: MIT
-    url: https://opensource.org/licenses/MIT
+    url: https://opensource.org/license/mit/
   version: 4.1.0
 tags:
   - name: sync
-    description: sync entity related operations
+    description: Manage synchronization cycles and their lifecycle
   - name: file
-    description: file entity related operations
+    description: Manage files that belong to a sync.
   - name: entity
-    description: entity entity related operations
+    description: Manage entities within files, including bulk operations and per-entity updates.
   - name: changeset
-    description: changeset entity related operations
+    description: Track OSM changesets and manage their related entities and closure.
   - name: closure
-    description: closure related operations
+    description: Trigger closure jobs for syncs, files, and changesets.
 security: []
 paths:
   /sync:

@@ -56,7 +56,7 @@ const createEntityRepository = (dataSource: DataSource) => {
       const result = await this.manager
         .createQueryBuilder(EntityDb, 'entity')
         .select(`entity.fileId`)
-        .leftJoin('entity.file', 'file')
+        .innerJoin('entity.file', 'file')
         .where('entity.changeset_id = ANY(:changesetIds)', { changesetIds })
         .andWhere('file.status IN(:...fileStatuses)', { fileStatuses })
         .distinctOn(['entity.fileId'])
