@@ -17,9 +17,6 @@ tags:
     description: Track OSM changesets and manage their related entities and closure.
   - name: closure
     description: Trigger closure jobs for syncs, files, and changesets.
-servers:
-  - url: https://osm-sync-tracker.mapcolonies.net
-    description: Production
 security: []
 paths:
   /sync:
