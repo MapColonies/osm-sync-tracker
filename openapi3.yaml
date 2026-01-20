@@ -5,14 +5,16 @@ info:
   license:
     name: MIT
     url: https://opensource.org/license/mit/
-  version: 4.1.0
+  version: 4.1.1
 tags:
   - name: sync
     description: Manage synchronization cycles and their lifecycle
   - name: file
     description: Manage files that belong to a sync.
   - name: entity
-    description: Manage entities within files, including bulk operations and per-entity updates.
+    description: >-
+      Manage entities within files, including bulk operations and per-entity
+      updates.
   - name: changeset
     description: Track OSM changesets and manage their related entities and closure.
   - name: closure
