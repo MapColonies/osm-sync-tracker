@@ -36,12 +36,6 @@ jobs:
           prettier: true
           eslint_extensions: ts
 
-      - name: OpenAPI Lint Checks
-        uses: nwestfall/openapi-action@v1.0.2
-        with:
-         github_token: ${{ secrets.GITHUB_TOKEN }}
-         file: ./openapi3.yaml
-
   openapi-lint:
     name: Run OpenAPI lint Check
     runs-on: ubuntu-latest
@@ -125,12 +119,12 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@master
-    - name: Run Snyk to check for vulnerabilities
-      uses: snyk/actions/node@master
-      continue-on-error: true
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      - uses: actions/checkout@master
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
   build_image:
     name: Build Image
