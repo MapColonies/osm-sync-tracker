@@ -133,13 +133,15 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
   build_docker_image:
+    name: Build Docker Image
     runs-on: ubuntu-latest
+
     steps:
       - name: Build and Push Docker image
         uses: docker/build-push-action@v6
 
   build_docker_migrations_image:
-    name: Build Image
+    name: Build Docker Migrations Image
     runs-on: ubuntu-latest
 
     steps:
