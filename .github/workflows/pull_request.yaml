@@ -2,6 +2,10 @@ name: pull_request
 
 on: [pull_request, workflow_dispatch]
 
+permissions:
+  contents: read
+  pull-requests: read
+
 env:
   DB_HOST: localhost
   DB_PORT: 5432
@@ -20,21 +24,21 @@ jobs:
         node: [24.x]
 
     steps:
-      - name: Check out Git repository
-        uses: actions/checkout@v4
+      - name: Check out TS Project Git repository
+        uses: actions/checkout@v5
 
-      - name: Set up Node.js
-        uses: ./.github/actions/init-npm
+      - name: Init Nodejs
+        uses: MapColonies/shared-workflows/actions/init-npm@init-npm-v1
         with:
           node-version: ${{ matrix.node }}
 
-      - name: Run linters
+      - name: Run TS Project linters
         uses: wearerequired/lint-action@v2
         with:
-          github_token: ${{ secrets.github_token }}
           eslint: true
           prettier: true
           eslint_extensions: ts
+          tsc: true
 
   openapi-lint:
     name: Run OpenAPI lint Check
@@ -42,10 +46,10 @@ jobs:
 
     steps:
       - name: Check out TS Project Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Init nodejs
-        uses: ./.github/actions/init-npm
+      - name: Init Nodejs
+        uses: MapColonies/shared-workflows/actions/init-npm@init-npm-v1
 
       - name: OpenAPI Lint Checks
         run: npx @redocly/cli lint --format=github-actions openapi3.yaml
@@ -85,10 +89,12 @@ jobs:
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Init nodejs
-        uses: ./.github/actions/init-npm
+      - name: Init Nodejs
+        uses: MapColonies/shared-workflows/actions/init-npm@init-npm-v1
+        with:
+          node-version: ${{ matrix.node }}
 
       - name: Install pg client
         run: |
@@ -113,29 +119,32 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Test Reporters ${{ matrix.node }}
-          path: ./reports/**
+          name: Test Reporters Node-${{ matrix.node }}
+          path: reports/**
 
   security:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@master
-    - name: Run Snyk to check for vulnerabilities
-      uses: snyk/actions/node@master
-      continue-on-error: true
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      - uses: actions/checkout@master
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
-  build_image:
+  build_docker_image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@v6
+
+  build_docker_migrations_image:
     name: Build Image
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out Git repository
-        uses: actions/checkout@v4
-
-      - name: build Docker image
-        run: docker build -t test-build:latest .
+      - name: Check out TS Project Git repository
+        uses: actions/checkout@v5
 
       - name: build migrations Docker image
         run: docker build -f ./migrations.Dockerfile -t test-migrations-build:latest .
