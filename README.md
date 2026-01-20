@@ -50,6 +50,10 @@ Each type has its own queue and configuration as follows:
 ## API
 Checkout the OpenAPI spec [here](/openapi3.yaml)
 
+## Environment Variables
+Please note that `config/custom-environment-variables.json` extends the current common MapColonies TS Server Boilerplate V2 schema. 
+You can find the schema [here](https://github.com/MapColonies/schemas/blob/v1.14.0/schemas/common/boilerplate/v2.schema.json).
+
 ## Run Locally
 
 Clone the project
