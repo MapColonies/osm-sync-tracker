@@ -138,8 +138,8 @@ export class FileManager {
     }
 
     if (rerunFile.totalEntities != fileEntity.totalEntities) {
-      const rerunFileTotalEntities = rerunFile.totalEntities != null ? rerunFile.totalEntities : 'null';
-      const existingFileTotalEntities = fileEntity.totalEntities != null ? fileEntity.totalEntities : 'null';
+      const rerunFileTotalEntities = rerunFile.totalEntities ?? 'null';
+      const existingFileTotalEntities = fileEntity.totalEntities ?? 'null';
       this.logger.error({
         msg: 'conflicting file creation on rerun, file already exists with another value of total entities',
         rerunSyncId: rerunSync.id,
