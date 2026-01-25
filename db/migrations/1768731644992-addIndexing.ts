@@ -5,7 +5,7 @@ export class AddIndexing1768731644992 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `CREATE INDEX "idx_entity_file_closed" ON "osm_sync_tracker"."entity" ("file_id") WHERE status IN ('completed', 'not_synced')`
+      `CREATE INDEX IF NOT EXISTS "idx_entity_file_closed" ON "osm_sync_tracker"."entity" ("file_id") WHERE status IN ('completed', 'not_synced')`
     );
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_entity_file_status" ON "osm_sync_tracker"."entity" ("file_id", "status") `);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_entity_changeset_file" ON "osm_sync_tracker"."entity" ("changeset_id", "file_id") `);
