@@ -5,7 +5,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/license/mit/
-  version: 4.1.1
+  version: 4.2.0
 tags:
   - name: sync
     description: Manage synchronization cycles and their lifecycle
