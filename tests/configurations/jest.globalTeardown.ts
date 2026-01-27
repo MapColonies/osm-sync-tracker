@@ -16,8 +16,9 @@ export default async (): Promise<void> => {
   await connection.destroy();
 
   const redisConfig = config.get('redis') as RedisConfig;
+  const keyPrefix = config.get('closure.keyPrefix');
   const redisOptions = constructConnectionOptions(redisConfig);
   const redis = new IORedis(redisOptions);
-  await clearQueues(redis);
+  await clearQueues(redis, keyPrefix);
   redis.disconnect();
 };

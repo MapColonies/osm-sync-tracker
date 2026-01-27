@@ -61,6 +61,7 @@
   },
   "closure": {
     "uiPath": "/closure",
+    "keyPrefix": "{closure}",
     "queues": {
       "changesets": {
         "queueOptions": {

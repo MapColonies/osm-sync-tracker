@@ -119,6 +119,7 @@ redis:
 
 closure:
   uiPath: /closure
+  keyPefix: '{closure}'
   queues:
     changesets:
       queueOptions:

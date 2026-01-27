@@ -1,4 +1,5 @@
 import { JobsOptions, Queue, QueueEvents } from 'bullmq';
+import { Registry } from 'prom-client';
 import { ILogger } from '../../../common/interfaces';
 
 export interface ExtendedJobOptions extends JobsOptions {
@@ -18,4 +19,5 @@ export interface QueueConfig {
   queueOptions: QueueOptions;
   jobOptions: ExtendedJobOptions;
   logger?: ILogger;
+  metricsRegistry?: Registry;
 }

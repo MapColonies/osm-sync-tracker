@@ -1,34 +1,62 @@
 import { injectable } from 'tsyringe';
 import { Queue, QueueEvents } from 'bullmq';
+import { Counter, Gauge, Registry } from 'prom-client';
+import { snakeCase } from 'lodash';
 import { Identifiable, JobQueueProvider } from '../interfaces';
 import { ILogger } from '../../common/interfaces';
 import { hashBatch } from '../../common/utils';
+import { JOB_STATES } from '../constants';
 import { updateJobCounter } from '../helpers';
 import { ExtendedJobOptions, QueueConfig, QueueOptions } from './options';
 
 @injectable()
-export class BullQueueProvider<T extends Identifiable> implements JobQueueProvider<T> {
+export class BullQueueProvider<T extends Identifiable = Identifiable> implements JobQueueProvider<T> {
   private readonly queue: Queue<T, unknown, string, T, unknown, string>;
   private readonly queueName: string;
   private readonly queueEvents: QueueEvents | undefined;
   private readonly queueOptions: QueueOptions;
   private readonly jobOptions: ExtendedJobOptions;
   private readonly logger: ILogger | undefined;
+  private readonly metricsRegistry?: Registry;
+  private readonly addedCounter?: Counter<'kind'>;
 
   public constructor(options: QueueConfig) {
-    const { queue, queueName, queueEvents, queueOptions, jobOptions, logger } = options;
+    const { queue, queueName, queueEvents, queueOptions, jobOptions, logger, metricsRegistry } = options;
     this.queue = queue as Queue<T, unknown, string, T, unknown, string>;
     this.queueName = queueName;
     this.queueEvents = queueEvents;
     this.queueOptions = queueOptions;
     this.jobOptions = jobOptions;
     this.logger = logger;
+    this.metricsRegistry = metricsRegistry;
 
     this.logger?.info({ msg: 'initializing queue', queueName, queueOptions, jobOptions, enabledQueueEvents: queueEvents !== undefined });
 
     this.queueEvents?.on('deduplicated', async ({ jobId }) => {
       await this.changeJobDelay(jobId, this.jobOptions.deduplicationDelay as number);
     });
+
+    if (this.metricsRegistry !== undefined) {
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
+      const self = this;
+      new Gauge({
+        name: `osm_sync_tracker_${snakeCase(this.queueName)}_state_counts`,
+        help: 'The number of current jobs in different states in the queue',
+        labelNames: ['state'] as const,
+        async collect(): Promise<void> {
+          const statesCount = await self.queue.getJobCounts(...JOB_STATES);
+          JOB_STATES.forEach((jobState) => this.set({ state: jobState }, statesCount[jobState]));
+        },
+        registers: [this.metricsRegistry],
+      });
+
+      this.addedCounter = new Counter({
+        name: `osm_sync_tracker_${snakeCase(this.queueName)}_added`,
+        help: 'The number of added jobs by kind of addition',
+        labelNames: ['kind'] as const,
+        registers: [this.metricsRegistry],
+      });
+    }
   }
 
   public get activeQueueName(): string {
@@ -113,6 +141,9 @@ export class BullQueueProvider<T extends Identifiable> implements JobQueueProvid
     this.logger?.info({ msg: 'adding single job to queue', queueName: this.queueName, jobId: job.id, job, jobOptions: this.jobOptions });
 
     await this.queue.add(job.id, job, { ...this.jobOptions, deduplication: { id: job.id, ttl: this.jobOptions.deduplicationTtl } });
+
+    this.addedCounter?.inc({ kind: 'single' });
+    this.addedCounter?.inc({ kind: 'total' });
   }
 
   private async addBulk(bulk: T[]): Promise<void> {
@@ -127,5 +158,8 @@ export class BullQueueProvider<T extends Identifiable> implements JobQueueProvid
     }));
 
     await this.queue.addBulk(jobBulk);
+
+    this.addedCounter?.inc({ kind: 'bulk' });
+    this.addedCounter?.inc({ kind: 'total' }, bulk.length);
   }
 }

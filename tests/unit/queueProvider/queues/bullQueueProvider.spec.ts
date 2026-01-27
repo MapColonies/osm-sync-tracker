@@ -1,25 +1,11 @@
-import { Queue, QueueEvents } from 'bullmq';
+import { Registry } from 'prom-client';
 import { BullQueueProvider } from '../../../../src/queueProvider/queues/bullQueueProvider';
-import { Identifiable } from '../../../../src/queueProvider/interfaces';
 import { ExtendedJobOptions } from '../../../../src/queueProvider/queues/options';
 import { hashBatch } from '../../../../src/common/utils';
+import { queueEventsMock, queueMock, queueMockFn } from '../../../mocks';
 
 describe('BullQueueProvider', () => {
-  let provider: BullQueueProvider<Identifiable>;
-
-  const getJobMock = jest.fn();
-  const addJobMock = jest.fn();
-
-  const queueMock = {
-    close: jest.fn(),
-    add: addJobMock,
-    addBulk: jest.fn(),
-    getJob: getJobMock,
-  } as unknown as Queue;
-
-  const queueEventsMock = {
-    on: jest.fn(),
-  } as unknown as QueueEvents;
+  let provider: BullQueueProvider;
 
   const queueName = 'test-queue-name';
   const jobOptions = { key: 'value' } as unknown as ExtendedJobOptions;
@@ -38,7 +24,13 @@ describe('BullQueueProvider', () => {
 
   describe('WithoutBatching', () => {
     beforeEach(() => {
-      provider = new BullQueueProvider({ queue: queueMock, queueName, jobOptions, queueOptions: { enabledBatchJobs: false } });
+      provider = new BullQueueProvider({
+        queue: queueMock,
+        queueName,
+        jobOptions,
+        queueOptions: { enabledBatchJobs: false },
+        metricsRegistry: new Registry(),
+      });
     });
 
     describe('#push', () => {
@@ -122,7 +114,7 @@ describe('BullQueueProvider', () => {
       const jobChangeDelayMock = jest.fn();
       const jobUpdateDataMock = jest.fn();
       const job = { id: 'id', data: {}, changeDelay: jobChangeDelayMock, updateData: jobUpdateDataMock, isDelayed: jobIsDelayedMock };
-      getJobMock.mockResolvedValue(job);
+      queueMockFn.getJobMock.mockResolvedValue(job);
       const promise = provider.changeJobDelay(job.id, delay);
 
       await expect(promise).resolves.not.toThrow();
@@ -147,7 +139,7 @@ describe('BullQueueProvider', () => {
         updateData: jobUpdateDataMock,
         isDelayed: jobIsDelayedMock,
       };
-      getJobMock.mockResolvedValue(job);
+      queueMockFn.getJobMock.mockResolvedValue(job);
       const promise = provider.changeJobDelay(job.id, delay);
 
       await expect(promise).resolves.not.toThrow();
@@ -164,7 +156,7 @@ describe('BullQueueProvider', () => {
     it('should retrun void if job was not found', async () => {
       const jobChangeDelayMock = jest.fn();
       const jobUpdateDataMock = jest.fn();
-      getJobMock.mockResolvedValue(undefined);
+      queueMockFn.getJobMock.mockResolvedValue(undefined);
       const jobId = 'notFoundId';
       const promise = provider.changeJobDelay(jobId, delay);
 
@@ -178,7 +170,7 @@ describe('BullQueueProvider', () => {
 
     it('should not throw even if an error occurs', async () => {
       const error = new Error('queue error');
-      getJobMock.mockRejectedValue(error);
+      queueMockFn.getJobMock.mockRejectedValue(error);
       const promise = provider.changeJobDelay('id', 200);
 
       await expect(promise).resolves.not.toThrow();
@@ -192,7 +184,7 @@ describe('BullQueueProvider', () => {
       const jobChangeDelayMock = jest.fn();
       const jobUpdateDataMock = jest.fn();
       const job = { id: 'id', data: { id: 'someId' }, changeDelay: jobChangeDelayMock, updateData: jobUpdateDataMock, isDelayed: jobIsDelayedMock };
-      getJobMock.mockResolvedValue(job);
+      queueMockFn.getJobMock.mockResolvedValue(job);
       const promise = provider.changeJobDelay(job.id, delay);
 
       await expect(promise).resolves.not.toThrow();
@@ -210,7 +202,7 @@ describe('BullQueueProvider', () => {
       const jobChangeDelayMock = jest.fn();
       const jobUpdateDataMock = jest.fn();
       const job = { id: 'id', data: { id: 'someId' }, changeDelay: jobChangeDelayMock, updateData: jobUpdateDataMock, isDelayed: jobIsDelayedMock };
-      getJobMock.mockResolvedValue(job);
+      queueMockFn.getJobMock.mockResolvedValue(job);
       const promise = provider.changeJobDelay(job.id, delay);
 
       await expect(promise).resolves.not.toThrow();
@@ -228,7 +220,7 @@ describe('BullQueueProvider', () => {
       const jobChangeDelayMock = jest.fn().mockRejectedValue(new Error('could not delay job'));
       const jobUpdateDataMock = jest.fn();
       const job = { id: 'id', data: { id: 'someId' }, changeDelay: jobChangeDelayMock, updateData: jobUpdateDataMock, isDelayed: jobIsDelayedMock };
-      getJobMock.mockResolvedValue(job);
+      queueMockFn.getJobMock.mockResolvedValue(job);
       const promise = provider.changeJobDelay(job.id, delay);
 
       await expect(promise).resolves.not.toThrow();
@@ -245,10 +237,10 @@ describe('BullQueueProvider', () => {
       const jobIsDelayedMock = jest.fn().mockResolvedValue(true);
       const jobChangeDelayMock = jest.fn().mockRejectedValue(new Error('could not delay job'));
       const jobUpdateDataMock = jest.fn();
-      addJobMock.mockRejectedValue(new Error('failed to add job'));
+      queueMockFn.addMock.mockRejectedValue(new Error('failed to add job'));
 
       const job = { id: 'id', data: { id: 'someId' }, changeDelay: jobChangeDelayMock, updateData: jobUpdateDataMock, isDelayed: jobIsDelayedMock };
-      getJobMock.mockResolvedValue(job);
+      queueMockFn.getJobMock.mockResolvedValue(job);
       const promise = provider.changeJobDelay(job.id, delay);
 
       await expect(promise).resolves.not.toThrow();

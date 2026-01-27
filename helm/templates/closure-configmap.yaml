@@ -21,6 +21,7 @@ data:
   {{- end }}
   {{- end }}
   CLOSURE_UI_PATH: {{ .Values.closure.uiPath | quote }}
+  CLOSURE_KEY_PREFIX: {{ .Values.closure.keyPefix | quote }}
   {{- range $queueName, $queueConfig := .Values.closure.queues }}
   {{- if $queueConfig.queueOptions.enabledBatchJobs }}
   {{ $queueName | upper }}_QUEUE_ENABLED_BATCH_JOBS: "true"

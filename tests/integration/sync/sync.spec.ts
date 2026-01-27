@@ -19,12 +19,10 @@ import { EntityRequestSender } from '../entity/helpers/requestSender';
 import { ChangesetRequestSender } from '../changeset/helpers/requestSender';
 import { createStringifiedFakeEntity } from '../entity/helpers/generators';
 import { createStringifiedFakeChangeset } from '../changeset/helpers/generators';
-import { CHANGESETS_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/changesetsQueueWorker';
-import { FILES_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/filesQueueWorker';
-import { SYNCS_QUEUE_WORKER_FACTORY } from '../../../src/queueProvider/workers/syncsQueueWorker';
+import { ChangesetsWorker, FilesWorker, SyncsWorker } from '../../../src/queueProvider/workers';
 import { DATA_SOURCE_PROVIDER } from '../../../src/common/db';
 import { DEDUPLICATION_COUNT_KEY, TRANSACTIONAL_FAILURE_COUNT_KEY } from '../../../src/queueProvider/helpers';
-import { QUEUE_PROVIDER_FACTORY } from '../../../src/queueProvider/constants';
+import { QUEUE_PROVIDER_FACTORY, WorkerEnum } from '../../../src/queueProvider/constants';
 import { QueryFailedErrorWithCode, TransactionFailure } from '../../../src/common/db/transactions';
 import { SyncRequestSender } from './helpers/requestSender';
 import { createStringifiedFakeRerunCreateBody, createStringifiedFakeSync } from './helpers/generators';
@@ -46,9 +44,9 @@ describe('sync', function () {
   let entityRepository: EntityRepository;
   let entityHistoryRepository: Repository<EntityHistory>;
 
-  let changesetWorker: Worker;
-  let fileWorker: Worker;
-  let syncWorker: Worker;
+  let changesetsWorker: ChangesetsWorker;
+  let filesWorker: FilesWorker;
+  let syncsWorker: SyncsWorker;
 
   let depContainer: DependencyContainer;
   let mockDepContainer: DependencyContainer;
@@ -64,9 +62,12 @@ describe('sync', function () {
     const connection = depContainer.resolve<DataSource>(DATA_SOURCE_PROVIDER);
     entityHistoryRepository = connection.getRepository(EntityHistory);
 
-    changesetWorker = container.resolve<Worker>(CHANGESETS_QUEUE_WORKER_FACTORY);
-    fileWorker = container.resolve<Worker>(FILES_QUEUE_WORKER_FACTORY);
-    syncWorker = container.resolve<Worker>(SYNCS_QUEUE_WORKER_FACTORY);
+    changesetsWorker = container.resolve<ChangesetsWorker>(WorkerEnum.CHANGESETS);
+    changesetsWorker['createWorker']();
+    filesWorker = container.resolve<FilesWorker>(WorkerEnum.FILES);
+    filesWorker['createWorker']();
+    syncsWorker = container.resolve<SyncsWorker>(WorkerEnum.SYNCS);
+    syncsWorker['createWorker']();
   }, BEFORE_ALL_TIMEOUT);
 
   beforeEach(function () {
@@ -533,7 +534,7 @@ describe('sync', function () {
         expect(response.status).toBe(httpStatus.CREATED);
         expect(response.text).toBe(httpStatus.getStatusText(httpStatus.CREATED));
 
-        const syncClosure = await waitForJobToBeResolved(syncWorker, syncId);
+        const syncClosure = await waitForJobToBeResolved(syncsWorker['worker'] as Worker, syncId);
         expect(syncClosure?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
       });
 
@@ -544,7 +545,7 @@ describe('sync', function () {
         expect(await syncRequestSender.postSyncsClosure([syncId])).toHaveStatus(StatusCodes.CREATED);
         expect(await syncRequestSender.postSyncsClosure([syncId])).toHaveStatus(StatusCodes.CREATED);
 
-        const syncClosure = await waitForJobToBeResolved(syncWorker, syncId);
+        const syncClosure = await waitForJobToBeResolved(syncsWorker['worker'] as Worker, syncId);
         expect(syncClosure?.data).toMatchObject({ id: syncId, kind: 'sync', [DEDUPLICATION_COUNT_KEY]: 2 });
         expect(syncClosure?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
       });
@@ -602,11 +603,11 @@ describe('sync', function () {
           expect(await changesetRequestSender.postChangesetClosure([changeset1.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
 
           // get file for closure from changest
-          const changesetClosure = await waitForJobToBeResolved(changesetWorker, changeset1.changesetId as string);
+          const changesetClosure = await waitForJobToBeResolved(changesetsWorker['worker'] as Worker, changeset1.changesetId as string);
           expect(changesetClosure?.returnValue).toMatchObject({ invokedJobCount: 1, invokedJobs: [{ kind: 'file', id: file1.fileId }] });
 
           // close file1
-          const fileClosure = await waitForJobToBeResolved(fileWorker, file1.fileId as string);
+          const fileClosure = await waitForJobToBeResolved(filesWorker['worker'] as Worker, file1.fileId as string);
           expect(fileClosure?.returnValue).toMatchObject({
             closedCount: 1,
             closedIds: [file1.fileId],
@@ -629,7 +630,7 @@ describe('sync', function () {
           expect(entityHistoryCount).toBe(0);
 
           // attempt to close the sync and fail due to already closed
-          const syncClosure = await waitForJobToBeResolved(syncWorker, syncId as string);
+          const syncClosure = await waitForJobToBeResolved(syncsWorker['worker'] as Worker, syncId as string);
           expect(syncClosure?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
         },
         RERUN_TEST_TIMEOUT
@@ -661,11 +662,11 @@ describe('sync', function () {
           expect(await changesetRequestSender.postChangesetClosure([changeset1.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
 
           // get file for closure from changest2
-          const changeset1Closure = await waitForJobToBeResolved(changesetWorker, changeset1.changesetId as string);
+          const changeset1Closure = await waitForJobToBeResolved(changesetsWorker['worker'] as Worker, changeset1.changesetId as string);
           expect(changeset1Closure?.returnValue).toMatchObject({ invokedJobCount: 1, invokedJobs: [{ kind: 'file', id: file1.fileId }] });
 
           // close file1 and get sync for closure
-          const file1Closure1 = await waitForJobToBeResolved(fileWorker, file1.fileId as string);
+          const file1Closure1 = await waitForJobToBeResolved(filesWorker['worker'] as Worker, file1.fileId as string);
           expect(file1Closure1?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
 
           // validate base sync is still in progress
@@ -746,7 +747,7 @@ describe('sync', function () {
           expect(await changesetRequestSender.postChangesetClosure([changeset2.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
 
           // get file for closure from changest2
-          const changeset2Closure = await waitForJobToBeResolved(changesetWorker, changeset2.changesetId as string);
+          const changeset2Closure = await waitForJobToBeResolved(changesetsWorker['worker'] as Worker, changeset2.changesetId as string);
           expect(changeset2Closure?.returnValue).toMatchObject({
             invokedJobCount: 2,
             invokedJobs: expect.arrayContaining([
@@ -756,15 +757,15 @@ describe('sync', function () {
           });
 
           // close file1 and get sync for closure
-          const file1Closure2 = await waitForJobToBeResolved(fileWorker, file1.fileId as string);
+          const file1Closure2 = await waitForJobToBeResolved(filesWorker['worker'] as Worker, file1.fileId as string);
           expect(file1Closure2?.returnValue).toMatchObject({ closedCount: 1, invokedJobCount: 1, invokedJobs: [{ kind: 'sync', id: baseSyncId }] });
 
           // close file2 and get sync for closure
-          const file2Closure = await waitForJobToBeResolved(fileWorker, file2.fileId as string);
+          const file2Closure = await waitForJobToBeResolved(filesWorker['worker'] as Worker, file2.fileId as string);
           expect(file2Closure?.returnValue).toMatchObject({ closedCount: 1, invokedJobCount: 1, invokedJobs: [{ kind: 'sync', id: baseSyncId }] });
 
           // attempt to close the sync and its rerun
-          const syncClosure = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          const syncClosure = await waitForJobToBeResolved(syncsWorker['worker'] as Worker, baseSyncId as string);
           expect(syncClosure?.returnValue).toMatchObject({
             closedCount: 2,
             closedIds: expect.arrayContaining([baseSyncId, rerunId]) as string[],
@@ -821,11 +822,11 @@ describe('sync', function () {
           expect(await changesetRequestSender.postChangesetClosure([changeset1.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
 
           // get file for closure from changest2
-          const changeset1Closure = await waitForJobToBeResolved(changesetWorker, changeset1.changesetId as string);
+          const changeset1Closure = await waitForJobToBeResolved(changesetsWorker['worker'] as Worker, changeset1.changesetId as string);
           expect(changeset1Closure?.returnValue).toMatchObject({ invokedJobCount: 1, invokedJobs: [{ kind: 'file', id: file1.fileId }] });
 
           // attempt close file1
-          const fileClosure1 = await waitForJobToBeResolved(fileWorker, file1.fileId as string);
+          const fileClosure1 = await waitForJobToBeResolved(filesWorker['worker'] as Worker, file1.fileId as string);
           expect(fileClosure1?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
 
           // validate base sync is still in progress
@@ -952,7 +953,7 @@ describe('sync', function () {
           expect(await changesetRequestSender.postChangesetClosure([changeset2.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
 
           // get files for closure from changest2
-          const changeset2Closure = await waitForJobToBeResolved(changesetWorker, changeset2.changesetId as string);
+          const changeset2Closure = await waitForJobToBeResolved(changesetsWorker['worker'] as Worker, changeset2.changesetId as string);
           expect(changeset2Closure?.returnValue).toMatchObject({
             invokedJobCount: 3,
             invokedJobs: expect.arrayContaining([
@@ -963,9 +964,9 @@ describe('sync', function () {
           });
 
           // get a single sync closure from the 3 file closures
-          const fileClosure2 = await waitForJobToBeResolved(fileWorker, file1.fileId as string);
-          const fileClosure3 = await waitForJobToBeResolved(fileWorker, file2.fileId as string);
-          const fileClosure4 = await waitForJobToBeResolved(fileWorker, file4.fileId as string);
+          const fileClosure2 = await waitForJobToBeResolved(filesWorker['worker'] as Worker, file1.fileId as string);
+          const fileClosure3 = await waitForJobToBeResolved(filesWorker['worker'] as Worker, file2.fileId as string);
+          const fileClosure4 = await waitForJobToBeResolved(filesWorker['worker'] as Worker, file4.fileId as string);
           expect([
             ...(fileClosure2?.returnValue?.closedIds ?? []),
             ...(fileClosure3?.returnValue?.closedIds ?? []),
@@ -973,7 +974,7 @@ describe('sync', function () {
           ]).toStrictEqual([file4.fileId]);
 
           // attempt to close the sync
-          const syncClosure = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          const syncClosure = await waitForJobToBeResolved(syncsWorker['worker'] as Worker, baseSyncId as string);
           expect(syncClosure?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
 
           // validate base sync is still failed
@@ -1076,11 +1077,11 @@ describe('sync', function () {
           expect(await changesetRequestSender.postChangesetClosure([changeset3.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
 
           // get file for closure from changest3
-          const changeset3Closure = await waitForJobToBeResolved(changesetWorker, changeset3.changesetId as string);
+          const changeset3Closure = await waitForJobToBeResolved(changesetsWorker['worker'] as Worker, changeset3.changesetId as string);
           expect(changeset3Closure?.returnValue).toMatchObject({ invokedJobCount: 1, invokedJobs: [{ kind: 'file', id: file2.fileId }] });
 
           // close file2 and get sync for closure
-          const file2Closure = await waitForJobToBeResolved(fileWorker, file2.fileId as string);
+          const file2Closure = await waitForJobToBeResolved(filesWorker['worker'] as Worker, file2.fileId as string);
           expect(file2Closure?.returnValue).toMatchObject({
             closedCount: 1,
             closedIds: [file2.fileId],
@@ -1089,7 +1090,7 @@ describe('sync', function () {
           });
 
           // attempt to close the sync
-          const syncClosure2 = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          const syncClosure2 = await waitForJobToBeResolved(syncsWorker['worker'] as Worker, baseSyncId as string);
           expect(syncClosure2?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
 
           expect(
@@ -1103,7 +1104,7 @@ describe('sync', function () {
           expect(await fileRequestSender.postFilesClosure([file3.fileId as string])).toHaveStatus(StatusCodes.CREATED);
 
           // close file3 and get sync for closure
-          const file3Closure = await waitForJobToBeResolved(fileWorker, file3.fileId as string);
+          const file3Closure = await waitForJobToBeResolved(filesWorker['worker'] as Worker, file3.fileId as string);
           expect(file3Closure?.returnValue).toMatchObject({
             closedCount: 1,
             closedIds: [file3.fileId],
@@ -1115,7 +1116,7 @@ describe('sync', function () {
           expect(await fileRequestSender.postFilesClosure([file1.fileId as string])).toHaveStatus(StatusCodes.CREATED);
 
           // close file3 and get sync for closure
-          const file1Closure = await waitForJobToBeResolved(fileWorker, file1.fileId as string);
+          const file1Closure = await waitForJobToBeResolved(filesWorker['worker'] as Worker, file1.fileId as string);
           expect(file1Closure?.returnValue).toMatchObject({
             closedCount: 1,
             closedIds: [file1.fileId],
@@ -1124,7 +1125,7 @@ describe('sync', function () {
           });
 
           // close the sync
-          const syncClosure3 = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          const syncClosure3 = await waitForJobToBeResolved(syncsWorker['worker'] as Worker, baseSyncId as string);
           expect(syncClosure3?.returnValue).toMatchObject({
             closedCount: 2,
             closedIds: expect.arrayContaining([baseSyncId, secondRerunId]) as string[],
@@ -1200,11 +1201,11 @@ describe('sync', function () {
           expect(await changesetRequestSender.postChangesetClosure([changeset.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
 
           // get file for closure from changest
-          const changesetClosure = await waitForJobToBeResolved(changesetWorker, changeset.changesetId as string);
+          const changesetClosure = await waitForJobToBeResolved(changesetsWorker['worker'] as Worker, changeset.changesetId as string);
           expect(changesetClosure?.returnValue).toMatchObject({ invokedJobCount: 1, invokedJobs: [{ kind: 'file', id: file.fileId }] });
 
           // get sync for closure from file
-          const fileClosure = await waitForJobToBeResolved(fileWorker, file.fileId as string);
+          const fileClosure = await waitForJobToBeResolved(filesWorker['worker'] as Worker, file.fileId as string);
           expect(fileClosure?.returnValue).toMatchObject({
             closedCount: 1,
             closedIds: [file.fileId],
@@ -1213,7 +1214,7 @@ describe('sync', function () {
           });
 
           // close the sync and its rerun
-          const syncClosure = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          const syncClosure = await waitForJobToBeResolved(syncsWorker['worker'] as Worker, baseSyncId as string);
           expect(syncClosure?.returnValue).toMatchObject({
             closedCount: 2,
             closedIds: expect.arrayContaining([baseSyncId, rerunId3]) as string[],
@@ -1319,11 +1320,11 @@ describe('sync', function () {
           expect(await changesetRequestSender.postChangesetClosure([changeset.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
 
           // get file for closure from changest
-          const changesetClosure = await waitForJobToBeResolved(changesetWorker, changeset.changesetId as string);
+          const changesetClosure = await waitForJobToBeResolved(changesetsWorker['worker'] as Worker, changeset.changesetId as string);
           expect(changesetClosure?.returnValue).toMatchObject({ invokedJobCount: 1, invokedJobs: [{ kind: 'file', id: file.fileId }] });
 
           // get sync for closure from file
-          const fileClosure = await waitForJobToBeResolved(fileWorker, file.fileId as string);
+          const fileClosure = await waitForJobToBeResolved(filesWorker['worker'] as Worker, file.fileId as string);
           expect(fileClosure?.returnValue).toMatchObject({
             closedCount: 1,
             closedIds: [file.fileId],
@@ -1332,7 +1333,7 @@ describe('sync', function () {
           });
 
           // close the sync and its rerun
-          const syncClosure = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          const syncClosure = await waitForJobToBeResolved(syncsWorker['worker'] as Worker, baseSyncId as string);
           expect(syncClosure?.returnValue).toMatchObject({
             closedCount: 2,
             closedIds: expect.arrayContaining([baseSyncId, rerunId]) as string[],
@@ -1443,11 +1444,11 @@ describe('sync', function () {
           expect(await changesetRequestSender.postChangesetClosure([changeset.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
 
           // get file for closure from changest
-          const changesetClosure = await waitForJobToBeResolved(changesetWorker, changeset.changesetId as string);
+          const changesetClosure = await waitForJobToBeResolved(changesetsWorker['worker'] as Worker, changeset.changesetId as string);
           expect(changesetClosure?.returnValue).toMatchObject({ invokedJobCount: 1, invokedJobs: [{ kind: 'file', id: file2.fileId }] });
 
           // get sync for closure from file
-          const file2Closure = await waitForJobToBeResolved(fileWorker, file2.fileId as string);
+          const file2Closure = await waitForJobToBeResolved(filesWorker['worker'] as Worker, file2.fileId as string);
           expect(file2Closure?.returnValue).toMatchObject({
             closedCount: 1,
             closedIds: [file2.fileId],
@@ -1456,7 +1457,7 @@ describe('sync', function () {
           });
 
           // close the sync and its rerun
-          const syncClosure = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          const syncClosure = await waitForJobToBeResolved(syncsWorker['worker'] as Worker, baseSyncId as string);
           expect(syncClosure?.returnValue).toMatchObject({
             closedCount: 2,
             closedIds: expect.arrayContaining([baseSyncId, rerunId]) as string[],
@@ -1548,11 +1549,11 @@ describe('sync', function () {
           expect(await changesetRequestSender.postChangesetClosure([changeset.changesetId as string])).toHaveStatus(StatusCodes.CREATED);
 
           // get file for closure from changest
-          const changesetClosure = await waitForJobToBeResolved(changesetWorker, changeset.changesetId as string);
+          const changesetClosure = await waitForJobToBeResolved(changesetsWorker['worker'] as Worker, changeset.changesetId as string);
           expect(changesetClosure?.returnValue).toMatchObject({ invokedJobCount: 1, invokedJobs: [{ kind: 'file', id: file2.fileId }] });
 
           // get sync for closure from file
-          const file2Closure = await waitForJobToBeResolved(fileWorker, file2.fileId as string);
+          const file2Closure = await waitForJobToBeResolved(filesWorker['worker'] as Worker, file2.fileId as string);
           expect(file2Closure?.returnValue).toMatchObject({
             closedCount: 1,
             closedIds: [file2.fileId],
@@ -1561,7 +1562,7 @@ describe('sync', function () {
           });
 
           // close the sync and its rerun
-          const syncClosure = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          const syncClosure = await waitForJobToBeResolved(syncsWorker['worker'] as Worker, baseSyncId as string);
           expect(syncClosure?.returnValue).toMatchObject({ closedCount: 0, closedIds: [], invokedJobCount: 0, invokedJobs: [] });
 
           // validate base sync is still failed even though file2 completed
@@ -1616,7 +1617,7 @@ describe('sync', function () {
           expect(await fileRequestSender.postFilesClosure([file1.fileId as string])).toHaveStatus(StatusCodes.CREATED);
 
           // get sync for closure from file
-          const file1Closure = await waitForJobToBeResolved(fileWorker, file1.fileId as string);
+          const file1Closure = await waitForJobToBeResolved(filesWorker['worker'] as Worker, file1.fileId as string);
           expect(file1Closure?.returnValue).toMatchObject({
             closedCount: 1,
             closedIds: [file1.fileId],
@@ -1625,7 +1626,7 @@ describe('sync', function () {
           });
 
           // close the sync and its rerun
-          const syncClosure2 = await waitForJobToBeResolved(syncWorker, baseSyncId as string);
+          const syncClosure2 = await waitForJobToBeResolved(syncsWorker['worker'] as Worker, baseSyncId as string);
           expect(syncClosure2?.returnValue).toMatchObject({
             closedCount: 2,
             closedIds: expect.arrayContaining([baseSyncId, secondRerunId]) as string,
@@ -2122,7 +2123,8 @@ describe('sync', function () {
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
           mockDepContainer = mockContainer;
           mockSyncRequestSender = new SyncRequestSender(mockApp);
-          const mockSyncWorker = mockContainer.resolve<Worker>(SYNCS_QUEUE_WORKER_FACTORY);
+          const mockSyncWorker = mockContainer.resolve<SyncsWorker>(WorkerEnum.SYNCS);
+          mockSyncWorker['createWorker']();
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
           const delayJobSpy = jest.spyOn(queueHelpers, 'delayJob').mockImplementation(async () => Promise.resolve());
 
@@ -2130,7 +2132,7 @@ describe('sync', function () {
 
           expect(await mockSyncRequestSender.postSyncsClosure([syncId])).toHaveStatus(StatusCodes.CREATED);
 
-          const syncClosure = await waitForJobToBeResolved(mockSyncWorker, syncId);
+          const syncClosure = await waitForJobToBeResolved(mockSyncWorker['worker'] as Worker, syncId);
 
           expect(syncClosure?.err).toMatchObject(mockError);
           expect(syncClosure?.data[TRANSACTIONAL_FAILURE_COUNT_KEY]).toBeUndefined();
@@ -2162,9 +2164,10 @@ describe('sync', function () {
           const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
           mockDepContainer = mockContainer;
           mockSyncRequestSender = new SyncRequestSender(mockApp);
-          const mockSyncWorker = mockContainer.resolve<Worker>(SYNCS_QUEUE_WORKER_FACTORY);
-          mockSyncWorker.on('error', () => eventCounter++);
-          mockSyncWorker.on('failed', () => eventCounter++);
+          const mockSyncWorker = mockContainer.resolve<SyncsWorker>(WorkerEnum.SYNCS);
+          mockSyncWorker['createWorker']();
+          (mockSyncWorker['worker'] as Worker).on('error', () => eventCounter++);
+          (mockSyncWorker['worker'] as Worker).on('failed', () => eventCounter++);
           const updateJobCounterSpy = jest.spyOn(queueHelpers, 'updateJobCounter');
           const delayJobSpy = jest.spyOn(queueHelpers, 'delayJob').mockImplementation(async () => Promise.resolve());
 
@@ -2173,7 +2176,7 @@ describe('sync', function () {
           expect(await mockSyncRequestSender.postSyncsClosure([syncId])).toHaveStatus(StatusCodes.CREATED);
 
           // attempt 1
-          const syncClosure1 = await waitForJobToBeResolved(mockSyncWorker, syncId);
+          const syncClosure1 = await waitForJobToBeResolved(mockSyncWorker['worker'] as Worker, syncId);
 
           expect(syncClosure1?.err).toMatchObject(new DelayedError());
           expect(syncClosure1?.data[TRANSACTIONAL_FAILURE_COUNT_KEY]).toBe(1);
@@ -2181,7 +2184,7 @@ describe('sync', function () {
           expect(delayJobSpy).toHaveBeenCalledTimes(1);
 
           // attempt 2
-          const syncClosure2 = await waitForJobToBeResolved(mockSyncWorker, syncId);
+          const syncClosure2 = await waitForJobToBeResolved(mockSyncWorker['worker'] as Worker, syncId);
 
           expect(syncClosure2?.err).toMatchObject(new DelayedError());
           expect(syncClosure2?.data[TRANSACTIONAL_FAILURE_COUNT_KEY]).toBe(2);
@@ -2189,13 +2192,13 @@ describe('sync', function () {
           expect(delayJobSpy).toHaveBeenCalledTimes(2);
 
           // last fake attempt to fail the job
-          await waitForJobToBeResolved(mockSyncWorker, syncId, (job) => {
+          await waitForJobToBeResolved(mockSyncWorker['worker'] as Worker, syncId, (job) => {
             job.attemptsMade = 999;
             throw new Error();
           });
 
-          expect(mockSyncWorker.listenerCount('error')).toBe(2);
-          expect(mockSyncWorker.listenerCount('failed')).toBe(2);
+          expect((mockSyncWorker['worker'] as Worker).listenerCount('error')).toBe(2);
+          expect((mockSyncWorker['worker'] as Worker).listenerCount('failed')).toBe(2);
           expect(eventCounter).toBe(4); // 3 errors and 1 failure
 
           updateJobCounterSpy.mockRestore();

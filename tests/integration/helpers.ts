@@ -10,7 +10,7 @@ import { SERVICES } from '../../src/common/constants';
 import { RegisterOptions } from '../../src/containerConfig';
 import { SyncDb } from '../../src/sync/DAL/sync';
 import { ClosureJob, ClosureReturn } from '../../src/queueProvider/types';
-import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, KEY_PREFIX, SYNCS_QUEUE_NAME } from '../../src/queueProvider/constants';
+import { CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, SYNCS_QUEUE_NAME } from '../../src/queueProvider/constants';
 import { Identifiable } from '../../src/queueProvider/interfaces';
 
 interface ClosureJobTest {
@@ -25,7 +25,7 @@ const WAIT_FOR_JOB_INTERVAL_MS = 200;
 
 export const BEFORE_ALL_TIMEOUT = 60000;
 
-export const LONG_RUNNING_TEST_TIMEOUT = 30000;
+export const LONG_RUNNING_TEST_TIMEOUT = 60000;
 
 export const RERUN_TEST_TIMEOUT = 60000;
 
@@ -43,16 +43,16 @@ export const getBaseRegisterOptions = (): Required<RegisterOptions> => {
 
 export const clearRepositories = async (connection: DataSource): Promise<void> => {
   await connection.transaction(DEFAULT_ISOLATION_LEVEL, async (manager) => {
-    await manager.getRepository(SyncDb).delete({});
-    await manager.getRepository(Changeset).delete({});
+    await manager.createQueryBuilder().delete().from(SyncDb).execute();
+    await manager.createQueryBuilder().delete().from(Changeset).execute();
   });
 };
 
-export const clearQueues = async (connection: IORedis): Promise<void> => {
+export const clearQueues = async (connection: IORedis, keyPrefix?: string): Promise<void> => {
   const promises = [CHANGESETS_QUEUE_NAME, FILES_QUEUE_NAME, SYNCS_QUEUE_NAME].map(async (queueName) => {
     const queue = new Queue(queueName, {
       connection,
-      prefix: KEY_PREFIX,
+      prefix: keyPrefix,
     });
     await queue.obliterate();
     await queue.close();

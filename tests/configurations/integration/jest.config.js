@@ -17,6 +17,8 @@ module.exports = {
     '!**/models/**',
     '!<rootDir>/src/*',
     '!<rootDir>/src/queueProvider/connection.ts',
+    '!<rootDir>/src/**/queueProvider/**/bullQueueProvider.ts',
+    '!<rootDir>/src/**/queueProvider/**/bullWorkerProvider.ts',
   ],
   coverageDirectory: '<rootDir>/coverage',
   rootDir: '../../../.',

@@ -43,6 +43,7 @@ export interface ClosureQueueConfig {
 
 export interface ClosureConfig {
   uiPath: string;
+  keyPrefix: string;
   queues: {
     [key in QueueName]: ClosureQueueConfig;
   };

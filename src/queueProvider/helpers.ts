@@ -7,8 +7,6 @@ const getCounterKey = (kind: CounterKind): string => {
       return DEDUPLICATION_COUNT_KEY;
     case 'transactionFailure':
       return TRANSACTIONAL_FAILURE_COUNT_KEY;
-    case 'stalledFailure':
-      return STALLED_FAILURE_COUNT_KEY;
   }
 };
 
@@ -16,7 +14,7 @@ export const DEDUPLICATION_COUNT_KEY = 'deduplicationCount';
 export const TRANSACTIONAL_FAILURE_COUNT_KEY = 'transactionFailureCount';
 export const STALLED_FAILURE_COUNT_KEY = 'stalledFailureCount';
 
-export type CounterKind = 'deduplication' | 'transactionFailure' | 'stalledFailure';
+export type CounterKind = 'deduplication' | 'transactionFailure';
 
 export const delayJob = async (job: Job, delay: number): Promise<void> => {
   await job.moveToDelayed(Date.now() + delay);
