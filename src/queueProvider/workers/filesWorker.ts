@@ -25,10 +25,10 @@ export class FilesWorker extends BullWorkerProvider<ClosureJob | BatchClosureJob
     @inject(FILE_CUSTOM_REPOSITORY_SYMBOL) private readonly fileRepository: FileRepository,
     @inject(SYNCS_QUEUE_NAME) private readonly syncsQueue: JobQueueProvider<ClosureJob>
   ) {
-    const queueName = FILES_QUEUE_NAME;
     const workerLogger = logger.child({ component: WorkerEnum.FILES });
-    const workerOptions = config.get(`closure.queues.${queueName}.workerOptions`) as ExtendedWorkerOptions;
-    super({ logger: workerLogger, metricsRegistry, connection, workerOptions });
+    const keyPrefix = config.get(`closure.keyPrefix`);
+    const workerOptions = config.get(`closure.queues.${FILES_QUEUE_NAME}.workerOptions`) as ExtendedWorkerOptions;
+    super({ logger: workerLogger, metricsRegistry, connection, workerOptions: { ...workerOptions, prefix: keyPrefix } });
 
     this.logger.info({ msg: `initializing ${this.queueName} queue worker`, queueName: this.queueName, workerOptions: this.workerOptions });
   }

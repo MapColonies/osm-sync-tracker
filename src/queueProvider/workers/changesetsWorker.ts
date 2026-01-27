@@ -26,10 +26,10 @@ export class ChangesetsWorker extends BullWorkerProvider<ClosureJob | BatchClosu
     @inject(ENTITY_CUSTOM_REPOSITORY_SYMBOL) private readonly entityRepository: EntityRepository,
     @inject(FILES_QUEUE_NAME) private readonly filesQueue: JobQueueProvider<ClosureJob>
   ) {
-    const queueName = CHANGESETS_QUEUE_NAME;
     const workerLogger = logger.child({ component: WorkerEnum.CHANGESETS });
-    const workerOptions = config.get(`closure.queues.${queueName}.workerOptions`) as ExtendedWorkerOptions;
-    super({ logger: workerLogger, metricsRegistry, connection, workerOptions });
+    const keyPrefix = config.get(`closure.keyPrefix`);
+    const workerOptions = config.get(`closure.queues.${CHANGESETS_QUEUE_NAME}.workerOptions`) as ExtendedWorkerOptions;
+    super({ logger: workerLogger, metricsRegistry, connection, workerOptions: { ...workerOptions, prefix: keyPrefix } });
 
     this.logger.info({ msg: `initializing ${this.queueName} queue worker`, queueName: this.queueName, workerOptions: this.workerOptions });
   }

@@ -1,6 +1,6 @@
 import { DelayedError, Job, Worker } from 'bullmq';
 import { Registry } from 'prom-client';
-import { CHANGESETS_QUEUE_NAME, QUEUE_KEY_PREFIX } from '../../../../src/queueProvider/constants';
+import { CHANGESETS_QUEUE_NAME } from '../../../../src/queueProvider/constants';
 import { BatchClosureJob, ClosureJob, ClosureReturn } from '../../../../src/queueProvider/types';
 import { transactionify, TransactionName, TransactionParams } from '../../../../src/common/db/transactions';
 import { Status } from '../../../../src/common/enums';
@@ -11,6 +11,7 @@ import {
   bullMqOtelFn,
   CHANGESETS_WORKER_OPTIONS_MOCK,
   childLoggerMock,
+  CLOSURE_KEY_PREFIX_MOCK,
   configMock,
   entityRepositoryFn,
   entityRespositoryMock,
@@ -66,7 +67,7 @@ describe('changesetsWorker', () => {
       expect(Worker).toHaveBeenCalledTimes(1);
       expect(Worker).toHaveBeenCalledWith(CHANGESETS_QUEUE_NAME, expect.any(Function), {
         ...CHANGESETS_WORKER_OPTIONS_MOCK,
-        prefix: QUEUE_KEY_PREFIX,
+        prefix: CLOSURE_KEY_PREFIX_MOCK,
         connection: redisMock,
         autorun: false,
         telemetry: bullMqOtelFn.bullMqOtel,
@@ -84,7 +85,7 @@ describe('changesetsWorker', () => {
       expect(Worker).toHaveBeenCalledWith(CHANGESETS_QUEUE_NAME, expect.any(Function), {
         ...CHANGESETS_WORKER_OPTIONS_MOCK,
         connection: redisMock,
-        prefix: QUEUE_KEY_PREFIX,
+        prefix: CLOSURE_KEY_PREFIX_MOCK,
         autorun: false,
         telemetry: bullMqOtelFn.bullMqOtel,
       });

@@ -69,6 +69,7 @@
   },
   "closure": {
     "uiPath": "CLOSURE_UI_PATH",
+    "keyPrefix": "CLOSURE_KEY_PREFIX",
     "queues": {
       "changesets": {
         "queueOptions": {

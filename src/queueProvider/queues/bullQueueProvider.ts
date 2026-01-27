@@ -18,7 +18,6 @@ export class BullQueueProvider<T extends Identifiable = Identifiable> implements
   private readonly jobOptions: ExtendedJobOptions;
   private readonly logger: ILogger | undefined;
   private readonly metricsRegistry?: Registry;
-
   private readonly addedCounter?: Counter<'kind'>;
 
   public constructor(options: QueueConfig) {

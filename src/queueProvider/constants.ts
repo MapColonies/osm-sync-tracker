@@ -1,8 +1,6 @@
 import { JobType } from 'bullmq';
 import { QueueName } from '../common/interfaces';
 
-export const QUEUE_KEY_PREFIX = '{closure}';
-
 export const CHANGESETS_QUEUE_NAME: QueueName = 'changesets';
 export const FILES_QUEUE_NAME: QueueName = 'files';
 export const SYNCS_QUEUE_NAME: QueueName = 'syncs';

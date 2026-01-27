@@ -6,7 +6,7 @@ import { Registry } from 'prom-client';
 import { ConfigType } from '../../common/config';
 import { ClosureQueueConfig, QueueName } from '../../common/interfaces';
 import { SERVICES } from '../../common/constants';
-import { QUEUE_KEY_PREFIX, REDIS_CONNECTION_OPTIONS_SYMBOL } from '../constants';
+import { REDIS_CONNECTION_OPTIONS_SYMBOL } from '../constants';
 import { Identifiable, JobQueueProvider } from '../interfaces';
 import { BullQueueProvider } from './bullQueueProvider';
 
@@ -24,15 +24,16 @@ export class BullQueueProviderFactory {
     const queueLogger = this.logger.child({ component: `${queueName}-queue` });
 
     const queueConfig = this.config.get(`closure.queues.${queueName}`) as ClosureQueueConfig;
+    const keyPrefix = this.config.get(`closure.keyPrefix`);
 
     let queueEvents: QueueEvents | undefined;
     if (queueConfig.jobOptions.deduplicationDelay !== undefined) {
-      queueEvents = new QueueEvents(queueName, { connection: this.connectionOptions, prefix: QUEUE_KEY_PREFIX });
+      queueEvents = new QueueEvents(queueName, { connection: this.connectionOptions, prefix: keyPrefix });
     }
 
     const queue = new Queue<T, unknown, string, T, unknown, string>(queueName, {
       connection: this.reusableRedis,
-      prefix: QUEUE_KEY_PREFIX,
+      prefix: keyPrefix,
     });
 
     return new BullQueueProvider<T>({

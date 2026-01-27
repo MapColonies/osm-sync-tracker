@@ -23,10 +23,10 @@ export class SyncsWorker extends BullWorkerProvider<ClosureJob | BatchClosureJob
     @inject(SERVICES.CONFIG) config: ConfigType,
     @inject(SYNC_CUSTOM_REPOSITORY_SYMBOL) private readonly syncRepository: SyncRepository
   ) {
-    const queueName = SYNCS_QUEUE_NAME;
     const workerLogger = logger.child({ component: WorkerEnum.SYNCS });
-    const workerOptions = config.get(`closure.queues.${queueName}.workerOptions`) as ExtendedWorkerOptions;
-    super({ logger: workerLogger, metricsRegistry, connection, workerOptions });
+    const keyPrefix = config.get(`closure.keyPrefix`);
+    const workerOptions = config.get(`closure.queues.${SYNCS_QUEUE_NAME}.workerOptions`) as ExtendedWorkerOptions;
+    super({ logger: workerLogger, metricsRegistry, connection, workerOptions: { ...workerOptions, prefix: keyPrefix } });
 
     this.logger.info({ msg: `initializing ${this.queueName} queue worker`, queueName: this.queueName, workerOptions: this.workerOptions });
   }

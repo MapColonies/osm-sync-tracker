@@ -1,6 +1,6 @@
 import { DelayedError, Job, Worker } from 'bullmq';
 import { Registry } from 'prom-client';
-import { FILES_QUEUE_NAME, QUEUE_KEY_PREFIX } from '../../../../src/queueProvider/constants';
+import { FILES_QUEUE_NAME } from '../../../../src/queueProvider/constants';
 import { BatchClosureJob, ClosureJob, ClosureReturn } from '../../../../src/queueProvider/types';
 import { transactionify, TransactionName, TransactionParams } from '../../../../src/common/db/transactions';
 import { TransactionFailureError } from '../../../../src/common/errors';
@@ -8,6 +8,7 @@ import { updateJobCounter, delayJob } from '../../../../src/queueProvider/helper
 import {
   bullMqOtelFn,
   childLoggerMock,
+  CLOSURE_KEY_PREFIX_MOCK,
   configMock,
   fileRepositoryMock,
   fileRepositoryMockFn,
@@ -64,7 +65,7 @@ describe('filesWorker', () => {
       expect(Worker).toHaveBeenCalledTimes(1);
       expect(Worker).toHaveBeenCalledWith(FILES_QUEUE_NAME, expect.any(Function), {
         ...FILES_WORKER_OPTIONS_MOCK,
-        prefix: QUEUE_KEY_PREFIX,
+        prefix: CLOSURE_KEY_PREFIX_MOCK,
         connection: redisMock,
         autorun: false,
         telemetry: bullMqOtelFn.bullMqOtel,
@@ -82,7 +83,7 @@ describe('filesWorker', () => {
       expect(Worker).toHaveBeenCalledWith(FILES_QUEUE_NAME, expect.any(Function), {
         ...FILES_WORKER_OPTIONS_MOCK,
         connection: redisMock,
-        prefix: QUEUE_KEY_PREFIX,
+        prefix: CLOSURE_KEY_PREFIX_MOCK,
         autorun: false,
         telemetry: bullMqOtelFn.bullMqOtel,
       });

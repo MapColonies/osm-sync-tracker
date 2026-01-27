@@ -11,12 +11,17 @@ import { ClosureJob } from '../../src/queueProvider/types';
 import { FileRepository } from '../../src/file/DAL/fileRepository';
 import { SyncRepository } from '../../src/sync/DAL/syncRepository';
 
+export const CLOSURE_KEY_PREFIX_MOCK = '{key_prefix}';
+
 export const CHANGESETS_WORKER_OPTIONS_MOCK = { a: 1, transactionIsolationLevel: 'a', transactionFailureDelay: { minimum: 10, maximum: 15 } };
 export const FILES_WORKER_OPTIONS_MOCK = { b: 2, transactionIsolationLevel: 'b', transactionFailureDelay: { minimum: 20, maximum: 20 } };
 export const SYNCS_WORKER_OPTIONS_MOCK = { c: 3, transactionIsolationLevel: 'c', transactionFailureDelay: { minimum: 30, maximum: 30 } };
 
 export const configMock = {
   get: jest.fn((key) => {
+    if (key === 'closure.keyPrefix') {
+      return CLOSURE_KEY_PREFIX_MOCK;
+    }
     if (key === `closure.queues.${CHANGESETS_QUEUE_NAME}.workerOptions`) {
       return CHANGESETS_WORKER_OPTIONS_MOCK;
     }

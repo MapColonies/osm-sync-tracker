@@ -7,7 +7,6 @@ import { MS_IN_SECOND } from '@src/common/constants';
 import { randomIntFromInterval } from '@src/common/utils';
 import { TransactionFailureError } from '@src/common/errors';
 import { bullMqOtelFactory } from '../telemetry';
-import { QUEUE_KEY_PREFIX } from '../constants';
 import { delayJob, updateJobCounter } from '../helpers';
 import { Identifiable } from '../interfaces';
 import { ExtendedWorkerOptions, WorkerProducerOptions } from './options';
@@ -18,7 +17,6 @@ export abstract class BullWorkerProvider<DataType extends Identifiable = Identif
   protected readonly workerOptions: ExtendedWorkerOptions;
   private readonly connection: ioRedis;
   private worker: Worker<DataType, ReturnType> | undefined;
-
   private readonly jobCounter?: Counter<'status'>;
   private readonly internalErrorCounter?: Counter;
   private readonly porcessingHistogram?: Histogram;
@@ -136,7 +134,6 @@ export abstract class BullWorkerProvider<DataType extends Identifiable = Identif
     const workerConstructorOptions = {
       ...this.workerOptions,
       connection: this.connection,
-      prefix: QUEUE_KEY_PREFIX,
       autorun: false,
       telemetry: bullMqOtelFactory(),
     };
