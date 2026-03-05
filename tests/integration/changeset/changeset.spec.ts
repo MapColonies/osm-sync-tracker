@@ -243,7 +243,7 @@ describe('changeset', function () {
         const response = await changesetRequestSender.patchChangeset(changesetId as string, body);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
-        expect(response.body).toHaveProperty('message', 'request.body.osmId should be integer');
+        expect(response.body).toHaveProperty('message', 'request.body.osmId should be integer,null');
       });
 
       it('should return 404 if no changeset with the specified id was found', async function () {
