@@ -479,6 +479,24 @@ paths:
         5XX:
           $ref: '#/components/responses/UnexpectedError'
   /changeset/{changesetId}:
+    get:
+      summary: Get a changeset by changeset id
+      parameters:
+        - $ref: '#/components/parameters/changesetId'
+      operationId: getChangeset
+      tags:
+        - changeset
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/changeset'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        5XX:
+          $ref: '#/components/responses/UnexpectedError'
     patch:
       summary: Update the changeset properties
       parameters:

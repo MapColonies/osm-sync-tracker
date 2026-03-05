@@ -57,6 +57,38 @@ describe('ChangesetManager', () => {
     });
   });
 
+  describe('#getChangeset', () => {
+    it('resolves with the changeset if it exists in the db', async () => {
+      const entity = createFakeChangeset();
+
+      findOneChangeset.mockResolvedValue(entity);
+
+      const getPromise = changesetManager.getChangeset(entity.changesetId);
+
+      await expect(getPromise).resolves.toStrictEqual(entity);
+    });
+
+    it('resolves with the changeset containing only changesetId if osmId is not set', async () => {
+      const { changesetId } = createFakeChangeset();
+
+      findOneChangeset.mockResolvedValue({ changesetId });
+
+      const getPromise = changesetManager.getChangeset(changesetId);
+
+      await expect(getPromise).resolves.toStrictEqual({ changesetId });
+    });
+
+    it('rejects if changeset does not exist in the db', async () => {
+      const entity = createFakeChangeset();
+
+      findOneChangeset.mockResolvedValue(undefined);
+
+      const getPromise = changesetManager.getChangeset(entity.changesetId);
+
+      await expect(getPromise).rejects.toThrow(ChangesetNotFoundError);
+    });
+  });
+
   describe('#updateChangeset', () => {
     it('resolves without errors if changeset exists in the db', async () => {
       const entity = createFakeChangeset();

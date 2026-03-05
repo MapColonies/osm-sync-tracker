@@ -29,6 +29,18 @@ export class ChangesetManager {
     await this.changesetRepository.createChangeset(changeset);
   }
 
+  public async getChangeset(changesetId: string): Promise<Changeset> {
+    this.logger.info({ msg: 'fetching changeset', changesetId });
+
+    const changesetEntity = await this.changesetRepository.findOneChangeset(changesetId);
+    if (changesetEntity === undefined) {
+      this.logger.error({ msg: 'could not find changeset', changesetId });
+      throw new ChangesetNotFoundError(`changeset = ${changesetId} does not exist`);
+    }
+
+    return changesetEntity;
+  }
+
   public async updateChangeset(changesetId: string, changesetUpdate: UpdateChangeset): Promise<void> {
     this.logger.info({ msg: 'updating changest by setting osmId', changesetId, osmId: changesetUpdate.osmId });
 
