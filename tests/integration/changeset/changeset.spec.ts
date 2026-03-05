@@ -107,7 +107,7 @@ describe('changeset', function () {
 
         expect(response.status).toBe(httpStatus.OK);
         expect(response.body).toMatchObject({ changesetId: body.changesetId });
-        expect(response.body).not.toHaveProperty('osmId');
+        expect(response.body).toHaveProperty('osmId', null);
       });
     });
 

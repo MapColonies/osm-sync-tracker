@@ -728,6 +728,7 @@ components:
         osmId:
           type: integer
           format: int64
+          nullable: true
     changeset:
       allOf:
         - type: object
