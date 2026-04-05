@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [4.3.0](https://github.com/MapColonies/osm-sync-tracker/compare/v4.2.0...v4.3.0) (2026-04-05)
+
+
+### Features
+
+* **changeset:** get changeset by id endpoint ([#76](https://github.com/MapColonies/osm-sync-tracker/issues/76)) ([7c46873](https://github.com/MapColonies/osm-sync-tracker/commit/7c468739724ee6a7195c2ae629dc94e79e9d3c8b))
+
 ## [4.2.0](https://github.com/MapColonies/osm-sync-tracker/compare/v4.1.1...v4.2.0) (2026-01-27)
 
 
