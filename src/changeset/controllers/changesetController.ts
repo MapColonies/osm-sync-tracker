@@ -10,6 +10,7 @@ import { HttpError } from '../../common/errors';
 import { ChangesetAlreadyExistsError, ChangesetNotFoundError } from '../models/errors';
 
 type PostChangesetHandler = RequestHandler<undefined, string, Changeset>;
+type GetChangesetHandler = RequestHandler<{ changesetId: string }, Changeset, undefined>;
 type PatchChangesetHandler = RequestHandler<{ changesetId: string }, string, UpdateChangeset>;
 type PatchChangesetEntitiesHandler = RequestHandler<{ changesetId: string }, string, undefined>;
 type PostChangesetsClosureHandler = RequestHandler<undefined, string, string[]>;
@@ -30,6 +31,18 @@ export class ChangesetController {
     } catch (error) {
       if (error instanceof ChangesetAlreadyExistsError) {
         (error as HttpError).status = StatusCodes.CONFLICT;
+      }
+      return next(error);
+    }
+  };
+
+  public getChangeset: GetChangesetHandler = async (req, res, next) => {
+    try {
+      const changeset = await this.manager.getChangeset(req.params.changesetId);
+      return res.status(httpStatus.OK).json(changeset);
+    } catch (error) {
+      if (error instanceof ChangesetNotFoundError) {
+        (error as HttpError).status = StatusCodes.NOT_FOUND;
       }
       return next(error);
     }

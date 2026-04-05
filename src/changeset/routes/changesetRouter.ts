@@ -10,6 +10,7 @@ export const changesetRouterFactory: FactoryFunction<Router> = (dependencyContai
 
   router.post('', controller.postChangeset);
   router.post('/closure', controller.postChangesetsClosure);
+  router.get('/:changesetId', controller.getChangeset);
   router.patch('/:changesetId', controller.patchChangeset);
   router.patch('/:changesetId/entities', controller.patchChangesetEntities);
 

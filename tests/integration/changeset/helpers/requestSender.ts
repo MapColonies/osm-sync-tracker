@@ -9,6 +9,10 @@ export class ChangesetRequestSender {
     return supertest.agent(this.app).post(`/changeset`).set('Content-Type', 'application/json').send(body);
   }
 
+  public async getChangeset(changesetId: string): Promise<supertest.Response> {
+    return supertest.agent(this.app).get(`/changeset/${changesetId}`).set('Content-Type', 'application/json');
+  }
+
   public async patchChangeset(changesetId: string, body: Omit<StringifiedSync, 'changesetId'>): Promise<supertest.Response> {
     return supertest.agent(this.app).patch(`/changeset/${changesetId}`).set('Content-Type', 'application/json').send(body);
   }

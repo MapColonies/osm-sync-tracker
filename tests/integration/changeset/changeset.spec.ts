@@ -86,6 +86,31 @@ describe('changeset', function () {
       });
     });
 
+    describe('GET /changeset/{changesetId}', function () {
+      it('should return 200 status code and the changeset body', async function () {
+        const body = createStringifiedFakeChangeset();
+
+        expect(await changesetRequestSender.postChangeset(body)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await changesetRequestSender.getChangeset(body.changesetId as string);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.body).toMatchObject({ changesetId: body.changesetId, osmId: body.osmId });
+      });
+
+      it('should return 200 status code and the changeset body without osmId', async function () {
+        const { osmId, ...body } = createStringifiedFakeChangeset();
+
+        expect(await changesetRequestSender.postChangeset(body)).toHaveStatus(StatusCodes.CREATED);
+
+        const response = await changesetRequestSender.getChangeset(body.changesetId as string);
+
+        expect(response.status).toBe(httpStatus.OK);
+        expect(response.body).toMatchObject({ changesetId: body.changesetId });
+        expect(response.body).toHaveProperty('osmId', null);
+      });
+    });
+
     describe('PATCH /changeset/{changesetId}', function () {
       it('should return 200 status code and OK body', async function () {
         const body = createStringifiedFakeChangeset();
@@ -187,6 +212,21 @@ describe('changeset', function () {
       });
     });
 
+    describe('GET /changeset/{changesetId}', function () {
+      it('should return 400 if the id is not valid', async function () {
+        const response = await changesetRequestSender.getChangeset(faker.string.alphanumeric());
+
+        expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
+        expect(response.body).toHaveProperty('message', 'request.params.changesetId should match format "uuid"');
+      });
+
+      it('should return 404 if no changeset with the specified id was found', async function () {
+        const response = await changesetRequestSender.getChangeset(faker.string.uuid());
+
+        expect(response).toHaveProperty('status', httpStatus.NOT_FOUND);
+      });
+    });
+
     describe('PATCH /changeset/{changesetId}', function () {
       it('should return 400 if the id is not valid', async function () {
         const { changesetId, ...body } = createStringifiedFakeChangeset();
@@ -203,7 +243,7 @@ describe('changeset', function () {
         const response = await changesetRequestSender.patchChangeset(changesetId as string, body);
 
         expect(response).toHaveProperty('status', httpStatus.BAD_REQUEST);
-        expect(response.body).toHaveProperty('message', 'request.body.osmId should be integer');
+        expect(response.body).toHaveProperty('message', 'request.body.osmId should be integer,null');
       });
 
       it('should return 404 if no changeset with the specified id was found', async function () {
@@ -254,6 +294,30 @@ describe('changeset', function () {
           mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
 
           const response = await mockChangesetRequestSender.postChangeset(createStringifiedFakeChangeset());
+
+          expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+          expect(response.body).toHaveProperty('message', 'failed');
+        },
+        LONG_RUNNING_TEST_TIMEOUT
+      );
+    });
+
+    describe('GET /changeset/{changesetId}', function () {
+      it(
+        'should return 500 if the db throws an error',
+        async function () {
+          const findOneChangesetMock = jest.fn().mockRejectedValue(new QueryFailedError('select *', [], new Error('failed')));
+
+          const mockRegisterOptions = getBaseRegisterOptions();
+          mockRegisterOptions.override.push({
+            token: CHANGESET_CUSTOM_REPOSITORY_SYMBOL,
+            provider: { useValue: { findOneChangeset: findOneChangesetMock } },
+          });
+          const { app: mockApp, container: mockContainer } = await getApp(mockRegisterOptions);
+          mockDepContainer = mockContainer;
+          mockChangesetRequestSender = new ChangesetRequestSender(mockApp);
+
+          const response = await mockChangesetRequestSender.getChangeset(faker.string.uuid());
 
           expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
           expect(response.body).toHaveProperty('message', 'failed');
